@@ -192,4 +192,9 @@ class AuthorizedBrandsController extends Controller
         $brand->delete();
         return response()->json(['status' => 'success', 'message' => 'Brand deleted successfully']);
     }
+    public function getBrandsMeta()
+    {
+        $brands = AuthorizedBrand::select('id', 'name', 'slug', 'logo_image')->where('is_authorized', true)->get();
+        return response()->json(['status' => 'success', 'data' => $brands]);
+    }
 }
