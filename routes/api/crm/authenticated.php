@@ -1,0 +1,51 @@
+<?php
+
+use App\Http\Controllers\Authenticated\CRM\AttendanceController;
+use App\Http\Controllers\Authenticated\CRM\CategoriesController;
+use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
+use App\Http\Controllers\Authenticated\CRM\ProductsController;
+use App\Http\Controllers\Authenticated\CRM\ServicesController;
+use App\Http\Controllers\Authenticated\CRM\StoreItemController;
+use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
+use App\Http\Controllers\Authenticated\CRM\OurBranchesController;
+use App\Http\Controllers\Authenticated\CRM\AuthorizedBrandsController;
+use App\Http\Controllers\Authenticated\CRM\StaffController;
+use App\Http\Controllers\Authenticated\CRM\StaffContactController;
+use App\Http\Controllers\Authenticated\CRM\StaffEducationController;
+use App\Http\Controllers\Authenticated\CRM\StaffCertificationsController;
+use App\Http\Controllers\Authenticated\CRM\StaffTrainingController;
+use App\Http\Controllers\Authenticated\CRM\StaffSkillsController;
+use App\Http\Controllers\Authenticated\CRM\StaffAssetsController;
+use App\Http\Controllers\Authenticated\CRM\VehicleController;
+use App\Http\Controllers\Authenticated\CRM\VehicleAssignmentController;
+use App\Http\Controllers\Authenticated\CRM\VehicleUsageLogController;
+use App\Http\Controllers\Authenticated\CRM\AuditLogController;
+use App\Http\Controllers\RoleController;
+use Illuminate\Support\Facades\Route;
+
+Route::group(['prefix' => 'crm'], function () {
+    Route::group(['middleware' => ['auth:sanctum']], function () {
+        Route::apiResource('/store-items', StoreItemController::class);
+        Route::apiResource('/store-item-instances', StoreItemInstanceController::class);
+        Route::apiResource('/products', ProductsController::class);
+        Route::apiResource('/services', ServicesController::class);
+        Route::apiResource('/categories', CategoriesController::class);
+        Route::apiResource('/parent-services', ParentServicesController::class);
+        Route::apiResource('/our-branches', OurBranchesController::class);
+        Route::apiResource('/authorized-brands', AuthorizedBrandsController::class);
+        Route::apiResource('/staff', StaffController::class);
+        Route::apiResource('/roles', RoleController::class);
+        Route::apiResource('/attendances', AttendanceController::class);
+        // Staff Management Routes
+        Route::apiResource('/staff-contacts', StaffContactController::class);
+        Route::apiResource('/staff-education', StaffEducationController::class);
+        Route::apiResource('/staff-certifications', StaffCertificationsController::class);
+        Route::apiResource('/staff-training', StaffTrainingController::class);
+        Route::apiResource('/staff-skills', StaffSkillsController::class);
+        Route::apiResource('/staff-assets', StaffAssetsController::class);
+        Route::apiResource('/vehicles', VehicleController::class);
+        Route::apiResource('/vehicle-assignments', VehicleAssignmentController::class);
+        Route::apiResource('/vehicle-usage-logs', VehicleUsageLogController::class);
+        Route::apiResource('/audit-logs', AuditLogController::class);
+    });
+});
