@@ -1,12 +1,12 @@
 <?php
 
+
 namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuthorizedBrand;
 use App\QueryFilterTrait;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AuthorizedBrandsController extends Controller
@@ -43,16 +43,13 @@ class AuthorizedBrandsController extends Controller
             'has_free_installation_service' => 'boolean',
             'billing_date' => 'nullable|date',
             'logo_image' => 'nullable|string',
-            // The actual logo image file (backend upload)
-            'logo_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif',
-            // Documents array (frontend multi-doc logic)
-            'documents' => 'nullable|array',
-            // Each doc must have 'type' and 'file' (file is string: url/path)
-            'documents.*.type' => 'required_with:documents|string',
-            'documents.*.file' => 'required_with:documents|string',
-            // Images array (string paths/urls)
+            // Images array (string URLs/paths only)
             'images' => 'nullable|array',
             'images.*' => 'string',
+            // Documents array (frontend multi-doc logic)
+            'documents' => 'nullable|array',
+            'documents.*.type' => 'required_with:documents|string',
+            'documents.*.file' => 'required_with:documents|string',
             // Warranty/service/material arrays (optional, handled as json)
             'warranty_parts' => 'nullable|array',
             'service_charges' => 'nullable|array',
@@ -66,15 +63,11 @@ class AuthorizedBrandsController extends Controller
             $slug = $originalSlug . '-' . $i; $i++;
         }
 
-        // Handle logo upload (priority: file upload, then url)
+        // Use logo image URL directly, no file handling
         $logoImage = $validated['logo_image'] ?? null;
-        if ($request->hasFile('logo_file')) {
-            $logoImage = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_file'));
-        }
 
-        // Handle images (for gallery/photos, string URLs/paths only)
+        // Only URLs for images, no file upload
         $images = $validated['images'] ?? [];
-        // No file uploads for 'images', only paths/urls as per current frontend logic
 
         // Handle documents (combine into expected array)
         $documents = $validated['documents'] ?? [];
@@ -141,12 +134,11 @@ class AuthorizedBrandsController extends Controller
             'has_free_installation_service' => 'boolean',
             'billing_date' => 'nullable|date',
             'logo_image' => 'nullable|string',
-            'logo_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif',
+            'images' => 'nullable|array',
+            'images.*' => 'string',
             'documents' => 'nullable|array',
             'documents.*.type' => 'required_with:documents|string',
             'documents.*.file' => 'required_with:documents|string',
-            'images' => 'nullable|array',
-            'images.*' => 'string',
             'warranty_parts' => 'nullable|array',
             'service_charges' => 'nullable|array',
             'materials' => 'nullable|array',
@@ -162,14 +154,9 @@ class AuthorizedBrandsController extends Controller
             $validated['slug'] = $newSlug;
         }
 
-        // Handle logo upload (priority: file; fallback to string url if given)
-        if ($request->hasFile('logo_file')) {
-            $validated['logo_image'] = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_file'));
-        }
-
-        // Only accept string paths for images (no upload support here)
+        // Use logo image URL directly, no file handling
+        // Only URLs for images
         if (isset($validated['images']) && is_array($validated['images'])) {
-            // Enforce string only array
             $validated['images'] = array_filter($validated['images'], fn($val) => is_string($val));
         } else {
             $validated['images'] = $brand->images ?? [];
