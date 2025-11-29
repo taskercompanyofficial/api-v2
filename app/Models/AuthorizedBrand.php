@@ -10,19 +10,33 @@ class AuthorizedBrand extends Model
     protected $table = 'authorized_brands';
 
     protected $fillable = [
-        'name', 'slug', 'service_type', 'logo_image', 'policy_image', 'images', 'tariffs',
-        'jobsheet_file', 'bill_format_file', 'billing_date', 'status',
-        'is_authorized', 'is_available_for_warranty', 'has_free_installation_service',
-        'created_by', 'updated_by',
+        'name',
+        'service_type',
+        'status',
+        'is_authorized',
+        'is_available_for_warranty',
+        'has_free_installation_service',
+        'billing_date',
+        'logo_image',
+        'images',
+        'documents',
+        'warranty_parts',
+        'service_charges',
+        'materials',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [
-        'images' => 'array',
-        'tariffs' => 'array',
         'is_authorized' => 'boolean',
         'is_available_for_warranty' => 'boolean',
         'has_free_installation_service' => 'boolean',
         'billing_date' => 'date',
+        'images' => 'array',
+        'documents' => 'array',
+        'warranty_parts' => 'array',
+        'service_charges' => 'array',
+        'materials' => 'array',
     ];
 
     public function createdBy(): BelongsTo

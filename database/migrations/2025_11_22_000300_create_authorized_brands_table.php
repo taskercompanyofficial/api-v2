@@ -13,16 +13,25 @@ return new class extends Migration {
             $table->string('slug')->unique();
             $table->string('service_type')->nullable();
             $table->string('logo_image')->nullable();
-            $table->string('policy_image')->nullable();
+
+            // Use just "images" (json) for gallery, as in model/controller
             $table->json('images')->nullable();
-            $table->json('tariffs')->nullable();
-            $table->string('jobsheet_file')->nullable();
-            $table->string('bill_format_file')->nullable();
+
+            // Remove unused columns: tariffs, policy_image, jobsheet_file, bill_format_file
+            // Use just "documents" as a single JSON column for all docs (as in the form/controller/model)
+            $table->json('documents')->nullable();
+
+            // New arrays for parts/services/materials
+            $table->json('warranty_parts')->nullable();
+            $table->json('service_charges')->nullable();
+            $table->json('materials')->nullable();
+
             $table->date('billing_date')->nullable();
             $table->string('status')->default('active');
             $table->boolean('is_authorized')->default(true);
             $table->boolean('is_available_for_warranty')->default(false);
             $table->boolean('has_free_installation_service')->default(false);
+
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();

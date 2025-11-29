@@ -15,10 +15,11 @@ class AuthorizedBrandsController extends Controller
 
     public function index(Request $request)
     {
-        $page = $request->input('page') ?? 1;
-        $perPage = $request->input('perPage') ?? 10;
+        $page = $request->input('page', 1);
+        $perPage = $request->input('perPage', 10);
 
-        $query = AuthorizedBrand::query()->with(['createdBy:id,name', 'updatedBy:id,name']);
+        $query = AuthorizedBrand::query()
+            ->with(['createdBy:id,name', 'updatedBy:id,name']);
 
         $this->applyJsonFilters($query, $request);
         $this->applySorting($query, $request);
@@ -36,72 +37,88 @@ class AuthorizedBrandsController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'service_type' => 'nullable|string',
-            'tariffs' => 'nullable|array',
-            'tariffs.*' => 'numeric|min:0',
             'status' => 'required|string|in:active,inactive,draft',
             'is_authorized' => 'boolean',
             'is_available_for_warranty' => 'boolean',
             'has_free_installation_service' => 'boolean',
             'billing_date' => 'nullable|date',
             'logo_image' => 'nullable|string',
-            'policy_image' => 'nullable|string',
+            // The actual logo image file (backend upload)
+            'logo_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif',
+            // Documents array (frontend multi-doc logic)
+            'documents' => 'nullable|array',
+            // Each doc must have 'type' and 'file' (file is string: url/path)
+            'documents.*.type' => 'required_with:documents|string',
+            'documents.*.file' => 'required_with:documents|string',
+            // Images array (string paths/urls)
             'images' => 'nullable|array',
-            'images.*' => 'file|mimes:jpg,jpeg,png,webp,gif',
-            'jobsheet_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf',
-            'bill_format_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf',
+            'images.*' => 'string',
+            // Warranty/service/material arrays (optional, handled as json)
+            'warranty_parts' => 'nullable|array',
+            'service_charges' => 'nullable|array',
+            'materials' => 'nullable|array',
         ]);
 
+        // Generate unique slug
         $slug = Str::slug($validated['name']);
-        $original = $slug; $i = 1;
-        while (AuthorizedBrand::where('slug', $slug)->exists()) { $slug = $original.'-'.$i; $i++; }
-
-        $images = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $img) {
-                $images[] = Storage::disk('public')->putFile('authorized-brands', $img);
-            }
-        } elseif (isset($validated['images']) && is_array($validated['images'])) {
-            $images = $validated['images'];
+        $originalSlug = $slug; $i = 1;
+        while (AuthorizedBrand::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $i; $i++;
         }
 
-        $logo = $validated['logo_image'] ?? null;
-        $policy = $validated['policy_image'] ?? null;
-        if ($request->hasFile('logo_image')) {
-            $logo = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_image'));
-        }
-        if ($request->hasFile('policy_image')) {
-            $policy = Storage::disk('public')->putFile('authorized-brands', $request->file('policy_image'));
+        // Handle logo upload (priority: file upload, then url)
+        $logoImage = $validated['logo_image'] ?? null;
+        if ($request->hasFile('logo_file')) {
+            $logoImage = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_file'));
         }
 
-        $jobsheet = null;
-        $bill = null;
-        if ($request->hasFile('jobsheet_file')) {
-            $jobsheet = Storage::disk('public')->putFile('authorized-brands', $request->file('jobsheet_file'));
-        }
-        if ($request->hasFile('bill_format_file')) {
-            $bill = Storage::disk('public')->putFile('authorized-brands', $request->file('bill_format_file'));
-        }
+        // Handle images (for gallery/photos, string URLs/paths only)
+        $images = $validated['images'] ?? [];
+        // No file uploads for 'images', only paths/urls as per current frontend logic
+
+        // Handle documents (combine into expected array)
+        $documents = $validated['documents'] ?? [];
+
+        // These attributes default to [] in the BrandForm React (see context)
+        $warrantyParts = $validated['warranty_parts'] ?? [];
+        $serviceCharges = $validated['service_charges'] ?? [];
+        $materials = $validated['materials'] ?? [];
+
+        // Safe: fallback to default type if not set
+        $authorizationType = $validated['authorization_type'] ?? 'service_partner';
 
         $user = $request->user();
 
         $brand = AuthorizedBrand::create([
-            ...$validated,
+            'name' => $validated['name'],
             'slug' => $slug,
+            'service_type' => $validated['service_type'] ?? null,
+            'status' => $validated['status'],
+            'is_authorized' => $validated['is_authorized'] ?? true,
+            'is_available_for_warranty' => $validated['is_available_for_warranty'] ?? false,
+            'has_free_installation_service' => $validated['has_free_installation_service'] ?? false,
+            'billing_date' => $validated['billing_date'] ?? null,
+            'logo_image' => $logoImage,
             'images' => $images,
-            'logo_image' => $logo,
-            'policy_image' => $policy,
-            'jobsheet_file' => $jobsheet,
-            'bill_format_file' => $bill,
+            'documents' => $documents,
+            'warranty_parts' => $warrantyParts,
+            'service_charges' => $serviceCharges,
+            'materials' => $materials,
             'created_by' => $user->id,
             'updated_by' => $user->id,
         ]);
 
-        return response()->json(['status' => 'success', 'message' => 'Brand created successfully', 'slug' => $brand->slug]);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Brand created successfully',
+            'slug' => $brand->slug,
+        ]);
     }
 
     public function show(string $slug)
     {
-        $brand = AuthorizedBrand::with(['createdBy:id,name', 'updatedBy:id,name'])->where('slug', $slug)->first();
+        $brand = AuthorizedBrand::with(['createdBy:id,name', 'updatedBy:id,name'])
+            ->where('slug', $slug)->first();
         if (!$brand) {
             return response()->json(['status' => 'error', 'message' => 'Brand not found'], 404);
         }
@@ -118,57 +135,69 @@ class AuthorizedBrandsController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'service_type' => 'nullable|string',
-            'tariffs' => 'nullable|array',
-            'tariffs.*' => 'numeric|min:0',
             'status' => 'sometimes|required|string|in:active,inactive,draft',
             'is_authorized' => 'boolean',
             'is_available_for_warranty' => 'boolean',
             'has_free_installation_service' => 'boolean',
             'billing_date' => 'nullable|date',
             'logo_image' => 'nullable|string',
-            'policy_image' => 'nullable|string',
+            'logo_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif',
+            'documents' => 'nullable|array',
+            'documents.*.type' => 'required_with:documents|string',
+            'documents.*.file' => 'required_with:documents|string',
             'images' => 'nullable|array',
-            'images.*' => 'file|mimes:jpg,jpeg,png,webp,gif',
-            'jobsheet_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf',
-            'bill_format_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf',
+            'images.*' => 'string',
+            'warranty_parts' => 'nullable|array',
+            'service_charges' => 'nullable|array',
+            'materials' => 'nullable|array',
         ]);
 
+        // Handle slug update if name changes
         if (isset($validated['name']) && $validated['name'] !== $brand->name) {
             $newSlug = Str::slug($validated['name']);
             $original = $newSlug; $i = 1;
-            while (AuthorizedBrand::where('slug', $newSlug)->where('id', '!=', $brand->id)->exists()) { $newSlug = $original.'-'.$i; $i++; }
+            while (AuthorizedBrand::where('slug', $newSlug)->where('id', '!=', $brand->id)->exists()) {
+                $newSlug = $original . '-' . $i; $i++;
+            }
             $validated['slug'] = $newSlug;
         }
 
-        $images = $brand->images ?? [];
-        if ($request->hasFile('images')) {
-            $images = [];
-            foreach ($request->file('images') as $img) {
-                $images[] = Storage::disk('public')->putFile('authorized-brands', $img);
-            }
-        } elseif (isset($validated['images']) && is_array($validated['images'])) {
-            $images = $validated['images'];
+        // Handle logo upload (priority: file; fallback to string url if given)
+        if ($request->hasFile('logo_file')) {
+            $validated['logo_image'] = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_file'));
         }
-        $validated['images'] = $images;
 
-        if ($request->hasFile('logo_image')) {
-            $validated['logo_image'] = Storage::disk('public')->putFile('authorized-brands', $request->file('logo_image'));
+        // Only accept string paths for images (no upload support here)
+        if (isset($validated['images']) && is_array($validated['images'])) {
+            // Enforce string only array
+            $validated['images'] = array_filter($validated['images'], fn($val) => is_string($val));
+        } else {
+            $validated['images'] = $brand->images ?? [];
         }
-        if ($request->hasFile('policy_image')) {
-            $validated['policy_image'] = Storage::disk('public')->putFile('authorized-brands', $request->file('policy_image'));
+
+        // Compose documents array for consistent structure
+        if (isset($validated['documents']) && is_array($validated['documents'])) {
+            $validated['documents'] = array_values($validated['documents']);
+        } else {
+            $validated['documents'] = $brand->documents ?? [];
         }
-        if ($request->hasFile('jobsheet_file')) {
-            $validated['jobsheet_file'] = Storage::disk('public')->putFile('authorized-brands', $request->file('jobsheet_file'));
-        }
-        if ($request->hasFile('bill_format_file')) {
-            $validated['bill_format_file'] = Storage::disk('public')->putFile('authorized-brands', $request->file('bill_format_file'));
-        }
+
+        // Arrays for warranty, service, materials
+        $validated['warranty_parts'] = $validated['warranty_parts'] ?? $brand->warranty_parts ?? [];
+        $validated['service_charges'] = $validated['service_charges'] ?? $brand->service_charges ?? [];
+        $validated['materials'] = $validated['materials'] ?? $brand->materials ?? [];
+        $validated['authorization_type'] = $validated['authorization_type'] ?? $brand->authorization_type ?? 'service_partner';
 
         $user = $request->user();
         $validated['updated_by'] = $user->id;
 
         $brand->update($validated);
-        return response()->json(['status' => 'success', 'message' => 'Brand updated successfully', 'slug' => $brand->slug]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Brand updated successfully',
+            'slug' => $brand->slug
+        ]);
     }
 
     public function destroy(string $slug)
