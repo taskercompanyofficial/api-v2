@@ -11,6 +11,7 @@ class AuthorizedBrand extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'service_type',
         'status',
         'is_authorized',

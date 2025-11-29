@@ -77,9 +77,6 @@ class AuthorizedBrandsController extends Controller
         $serviceCharges = $validated['service_charges'] ?? [];
         $materials = $validated['materials'] ?? [];
 
-        // Safe: fallback to default type if not set
-        $authorizationType = $validated['authorization_type'] ?? 'service_partner';
-
         $user = $request->user();
 
         $brand = AuthorizedBrand::create([
@@ -173,7 +170,6 @@ class AuthorizedBrandsController extends Controller
         $validated['warranty_parts'] = $validated['warranty_parts'] ?? $brand->warranty_parts ?? [];
         $validated['service_charges'] = $validated['service_charges'] ?? $brand->service_charges ?? [];
         $validated['materials'] = $validated['materials'] ?? $brand->materials ?? [];
-        $validated['authorization_type'] = $validated['authorization_type'] ?? $brand->authorization_type ?? 'service_partner';
 
         $user = $request->user();
         $validated['updated_by'] = $user->id;
