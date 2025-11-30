@@ -15,6 +15,5 @@ Route::group(['prefix' => 'website'], function () {
     Route::post('/auth/check-credentials', [AuthenticatedSessionController::class, 'otp']);
     Route::post('/auth/sign-in', [AuthenticatedSessionController::class, 'signin']);
     Route::post('/auth/verify-otp', [AuthenticatedSessionController::class, 'veriyotp']);
-
 });
 
