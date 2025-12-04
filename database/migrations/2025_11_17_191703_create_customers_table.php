@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
             $table->string('name');
+            $table->string('avatar')->nullable(); // Added based on model
             $table->string('email')->unique()->nullable();
             $table->string('phone')->unique();
             $table->string('whatsapp')->nullable();
@@ -23,7 +24,6 @@ return new class extends Migration
             $table->boolean('is_care_of_customer')->default(false);
             $table->enum('status', ['active', 'inactive', 'red_listed', 'vip', 'regular'])->default('active');
             $table->text('description')->nullable();
-            $table->text('kind_of_issue')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });

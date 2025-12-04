@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Authenticated\CRM\AttendanceController;
 use App\Http\Controllers\Authenticated\CRM\CategoriesController;
+use App\Http\Controllers\Authenticated\CRM\CustomerAddressController;
+use App\Http\Controllers\Authenticated\CRM\CustomerController;
+use App\Http\Controllers\Authenticated\CRM\DealersController;
+use App\Http\Controllers\Authenticated\CRM\DealerBranchesController;
 use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ProductsController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
@@ -9,6 +13,7 @@ use App\Http\Controllers\Authenticated\CRM\StoreItemController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
 use App\Http\Controllers\Authenticated\CRM\OurBranchesController;
 use App\Http\Controllers\Authenticated\CRM\AuthorizedBrandsController;
+use App\Http\Controllers\Authenticated\CRM\MajorClientsController;
 use App\Http\Controllers\Authenticated\CRM\StaffController;
 use App\Http\Controllers\Authenticated\CRM\StaffContactController;
 use App\Http\Controllers\Authenticated\CRM\StaffEducationController;
@@ -21,6 +26,7 @@ use App\Http\Controllers\Authenticated\CRM\VehicleAssignmentController;
 use App\Http\Controllers\Authenticated\CRM\VehicleUsageLogController;
 use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RouteController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'crm'], function () {
@@ -33,9 +39,15 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/parent-services', ParentServicesController::class);
         Route::apiResource('/our-branches', OurBranchesController::class);
         Route::apiResource('/authorized-brands', AuthorizedBrandsController::class);
+        Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
         Route::apiResource('/roles', RoleController::class);
         Route::apiResource('/attendances', AttendanceController::class);
+        Route::apiResource('/routes', RouteController::class);
+        Route::apiResource('/customers', CustomerController::class);
+        Route::apiResource('/customer-address', CustomerAddressController::class);
+        Route::apiResource('/dealers', DealersController::class);
+        Route::apiResource('/dealer-branches', DealerBranchesController::class);
         // Staff Management Routes
         Route::apiResource('/staff-contacts', StaffContactController::class);
         Route::apiResource('/staff-education', StaffEducationController::class);

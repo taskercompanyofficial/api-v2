@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Auth\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -94,6 +94,25 @@ class AuthenticatedSessionController extends Controller
             'routes' => $routes
         ], 200);
     }
+
+
+    /**
+     * Get the sidebar navigation routes for the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function sidebar(Request $request)
+    {
+        $user = $request->user();
+        $routes = $user->getPermittedRoutes();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $routes
+        ], 200);
+    }
+
     public function signOut(Request $request)
     {
         $request->user()->tokens()->delete();

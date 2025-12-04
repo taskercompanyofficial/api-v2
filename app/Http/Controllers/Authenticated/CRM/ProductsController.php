@@ -52,7 +52,7 @@ class ProductsController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'string',
             'tags' => 'nullable|array',
             'notes' => 'nullable|string',
             'status' => 'required|string|in:active,inactive,draft,archived',
@@ -60,14 +60,11 @@ class ProductsController extends Controller
 
         // Generate slug
         $slug = Str::slug($validated['name']);
-
-        // Handle image upload
-        $imagePaths = [];
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = Storage::disk('public')->putFile('products', $image);
-                $imagePaths[] = $path;
-            }
+        $originalSlug = $slug;
+        $counter = 1;
+        while (Product::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
         }
 
         $user = $request->user();
@@ -78,7 +75,7 @@ class ProductsController extends Controller
                 'name' => $validated['name'],
                 'slug' => $slug,
                 'description' => $validated['description'] ?? null,
-                'images' => $imagePaths,
+                'images' => $validated['images'] ?? null,
                 'tags' => $validated['tags'] ?? [],
                 'notes' => $validated['notes'] ?? null,
                 'status' => $validated['status'],

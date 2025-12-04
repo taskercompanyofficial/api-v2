@@ -4,31 +4,37 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Laravel\Sanctum\HasApiTokens;
 
-class Customer extends Model
+class MajorClient extends Model
 {
-    use HasApiTokens;
+    protected $table = 'major_clients';
+
     protected $fillable = [
+        'name',
+        'slug',
+        'description',
+        'image',
+        'tags',
+        'notes',
+        'status',
+        'units_installed',
+        'customer_type',
         'created_by',
         'updated_by',
-        'name',
-        'avatar',
-        'email',
-        'phone',
-        'whatsapp',
-        'customer_id',
-        'is_care_of_customer',
-        'status',
-        'description',
     ];
+
+    protected $casts = [
+        'tags' => 'array',
+        'units_installed' => 'integer',
+    ];
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
-    
 }

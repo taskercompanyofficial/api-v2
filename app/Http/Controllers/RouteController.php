@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class RouteController extends Controller
 {
@@ -32,30 +33,76 @@ class RouteController extends Controller
     {
         $payload = $request->validate([
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:routes',
             'method' => 'nullable|string|max:10',
             'path' => 'required|string|max:255',
             'icon' => 'nullable|string|max:255',
             'order' => 'nullable|integer',
             'parent_id' => 'nullable|exists:routes,id',
-            'permission_id' => 'nullable|exists:permissions,id',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'nullable|string',
             'description' => 'nullable|string',
-            'status' => 'required|boolean',
         ]);
 
+        $slug = Str::slug($payload['name']);
+        $original = $slug;
+        $i = 1;
+        while (Route::where('slug', $slug)->exists()) {
+            $slug = $original . '-' . $i;
+            $i++;
+        }
+
+        // FIX: Permissions were not generating uniquely before (bad slug key), and there was confusion in names/slugs.
+        // Each permission must have a unique slug, usually based on action + route-slug (not just action or action+name).
+        // Also, ensure that permission creation happens *before* Route is stored so permission IDs can be used.
+        $permissionIds = [];
+        if (!empty($payload['permissions']) && is_array($payload['permissions'])) {
+            foreach ($payload['permissions'] as $permName) {
+                $permAction = trim(strtolower($permName));
+                if (!$permAction || !is_string($permName)) continue;
+
+                // Permission slug should be in the form of: can-action-route-slug (not just action or action + name)
+                $permSlug = 'can-' . $permAction . '-' . $slug;
+
+                // Name like: CAN_ACTION_ROUTE
+                $permLabel = strtoupper($permAction) . ' ' . $payload['name'];
+                $permission = Permission::firstOrCreate(
+                    ['slug' => $permSlug],
+                    [
+                        'name' => $permLabel,
+                        'slug' => $permSlug,
+                        'description' => $permLabel . ' permission for route ' . $payload['name'],
+                        'status' => 1,
+                        'created_by' => Auth::id(),
+                        'updated_by' => Auth::id(),
+                    ]
+                );
+                $permissionIds[] = $permission->id;
+            }
+        }
+
+        $mainPermissionId = count($permissionIds) > 0 ? $permissionIds[0] : null;
+
         try {
-            $route = Route::create($payload);
+            $route = Route::create(array_merge(
+                $payload,
+                [
+                    'slug' => $slug,
+                    'created_by' => Auth::id(),
+                    'updated_by' => Auth::id(),
+                    'permission_id' => $mainPermissionId,
+                ]
+            ));
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Route created successfully',
-                'data' => $route->load(['parent', 'permission'])
-            ], 201);
-        } catch (\Throwable $th) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $th->getMessage()
-            ], 500);
+                'slug' => $route->slug,
+                'route_id' => $route->id,
+                'main_permission_id' => $mainPermissionId,
+                'all_permission_ids' => $permissionIds,
+            ]);
+        } catch (\Throwable $err) {
+            return response()->json(['status' => 'error', 'message' => $err->getMessage()]);
         }
     }
 
