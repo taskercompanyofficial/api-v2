@@ -24,7 +24,7 @@ class FilesController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|max:2048', // 2MB max
+            'file' => 'required|file|max:2004800', // 200MB max
         ]);
 
         if ($request->hasFile('file')) {
