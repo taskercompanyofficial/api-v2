@@ -13,6 +13,9 @@ cmds = [
 [start]
 cmd = '/assets/start.sh'
 
+[variables]
+NIXPACKS_METADATA = "hatchet_expose_port=8080"
+
 [staticAssets]
 "start.sh" = '''
 #!/bin/bash
