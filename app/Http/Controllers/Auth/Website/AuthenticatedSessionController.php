@@ -123,6 +123,32 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        return response()->json([
+            'status' => 'success',
+            'user' => $user,
+        ]);
+    }
+    public function update(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
+            'avatar' => 'nullable|string|max:255',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profile updated successfully.',
+        ]);
+    }
+
     private function setOtp($phone, $source)
     {
         $otp = random_int(100000, 999999);
