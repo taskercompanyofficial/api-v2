@@ -25,6 +25,7 @@ use App\Http\Controllers\Authenticated\CRM\VehicleController;
 use App\Http\Controllers\Authenticated\CRM\VehicleAssignmentController;
 use App\Http\Controllers\Authenticated\CRM\VehicleUsageLogController;
 use App\Http\Controllers\Authenticated\CRM\AuditLogController;
+use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RouteController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/customer-address', CustomerAddressController::class);
         Route::apiResource('/dealers', DealersController::class);
         Route::apiResource('/dealer-branches', DealerBranchesController::class);
+        Route::apiResource('/social-handlers', SocialHandlersController::class);
         // Staff Management Routes
         Route::apiResource('/staff-contacts', StaffContactController::class);
         Route::apiResource('/staff-education', StaffEducationController::class);
