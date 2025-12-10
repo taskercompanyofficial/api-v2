@@ -248,4 +248,22 @@ class ParentServicesController extends Controller
             ], 500);
         }
     }
+    public function parentServices(Request $request)
+    {
+ try {
+        $parentServices = ParentServices::get();
+
+        return response()->json(
+            [
+                'status' => 'success',
+                'data' => $parentServices,
+            ]
+        );
+    } catch (\Exception $err) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $err->getMessage(),
+        ], 500);
+    }
+    }
 }

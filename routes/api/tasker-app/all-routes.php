@@ -5,7 +5,10 @@ use App\Http\Controllers\Authenticated\CRM\AuthorizedBrandsController;
 use App\Http\Controllers\Authenticated\CRM\CategoriesController;
 use App\Http\Controllers\Authenticated\CRM\CustomerAddressController;
 use App\Http\Controllers\Authenticated\CRM\MajorClientsController;
+use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
+use App\Http\Controllers\TaskerApp\OrderController;
+use App\Http\Controllers\TaskerApp\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'tasker-app'], function () {
@@ -22,6 +25,22 @@ Route::group(['prefix' => 'tasker-app'], function () {
     Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/auth/me', [AuthenticatedSessionController::class,'me']);
         Route::post('/auth/update', [AuthenticatedSessionController::class,'update']);
+        Route::get('/parent-services', [ParentServicesController::class,'parentServices']);
+        // Order routes
+        Route::prefix('orders')->group(function () {
+            Route::post('/', [OrderController::class, 'store']);
+            Route::get('/my-orders', [OrderController::class, 'customerOrders']);
+            Route::get('/{orderNumber}', [OrderController::class, 'show']);
+            Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
+        });
+        
+        // Notification routes
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationController::class, 'index']);
+            Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+            Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+            Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        });
     });
 
 });

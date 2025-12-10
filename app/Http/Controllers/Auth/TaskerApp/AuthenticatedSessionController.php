@@ -97,19 +97,20 @@ class AuthenticatedSessionController extends Controller
     }
     public function update(Request $request)
     {
-        $user = $request->user();
+        $customer = $request->user();
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
-            'avatar' => 'nullable|string|max:255',
+            'email' => 'sometimes|nullable|string|email|max:255|unique:customers,email,' . $customer->id,
+            'phone' => 'sometimes|required|string|max:20|unique:customers,phone,' . $customer->id,
         ]);
 
-        $user->update($validated);
+        $customer->update($validated);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Profile updated successfully.',
+            'data' => $customer,
         ]);
     }
 
