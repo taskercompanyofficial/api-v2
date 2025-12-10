@@ -14,12 +14,20 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('staff_id')->constrained()->cascadeOnDelete();
             $table->date('date');
-            $table->time('check_in_time');
-            $table->string('check_in_location');
+            $table->time('check_in_time')->nullable();
+            $table->string('check_in_location')->nullable();
+            $table->decimal('check_in_latitude', 10, 8)->nullable();
+            $table->decimal('check_in_longitude', 11, 8)->nullable();
+            $table->string('check_in_photo')->nullable();
             $table->time('check_out_time')->nullable();
             $table->string('check_out_location')->nullable();
+            $table->decimal('check_out_latitude', 10, 8)->nullable();
+            $table->decimal('check_out_longitude', 11, 8)->nullable();
+            $table->string('check_out_photo')->nullable();
             $table->decimal('working_hours', 5, 2)->nullable();
-            $table->enum('status', ['present', 'absent', 'half_day', 'late']);
+            $table->integer('break_time')->default(0);
+            $table->enum('status', ['present', 'absent', 'half_day', 'late'])->default('absent');
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

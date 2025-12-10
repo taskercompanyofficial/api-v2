@@ -29,18 +29,17 @@ class CustomerAddressController extends Controller
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
         $validatedData = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-                'address_type' => 'required|string|max:255',
-                'area_type' => 'required|string|max:255',
-                'address_line_1' => 'required|string|max:255',
+            'customer_id' => 'sometimes|required|exists:customers,id',
+                'address_type' => 'sometimes|required|string|max:255',
+                'area_type' => 'sometimes|required|string|max:255',
+                'address_line_1' => 'sometimes|required|string|max:255',
                 'address_line_2' => 'nullable|string|max:255',
-                'city' => 'required|string|max:255',
-                'state' => 'required|string|max:255',
-                'zip_code' => 'required|string|max:10',
-                'country' => 'required|string|max:255',
-                'latitude' => 'nullable|numeric',
-                'longitude' => 'nullable|numeric',
-                'status' => 'required|string|max:255',
+                'city' => 'sometimes|required|string|max:255',
+                'state' => 'sometimes|required|string|max:255',
+                'zip_code' => 'sometimes|nullable|string|max:10',
+                'country' => 'sometimes|required|string|max:255',
+                'latitude' => 'sometimes|nullable|numeric',
+                'longitude' => 'sometimes|nullable|numeric',
             ]);
             try {
 

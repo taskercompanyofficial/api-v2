@@ -109,8 +109,19 @@ class Staff extends Model
     {
         return $this->belongsTo(Role::class, 'designation');
     }
+    
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(LeaveBalance::class);
+    }
+
+    public function leaveApplications(): HasMany
+    {
+        return $this->hasMany(LeaveApplication::class);
     }
 }
