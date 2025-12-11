@@ -9,6 +9,8 @@ use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\TaskerApp\OrderController;
 use App\Http\Controllers\TaskerApp\NotificationController;
+use App\Http\Controllers\TaskerApp\CommercialQuoteController;
+use App\Http\Controllers\TaskerApp\FreeInstallationController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'tasker-app'], function () {
@@ -40,6 +42,20 @@ Route::group(['prefix' => 'tasker-app'], function () {
             Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
             Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
             Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        });
+
+        // Commercial Quote routes
+        Route::prefix('commercial-quotes')->group(function () {
+            Route::post('/', [CommercialQuoteController::class, 'store']);
+            Route::get('/', [CommercialQuoteController::class, 'index']);
+            Route::get('/{id}', [CommercialQuoteController::class, 'show']);
+        });
+
+        // Free Installation routes
+        Route::prefix('free-installations')->group(function () {
+            Route::post('/', [FreeInstallationController::class, 'store']);
+            Route::get('/', [FreeInstallationController::class, 'index']);
+            Route::get('/{id}', [FreeInstallationController::class, 'show']);
         });
     });
 

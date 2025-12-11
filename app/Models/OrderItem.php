@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
         'parent_service_id',
+        'itemable_id',
+        'itemable_type',
         'quantity',
         'unit_price',
         'discount',
@@ -52,6 +55,14 @@ class OrderItem extends Model
         return $this->belongsTo(ParentServices::class, 'parent_service_id');
     }
 
+    /**
+     * Get the owning itemable model (ParentService, FreeInstallation, etc.)
+     */
+    public function itemable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
     public function technician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_technician_id');
@@ -85,5 +96,44 @@ class OrderItem extends Model
         static::saving(function ($orderItem) {
             $orderItem->calculateSubtotal();
         });
+    }
+
+    /**
+     * Get service name for display
+     */
+    public function getServiceNameAttribute()
+    {
+        // Check if itemable relationship is loaded
+        if ($this->relationLoaded('itemable') && $this->itemable) {
+            if ($this->itemable instanceof \App\Models\FreeInstallation) {
+                return $this->itemable->display_name;
+            } elseif ($this->itemable instanceof \App\Models\ParentServices) {
+                return $this->itemable->name;
+            }
+        }
+        
+        // Fallback to parent service if loaded
+        if ($this->relationLoaded('parentService') && $this->parentService) {
+            return $this->parentService->name;
+        }
+        
+        return 'Service';
+    }
+
+    /**
+     * Get price text for display
+     */
+    public function getPriceTextAttribute()
+    {
+        // Check if itemable is loaded and is FreeInstallation
+        if ($this->relationLoaded('itemable') && $this->itemable instanceof \App\Models\FreeInstallation) {
+            return 'Free Installation';
+        }
+        
+        if ($this->subtotal == 0 && $this->unit_price == 0) {
+            return 'Free Installation';
+        }
+        
+        return 'Rs ' . number_format($this->subtotal, 0);
     }
 }

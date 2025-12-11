@@ -55,7 +55,9 @@ class OrderController extends Controller
             foreach ($validated['items'] as $itemData) {
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'parent_service_id' => $itemData['parent_service_id'],
+                    'parent_service_id' => $itemData['parent_service_id'], // Keep for backward compatibility
+                    'itemable_id' => $itemData['parent_service_id'], // Polymorphic reference
+                    'itemable_type' => \App\Models\ParentServices::class, // Polymorphic type
                     'quantity' => $itemData['quantity'],
                     'unit_price' => $itemData['unit_price'],
                     'discount' => $itemData['discount'] ?? 0,
@@ -113,6 +115,7 @@ class OrderController extends Controller
     {
         $order = Order::with([
             'items.parentService',
+            'items.itemable', // Load polymorphic relationship
             'items.technician:id,name',
             'customer:id,name,phone,email',
             'address',
@@ -141,9 +144,9 @@ class OrderController extends Controller
     {
         $customerId = $request->user()->id;
 
-        $orders = Order::with(['items.parentService'])
+        $orders = Order::with(['items.parentService', 'items.itemable'])
             ->where('customer_id', $customerId)
-            ->orderBy('order_date', 'desc')
+            ->orderBy('created_at', 'desc')
             ->paginate(10);
 
         return response()->json([

@@ -194,7 +194,7 @@ class AuthorizedBrandsController extends Controller
     }
     public function getBrandsMeta()
     {
-        $brands = AuthorizedBrand::select('id', 'name', 'slug', 'logo_image')->where('is_authorized', true)->get();
+        $brands = AuthorizedBrand::select('id', 'name', 'slug', 'logo_image', 'has_free_installation_service','is_available_for_warranty' )->where('is_authorized', true)->get();
         return response()->json(['status' => 'success', 'data' => $brands]);
     }
 }

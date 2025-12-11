@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\OTP;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -77,14 +78,14 @@ class AuthenticatedSessionController extends Controller
         } else {
             $this->sendWelcomeMessage($phone, $customer->name, false);
         }
- $user = Customer::where('phone', $phone)->first();
+        $user = Customer::where('phone', $phone)->first();
         $token = $user->createToken('auth_token')->plainTextToken;
-        // Send welcome/new-login WhatsApp message
 
         return response()->json([
             'status' => 'success',
             'message' => $isNew ? 'Account created successfully.' : 'Login successfully.',
             'token' => $token,
+            'isNew' => $isNew,
         ]);
     }
     public function me(Request $request)
@@ -102,15 +103,27 @@ class AuthenticatedSessionController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|nullable|string|email|max:255|unique:customers,email,' . $customer->id,
-            'phone' => 'sometimes|required|string|max:20|unique:customers,phone,' . $customer->id,
+            'avatar' => 'nullable|image|mimes:jpeg,jpg,png|max:2048', // 2MB max
         ]);
 
-        $customer->update($validated);
+        if ($request->hasFile('avatar')) {
+            if ($customer->avatar && Storage::disk('public')->exists($customer->avatar)) {
+                Storage::disk('public')->delete($customer->avatar);
+            }
+            $file = $request->file('avatar');
+            $folder = 'profile-images';
+            $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs($folder, $fileName, 'public');
+            $validated['avatar'] = $filePath;
+        }else{
+            $validated['avatar'] = $customer->avatar;
+        }
 
+        $customer->update($validated);
         return response()->json([
             'status' => 'success',
             'message' => 'Profile updated successfully.',
-            'data' => $customer,
+            'data' => $customer->fresh(),
         ]);
     }
 

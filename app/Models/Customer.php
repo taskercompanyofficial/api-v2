@@ -22,6 +22,9 @@ class Customer extends Model
         'status',
         'description',
     ];
+
+    protected $appends = ['avatar_url'];
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -29,6 +32,17 @@ class Customer extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Get the full URL for the avatar
+     */
+    public function getAvatarUrlAttribute()
+    {
+        if ($this->avatar) {
+            return url('storage/' . $this->avatar);
+        }
+        return null;
     }
     
 }
