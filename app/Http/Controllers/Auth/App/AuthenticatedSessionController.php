@@ -14,7 +14,7 @@ class AuthenticatedSessionController extends Controller
     {
         $validated = $request->validate([
             'phone' => 'required|regex:/^\+?[0-9]{10,15}$/',
-            'source' => 'required|in:web,app',
+            'source' => 'required|in:tasker-staff',
         ]);
 
         $phone = $validated['phone'];

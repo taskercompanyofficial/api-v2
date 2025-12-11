@@ -67,7 +67,7 @@ class AttendanceController extends Controller
         $request->validate([
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'photo' => 'nullable|string', // File path from Files table
+            'photo' => 'required|string', // Photo is required for verification
             'notes' => 'nullable|string',
         ]);
 
@@ -129,7 +129,7 @@ class AttendanceController extends Controller
         $request->validate([
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'photo' => 'nullable|string', // File path from Files table
+            'photo' => 'required|string', // Photo is required for verification
             'notes' => 'nullable|string',
         ]);
 
@@ -194,6 +194,7 @@ class AttendanceController extends Controller
         $perPage = $request->input('perPage', 10);
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
+        $status = $request->input('status'); // Filter by status
 
         $query = Attendance::where('staff_id', $staff->id)
             ->orderBy('date', 'desc');
@@ -204,6 +205,10 @@ class AttendanceController extends Controller
 
         if ($endDate) {
             $query->where('date', '<=', $endDate);
+        }
+
+        if ($status) {
+            $query->where('status', $status);
         }
 
         $attendances = $query->paginate($perPage, ['*'], 'page', $page);
@@ -339,5 +344,66 @@ class AttendanceController extends Controller
         }
 
         return $streak;
+    }
+
+    /**
+     * Export attendance report
+     */
+    public function exportReport(Request $request)
+    {
+        $staff = Auth::user();
+        $month = $request->input('month', Carbon::now()->month);
+        $year = $request->input('year', Carbon::now()->year);
+        $format = $request->input('format', 'csv'); // csv or excel
+
+        $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+        $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+
+        $attendances = Attendance::where('staff_id', $staff->id)
+            ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->orderBy('date', 'asc')
+            ->get();
+
+        // Prepare data for export
+        $data = [];
+        $data[] = ['Date', 'Day', 'Check In', 'Check Out', 'Working Hours', 'Status'];
+
+        foreach ($attendances as $attendance) {
+            $data[] = [
+                $attendance->date,
+                Carbon::parse($attendance->date)->format('l'),
+                $attendance->check_in_time?->format('H:i') ?? '-',
+                $attendance->check_out_time?->format('H:i') ?? '-',
+                $attendance->working_hours ?? 0,
+                ucfirst($attendance->status),
+            ];
+        }
+
+        // Summary row
+        $totalPresent = $attendances->where('status', 'present')->count();
+        $totalAbsent = $endDate->day - $attendances->count();
+        $totalHours = $attendances->sum('working_hours');
+
+        $data[] = [];
+        $data[] = ['Summary', '', '', '', '', ''];
+        $data[] = ['Total Present Days', $totalPresent, '', '', '', ''];
+        $data[] = ['Total Absent Days', $totalAbsent, '', '', '', ''];
+        $data[] = ['Total Working Hours', $totalHours, '', '', '', ''];
+
+        // Generate CSV
+        $filename = "attendance_{$staff->name}_{$month}_{$year}.csv";
+        $handle = fopen('php://temp', 'r+');
+        
+        foreach ($data as $row) {
+            fputcsv($handle, $row);
+        }
+        
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response($csv, 200)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
     }
 }

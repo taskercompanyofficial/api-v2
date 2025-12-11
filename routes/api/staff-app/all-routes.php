@@ -21,6 +21,7 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
         Route::get('/attendance/history', [AttendanceController::class, 'history']);
         Route::get('/attendance/stats', [AttendanceController::class, 'stats']);
+        Route::get('/attendance/export', [AttendanceController::class, 'exportReport']);
         
         // Leave routes
         Route::get('/leave-types', [LeaveController::class, 'types']);
