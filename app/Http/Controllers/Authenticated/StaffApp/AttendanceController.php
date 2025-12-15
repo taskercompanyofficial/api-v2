@@ -110,7 +110,6 @@ class AttendanceController extends Controller
                 'notes' => $request->notes,
             ]
         );
-Log::info($attendance);
         return response()->json([
             'status' => 'success',
             'message' => 'Checked in successfully',
