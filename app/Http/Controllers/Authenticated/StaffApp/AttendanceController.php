@@ -7,7 +7,7 @@ use App\Models\Attendance;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
@@ -110,7 +110,7 @@ class AttendanceController extends Controller
                 'notes' => $request->notes,
             ]
         );
-
+Log::info($attendance);
         return response()->json([
             'status' => 'success',
             'message' => 'Checked in successfully',
@@ -215,6 +215,7 @@ class AttendanceController extends Controller
 
         $data = $attendances->map(function ($attendance) {
             return [
+                'id' => $attendance->id,
                 'date' => $attendance->date,
                 'dayName' => Carbon::parse($attendance->date)->format('l'),
                 'checkInTime' => $attendance->check_in_time?->format('H:i'),
@@ -233,6 +234,51 @@ class AttendanceController extends Controller
                 'last_page' => $attendances->lastPage(),
                 'per_page' => $attendances->perPage(),
                 'total' => $attendances->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get single attendance record details
+     */
+    public function show($id)
+    {
+        $staff = Auth::user();
+        
+        $attendance = Attendance::where('staff_id', $staff->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$attendance) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Attendance record not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $attendance->id,
+                'date' => $attendance->date,
+                'dayName' => Carbon::parse($attendance->date)->format('l'),
+                'checkInTime' => $attendance->check_in_time?->toISOString(),
+                'checkOutTime' => $attendance->check_out_time?->toISOString(),
+                'checkInTimeFormatted' => $attendance->check_in_time?->format('h:i A'),
+                'checkOutTimeFormatted' => $attendance->check_out_time?->format('h:i A'),
+                'workingHours' => $attendance->working_hours ?? 0,
+                'breakTime' => $attendance->break_time ?? 0,
+                'status' => $attendance->status,
+                'checkInStatus' => $this->getCheckInStatus($attendance->check_in_time),
+                'checkInPhoto' => $attendance->check_in_photo,
+                'checkOutPhoto' => $attendance->check_out_photo,
+                'checkInLatitude' => $attendance->check_in_latitude,
+                'checkInLongitude' => $attendance->check_in_longitude,
+                'checkInLocation' => $attendance->check_in_location,
+                'checkOutLatitude' => $attendance->check_out_latitude,
+                'checkOutLongitude' => $attendance->check_out_longitude,
+                'checkOutLocation' => $attendance->check_out_location,
+                'notes' => $attendance->notes,
             ],
         ]);
     }

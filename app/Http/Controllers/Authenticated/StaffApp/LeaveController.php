@@ -210,6 +210,7 @@ class LeaveController extends Controller
             'total_days' => $totalDays,
             'reason' => $request->reason,
             'status' => 'pending',
+            'applied_at' => now(),
             'attachments' => $request->attachments,
         ]);
 

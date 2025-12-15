@@ -183,8 +183,32 @@ class AuthenticatedSessionController extends Controller
     {
         $user = $request->user();
         $user = Staff::with('designation:id,name')->find($user->id);
+        
+        // Check if profile is complete
+        $requiredFields = [
+            'cnic',
+            'dob',
+            'gender',
+            'permanent_address',
+            'city',
+            'state',
+            'postal_code',
+            'profile_picture',
+            'cnic_front_image',
+            'cnic_back_image',
+        ];
+
+        $isProfileComplete = true;
+        foreach ($requiredFields as $field) {
+            if (empty($user->$field)) {
+                $isProfileComplete = false;
+                break;
+            }
+        }
+
         return response()->json([
             'user' => $user,
+            'is_profile_complete' => $isProfileComplete,
         ], 200);
     }
     public function signOut(Request $request)

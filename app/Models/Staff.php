@@ -25,7 +25,6 @@ class Staff extends Model
         'gender',
         'email',
         'phone',
-        'profile_picture',
         'profile_image',
         'cnic_front_image',
         'cnic_back_image',

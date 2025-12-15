@@ -18,6 +18,7 @@ class LeaveBalance extends Model
     ];
 
     protected $casts = [
+        
         'year' => 'integer',
         'total_days' => 'decimal:2',
         'used_days' => 'decimal:2',

@@ -10,42 +10,40 @@ class Notification extends Model
     use HasFactory;
 
     protected $fillable = [
-        'customer_id',
+        'user_id',
+        'user_type',
         'title',
         'message',
         'type',
-        'order_id',
+        'data',
         'read',
         'read_at',
     ];
 
     protected $casts = [
         'read' => 'boolean',
+        'data' => 'array',
         'read_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
-    // Relationships
-    public function customer()
+    // Polymorphic relationship to user (Staff, Customer, etc.)
+    public function user()
     {
-        return $this->belongsTo(Customer::class);
-    }
-
-    public function order()
-    {
-        return $this->belongsTo(Order::class);
+        return $this->morphTo();
     }
 
     // Helper method to create notification
-    public static function createNotification($customerId, $title, $message, $type = 'system', $orderId = null)
+    public static function createNotification($userId, $userType, $title, $message, $type = 'system', $data = null)
     {
         return self::create([
-            'customer_id' => $customerId,
+            'user_id' => $userId,
+            'user_type' => $userType,
             'title' => $title,
             'message' => $message,
             'type' => $type,
-            'order_id' => $orderId,
+            'data' => $data,
         ]);
     }
 

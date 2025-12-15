@@ -22,6 +22,7 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::get('/attendance/history', [AttendanceController::class, 'history']);
         Route::get('/attendance/stats', [AttendanceController::class, 'stats']);
         Route::get('/attendance/export', [AttendanceController::class, 'exportReport']);
+        Route::get('/attendance/{id}', [AttendanceController::class, 'show']);
         
         // Leave routes
         Route::get('/leave-types', [LeaveController::class, 'types']);
@@ -32,5 +33,15 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::put('/leaves/{id}/cancel', [LeaveController::class, 'cancel']);
         Route::put('/leaves/{id}/approve', [LeaveController::class, 'approve']);
         Route::put('/leaves/{id}/reject', [LeaveController::class, 'reject']);
+        
+        // Notification routes
+        Route::get('/notifications', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'unreadCount']);
+        Route::put('/notifications/{id}/read', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'markAsRead']);
+        Route::put('/notifications/mark-all-read', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'markAllAsRead']);
+        
+        // Profile routes
+        Route::get('/profile/status', [App\Http\Controllers\Authenticated\StaffApp\StaffProfileController::class, 'getProfileStatus']);
+        Route::put('/profile/complete', [App\Http\Controllers\Authenticated\StaffApp\StaffProfileController::class, 'completeProfile']);
     });
 });
