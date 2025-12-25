@@ -12,6 +12,11 @@ class WhatsAppTemplate extends Model
     use HasFactory, SoftDeletes;
 
     /**
+     * The table associated with the model.
+     */
+    protected $table = 'whatsapp_templates';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>

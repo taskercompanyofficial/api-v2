@@ -13,6 +13,11 @@ class WhatsAppContact extends Model
     use HasFactory, SoftDeletes;
 
     /**
+     * The table associated with the model.
+     */
+    protected $table = 'whatsapp_contacts';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
