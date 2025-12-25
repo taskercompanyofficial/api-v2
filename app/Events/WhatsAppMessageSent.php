@@ -15,16 +15,14 @@ class WhatsAppMessageSent implements ShouldBroadcastNow
 
     public $message;
     public $conversationId;
-    public $userId;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(WhatsAppMessage $message, ?int $userId = null)
+    public function __construct(WhatsAppMessage $message)
     {
         $this->message = $message->load(['conversation.contact']);
         $this->conversationId = $message->whatsapp_conversation_id;
-        $this->userId = $userId;
     }
 
     /**
@@ -32,16 +30,10 @@ class WhatsAppMessageSent implements ShouldBroadcastNow
      */
     public function broadcastOn(): array
     {
-        $channels = [
-            new PrivateChannel('conversation.' . $this->conversationId),
+        // Broadcast to all authenticated users
+        return [
+            new PrivateChannel('whatsapp-messages'),
         ];
-
-        // Also broadcast to user's private channel if assigned
-        if ($this->userId) {
-            $channels[] = new PrivateChannel('user.' . $this->userId);
-        }
-
-        return $channels;
     }
 
     /**

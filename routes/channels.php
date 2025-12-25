@@ -7,16 +7,7 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
-// User private channel (alternative format)
-Broadcast::channel('user.{id}', function ($user, $id) {
-    return (int) $user->id === (int) $id;
-});
-
-// Conversation private channel
-Broadcast::channel('conversation.{conversationId}', function ($user, $conversationId) {
-    $conversation = \App\Models\WhatsAppConversation::find($conversationId);
-    if (!$conversation) {
-        return false;
-    }
-    return true;
+// WhatsApp messages channel - all authenticated users can access
+Broadcast::channel('whatsapp-messages', function ($user) {
+    return true; // Allow all authenticated users
 });

@@ -63,9 +63,8 @@ class WhatsAppMessageService
             $conversation->updateLastMessageTime();
             $conversation->contact->updateLastInteraction();
 
-            // Broadcast event
-            $userId = $conversation->assigned_to;
-            broadcast(new WhatsAppMessageSent($whatsappMessage->fresh(), $userId));
+            // Broadcast event to all users
+            broadcast(new WhatsAppMessageSent($whatsappMessage->fresh()));
         } else {
             $whatsappMessage->markAsFailed('Failed to send message via WhatsApp API');
         }
@@ -359,9 +358,8 @@ class WhatsAppMessageService
 
             DB::commit();
 
-            // Broadcast event
-            $userId = $conversation->assigned_to;
-            broadcast(new WhatsAppMessageReceived($message, $userId));
+            // Broadcast event to all users
+            broadcast(new WhatsAppMessageReceived($message));
 
             Log::info('Incoming WhatsApp message processed', [
                 'message_id' => $messageId,
