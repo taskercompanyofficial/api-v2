@@ -53,7 +53,7 @@ class WhatsAppContact extends Model
      */
     public function conversations(): HasMany
     {
-        return $this->hasMany(WhatsAppConversation::class);
+        return $this->hasMany(WhatsAppConversation::class, 'whatsapp_contact_id');
     }
 
     /**

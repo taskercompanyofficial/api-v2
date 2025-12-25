@@ -71,7 +71,7 @@ class WhatsAppConversation extends Model
      */
     public function messages(): HasMany
     {
-        return $this->hasMany(WhatsAppMessage::class);
+        return $this->hasMany(WhatsAppMessage::class, 'whatsapp_conversation_id');
     }
 
     /**
@@ -79,7 +79,7 @@ class WhatsAppConversation extends Model
      */
     public function latestMessage()
     {
-        return $this->hasOne(WhatsAppMessage::class)->latestOfMany();
+        return $this->hasOne(WhatsAppMessage::class, 'whatsapp_conversation_id')->latestOfMany();
     }
 
     /**
