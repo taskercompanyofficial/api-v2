@@ -14,7 +14,9 @@ Route::group(['middleware' => ['guest']], function () {
 });
 
 
+
 include_once __DIR__ . '/api/crm/all-routes.php';
 include_once __DIR__ . '/api/website/all-routes.php';
 include_once __DIR__ . '/api/staff-app/all-routes.php';
 include_once __DIR__ . '/api/tasker-app/all-routes.php';
+include_once __DIR__ . '/api/webhook.php';

@@ -61,5 +61,34 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/vehicle-assignments', VehicleAssignmentController::class);
         Route::apiResource('/vehicle-usage-logs', VehicleUsageLogController::class);
         Route::apiResource('/audit-logs', AuditLogController::class);
+        
+        // WhatsApp Routes
+        Route::prefix('whatsapp')->group(function () {
+            Route::get('/conversations', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'index']);
+            Route::get('/conversations/{id}', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'show']);
+            Route::post('/send-message', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'sendMessage']);
+            Route::post('/send-media', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'sendMediaMessage']);
+            Route::post('/send-template', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'sendTemplate']);
+            Route::post('/mark-as-read', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'markAsRead']);
+            Route::get('/templates', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'getTemplates']);
+            Route::post('/templates/sync', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'syncTemplates']);
+            Route::get('/contacts', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'getContacts']);
+            Route::put('/contacts/{id}/opt-in', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateContactOptIn']);
+            Route::put('/conversations/{id}/status', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateConversationStatus']);
+            Route::put('/conversations/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'assignConversation']);
+        });
+
+        // API Tokens Management
+        Route::apiResource('/api-tokens', \App\Http\Controllers\Authenticated\CRM\ApiTokenController::class);
+        Route::post('/api-tokens/{id}/activate', [\App\Http\Controllers\Authenticated\CRM\ApiTokenController::class, 'activate']);
+        Route::post('/api-tokens/{id}/deactivate', [\App\Http\Controllers\Authenticated\CRM\ApiTokenController::class, 'deactivate']);
+
+        // Business Phone Numbers Management
+        Route::apiResource('/business-phone-numbers', \App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class);
+        Route::post('/business-phone-numbers/{id}/verify', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'verify']);
+        Route::post('/business-phone-numbers/{id}/set-default', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'setDefault']);
+        Route::post('/business-phone-numbers/{id}/activate', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'activate']);
+        Route::post('/business-phone-numbers/{id}/deactivate', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'deactivate']);
+        Route::post('/business-phone-numbers/{id}/suspend', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'suspend']);
     });
 });
