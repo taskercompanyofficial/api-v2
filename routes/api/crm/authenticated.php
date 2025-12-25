@@ -90,5 +90,13 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/business-phone-numbers/{id}/activate', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'activate']);
         Route::post('/business-phone-numbers/{id}/deactivate', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'deactivate']);
         Route::post('/business-phone-numbers/{id}/suspend', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'suspend']);
+
+        // Application Logs Management
+        Route::get('/logs', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'index']);
+        Route::get('/logs/statistics', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'statistics']);
+        Route::get('/logs/request/{requestId}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'byRequestId']);
+        Route::get('/logs/{id}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'show']);
+        Route::delete('/logs/{id}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'destroy']);
+        Route::post('/logs/cleanup', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'cleanup']);
     });
 });

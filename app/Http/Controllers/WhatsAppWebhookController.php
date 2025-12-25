@@ -37,27 +37,17 @@ class WhatsAppWebhookController extends Controller
                 'request_id' => $requestId,
                 'challenge' => $challenge,
             ]);
-            
-            // Return JSON response with success status
-            return response()->json([
-                'status' => 'SUCCESS',
-                'message' => 'Webhook verification successful. Challenge: ' . $challenge,
-                'request_id' => $requestId,
-                'challenge' => $challenge,
-            ], 200);
+           return response($challenge, 200)
+                ->header('Content-Type', 'text/plain');
         }
 
-        // If verification fails
         Log::error('WhatsApp webhook verification failed', [
             'request_id' => $requestId,
             'params' => $request->all(),
         ]);
 
-        return response()->json([
-            'status' => 'ERROR',
-            'message' => 'Webhook verification failed. Invalid verify token.',
-            'request_id' => $requestId,
-        ], 403);
+        return response('Forbidden', 403)
+            ->header('Content-Type', 'text/plain');
     }
 
     /**
