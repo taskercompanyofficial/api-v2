@@ -35,7 +35,7 @@ class WhatsAppWebhookService
         Log::warning('WhatsApp webhook verification failed', [
             'mode' => $mode,
             'token_match' => $token === $verifyToken,
-        ]);
+        ]); 
 
         return null;
     }
