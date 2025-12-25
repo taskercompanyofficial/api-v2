@@ -3,6 +3,7 @@
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\FilesController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
@@ -11,7 +12,7 @@ Route::get('/user', function (Request $request) {
 
 // Broadcasting authentication route for Reverb
 Route::post('/broadcasting/auth', function (Request $request) {
-    return response()->json(['message' => 'Authenticated']);
+    Broadcast::auth($request);
 })->middleware('auth:sanctum');
 
 Route::group(['middleware' => ['guest']], function () {
