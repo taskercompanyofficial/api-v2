@@ -23,6 +23,10 @@ class Attendance extends Model
         'break_time',
         'status',
         'notes',
+        'late_reason',
+        'early_leave_reason',
+        'is_manual_checkin',
+        'is_manual_checkout',
     ];
 
     protected $casts = [
@@ -34,6 +38,8 @@ class Attendance extends Model
         'check_in_longitude' => 'decimal:8',
         'check_out_latitude' => 'decimal:8',
         'check_out_longitude' => 'decimal:8',
+        'is_manual_checkin' => 'boolean',
+        'is_manual_checkout' => 'boolean',
     ];
 
     public function staff()

@@ -45,6 +45,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
         Route::apiResource('/roles', RoleController::class);
+        Route::get('/attendances/statistics', [AttendanceController::class, 'statistics']);
         Route::apiResource('/attendances', AttendanceController::class);
         Route::apiResource('/routes', RouteController::class);
         Route::apiResource('/customers', CustomerController::class);
