@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Events\WhatsAppMessageReceived;
+use App\Events\WhatsAppMessageSent;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
@@ -60,6 +62,10 @@ class WhatsAppMessageService
             // Update conversation
             $conversation->updateLastMessageTime();
             $conversation->contact->updateLastInteraction();
+
+            // Broadcast event
+            $userId = $conversation->assigned_to;
+            broadcast(new WhatsAppMessageSent($whatsappMessage->fresh(), $userId));
         } else {
             $whatsappMessage->markAsFailed('Failed to send message via WhatsApp API');
         }
@@ -352,6 +358,10 @@ class WhatsAppMessageService
             $contact->updateLastInteraction();
 
             DB::commit();
+
+            // Broadcast event
+            $userId = $conversation->assigned_to;
+            broadcast(new WhatsAppMessageReceived($message, $userId));
 
             Log::info('Incoming WhatsApp message processed', [
                 'message_id' => $messageId,

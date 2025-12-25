@@ -60,7 +60,10 @@ class WhatsAppController extends Controller
 
         $conversations = $query->paginate($request->get('per_page', 15));
 
-        return response()->json($conversations);
+        return response()->json([
+            'success' => true,
+            'data' => $conversations,
+        ]);
     }
 
     /**
@@ -78,7 +81,10 @@ class WhatsAppController extends Controller
             'messages.sender',
         ])->findOrFail($id);
 
-        return response()->json($conversation);
+        return response()->json([
+            'success' => true,
+            'data' => $conversation,
+        ]);
     }
 
     /**

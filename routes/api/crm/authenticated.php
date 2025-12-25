@@ -26,6 +26,8 @@ use App\Http\Controllers\Authenticated\CRM\VehicleAssignmentController;
 use App\Http\Controllers\Authenticated\CRM\VehicleUsageLogController;
 use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
+use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
+use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RouteController;
 use Illuminate\Support\Facades\Route;
@@ -92,11 +94,11 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/business-phone-numbers/{id}/suspend', [\App\Http\Controllers\Authenticated\CRM\BusinessPhoneNumberController::class, 'suspend']);
 
         // Application Logs Management
-        Route::get('/logs', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'index']);
-        Route::get('/logs/statistics', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'statistics']);
-        Route::get('/logs/request/{requestId}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'byRequestId']);
-        Route::get('/logs/{id}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'show']);
-        Route::delete('/logs/{id}', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'destroy']);
-        Route::post('/logs/cleanup', [\App\Http\Controllers\Authenticated\CRM\ApplicationLogController::class, 'cleanup']);
+        Route::get('/logs', [ApplicationLogController::class, 'index']);
+        Route::get('/logs/statistics', [ApplicationLogController::class, 'statistics']);
+        Route::get('/logs/{id}', [ApplicationLogController::class, 'show']);
+
+        // Test Broadcast (for development)
+        Route::post('/test-broadcast', [TestBroadcastController::class, 'testMessageBroadcast']);
     });
 });
