@@ -8,6 +8,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// Broadcasting authentication route for Reverb
+Route::post('/broadcasting/auth', function (Request $request) {
+    return response()->json(['message' => 'Authenticated']);
+})->middleware('auth:sanctum');
+
 Route::group(['middleware' => ['guest']], function () {
     Route::apiResource('crm/appearance', AppearanceController::class);
     Route::apiResource('/files', FilesController::class);
