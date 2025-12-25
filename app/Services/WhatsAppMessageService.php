@@ -244,17 +244,28 @@ class WhatsAppMessageService
             $from = $messageData['from'] ?? null;
             $messageId = $messageData['id'] ?? null;
             $timestamp = $messageData['timestamp'] ?? null;
+            $contactProfile = $messageData['contact_profile'] ?? null;
+            $metadata = $messageData['metadata'] ?? null;
 
             if (!$from || !$messageId) {
                 Log::error('Invalid incoming message data', ['data' => $messageData]);
                 return null;
             }
 
+            // Extract contact name from profile
+            $contactName = $contactProfile['profile']['name'] ?? null;
+            $waId = $contactProfile['wa_id'] ?? $from;
+
             // Get or create contact
             $contact = WhatsAppContact::firstOrCreate(
                 ['phone_number' => $from],
-                ['whatsapp_name' => $messageData['profile']['name'] ?? null]
+                ['whatsapp_name' => $contactName]
             );
+
+            // Update contact name if it changed
+            if ($contactName && $contact->whatsapp_name !== $contactName) {
+                $contact->update(['whatsapp_name' => $contactName]);
+            }
 
             // Get or create active conversation
             $conversation = $contact->activeConversation();
@@ -281,6 +292,7 @@ class WhatsAppMessageService
                     $media = [
                         'id' => $messageData['image']['id'] ?? null,
                         'mime_type' => $messageData['image']['mime_type'] ?? null,
+                        'sha256' => $messageData['image']['sha256'] ?? null,
                         'type' => 'image',
                     ];
                     break;
@@ -290,6 +302,7 @@ class WhatsAppMessageService
                         'id' => $messageData['document']['id'] ?? null,
                         'filename' => $messageData['document']['filename'] ?? null,
                         'mime_type' => $messageData['document']['mime_type'] ?? null,
+                        'sha256' => $messageData['document']['sha256'] ?? null,
                         'type' => 'document',
                     ];
                     break;
@@ -298,6 +311,7 @@ class WhatsAppMessageService
                     $media = [
                         'id' => $messageData['video']['id'] ?? null,
                         'mime_type' => $messageData['video']['mime_type'] ?? null,
+                        'sha256' => $messageData['video']['sha256'] ?? null,
                         'type' => 'video',
                     ];
                     break;
@@ -305,7 +319,18 @@ class WhatsAppMessageService
                     $media = [
                         'id' => $messageData['audio']['id'] ?? null,
                         'mime_type' => $messageData['audio']['mime_type'] ?? null,
+                        'sha256' => $messageData['audio']['sha256'] ?? null,
+                        'voice' => $messageData['audio']['voice'] ?? false,
                         'type' => 'audio',
+                    ];
+                    break;
+                case 'location':
+                    $media = [
+                        'latitude' => $messageData['location']['latitude'] ?? null,
+                        'longitude' => $messageData['location']['longitude'] ?? null,
+                        'name' => $messageData['location']['name'] ?? null,
+                        'address' => $messageData['location']['address'] ?? null,
+                        'type' => 'location',
                     ];
                     break;
             }
@@ -332,6 +357,7 @@ class WhatsAppMessageService
                 'message_id' => $messageId,
                 'from' => $from,
                 'type' => $type,
+                'contact_name' => $contactName,
             ]);
 
             return $message;
@@ -339,6 +365,7 @@ class WhatsAppMessageService
             DB::rollBack();
             Log::error('Failed to process incoming message', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'data' => $messageData,
             ]);
             return null;

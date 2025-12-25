@@ -83,14 +83,28 @@ class WhatsAppWebhookService
      * Process incoming messages from webhook.
      *
      * @param array $messages
-     * @param array $metadata
+     * @param array $value The complete value object containing messages, contacts, and metadata
      * @return void
      */
-    protected function processMessages(array $messages, array $metadata): void
+    protected function processMessages(array $messages, array $value): void
     {
+        // Extract metadata
+        $metadata = $value['metadata'] ?? [];
+        $contacts = $value['contacts'] ?? [];
+        
         foreach ($messages as $messageData) {
-            // Add metadata to message data
-            $messageData['profile'] = $metadata['contacts'][0] ?? [];
+            // Find the contact profile for this message
+            $contactProfile = null;
+            foreach ($contacts as $contact) {
+                if (($contact['wa_id'] ?? null) === ($messageData['from'] ?? null)) {
+                    $contactProfile = $contact;
+                    break;
+                }
+            }
+            
+            // Add contact profile and metadata to message data
+            $messageData['contact_profile'] = $contactProfile;
+            $messageData['metadata'] = $metadata;
             
             $this->messageService->processIncomingMessage($messageData);
         }
