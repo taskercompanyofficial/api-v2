@@ -58,7 +58,10 @@ class ApplicationLogController extends Controller
 
         $logs = $query->paginate($request->get('per_page', 50));
 
-        return response()->json($logs);
+        return response()->json([
+            'status' => 'success',
+            'data' => $logs,
+        ]);
     }
 
     /**
