@@ -101,5 +101,8 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Test Broadcast (for development)
         Route::post('/test-broadcast', [TestBroadcastController::class, 'testMessageBroadcast']);
+
+        // Work Orders Management
+        Route::apiResource('/work-orders', \App\Http\Controllers\Authenticated\CRM\WorkOrderController::class);
     });
 });

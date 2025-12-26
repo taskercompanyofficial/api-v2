@@ -37,7 +37,7 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
-    public function veriyotp(Request $request)
+    public function verifyotp(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -165,7 +165,7 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         try {
-            $curlURL = env('WHATS_APP_GRAPHAPI_URL').'/'.env('WHATS_APP_PHONE_NUMBER_ID').'/messages';
+            $curlURL = env('WHATS_APP_GRAPHAPI_URL').'/'.env('WHATSAPP_API_VERSION').'/'.env('WHATS_APP_PHONE_NUMBER_ID').'/messages';
             $contactUsPhoneNumber = '+923041112717';
             $curlData = [
                 'messaging_product' => 'whatsapp',
