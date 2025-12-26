@@ -25,6 +25,7 @@ class CustomerController extends Controller
             $query = Customer::query()->with([
                 'createdBy:id,name',
                 'updatedBy:id,name',
+                ''
             ]);
 
             $this->applyJsonFilters($query, $request);
