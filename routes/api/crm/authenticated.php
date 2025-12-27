@@ -28,7 +28,9 @@ use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
 use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
 use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\RouteController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +47,8 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
         Route::apiResource('/roles', RoleController::class);
+        Route::apiResource('/permissions', PermissionController::class);
+        Route::post('/role-permissions/sync', [RolePermissionController::class, 'syncPermissions']);
         Route::get('/attendances/statistics', [AttendanceController::class, 'statistics']);
         Route::apiResource('/attendances', AttendanceController::class);
         Route::apiResource('/routes', RouteController::class);
