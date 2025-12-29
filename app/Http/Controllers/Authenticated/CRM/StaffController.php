@@ -109,8 +109,13 @@ class StaffController extends Controller
             'joining_date'=>'nullable|date',
             'status'=>'nullable|string|in:active,inactive,terminated,on_leave',
             'tags'=>'nullable|array',
+            'has_access_in_crm'=>'nullable|boolean|in:true,false',
+            'crm_login_email'=>'nullable|email|unique:staff,crm_login_email,'.$staff->id,
+            'password'=>'nullable|string',
         ]);
-
+        if(isset($validated['password'])){
+            $validated['crm_login_password'] = bcrypt($validated['password']);
+        }
         if(isset($validated['first_name']) || isset($validated['last_name'])){
             $fullName = ($validated['first_name'] ?? $staff->first_name).' '.($validated['middle_name'] ?? $staff->middle_name).' '.($validated['last_name'] ?? $staff->last_name);
             $newSlug = Str::slug(trim($fullName));
