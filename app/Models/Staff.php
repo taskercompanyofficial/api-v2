@@ -36,15 +36,20 @@ class Staff extends Model
         'joining_date',
         'status',
         'notes',
+        'has_access_in_crm',
+        'crm_login_email',
+        'crm_login_password',
         'created_by',
-        'updated_by'
+        'updated_by',
     ];
 
     protected $casts = [
         'dob' => 'date',
         'joining_date' => 'date',
     ];
-
+protected $hidden = [
+    'crm_login_password',
+];
     public function documents(): HasMany
     {
         return $this->hasMany(StaffDocument::class);

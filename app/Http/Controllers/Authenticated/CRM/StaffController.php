@@ -46,11 +46,16 @@ class StaffController extends Controller
             'designation'=>'nullable|string',
             'joining_date'=>'nullable|date',
             'notes'=>'nullable|string',
+            'has_access_in_crm'=>'nullable|boolean|in:true,false',
+            'crm_login_email'=>'nullable|email|unique:staff,crm_login_email',
+            'password'=>'nullable|string',
         ]);
 
         $fullName = $validated['first_name'].' '.($validated['middle_name'] ?? '').' '.$validated['last_name'];
         $slug = Str::slug(trim($fullName));
         $original = $slug; $i=1;
+        // hash the password
+        $validated['crm_login_password'] = bcrypt($validated['password']);
         while(Staff::where('slug',$slug)->exists()){ $slug=$original.'-'.$i; $i++; }
         $code = 'STF-'.date('Y').'-'.Str::upper(Str::random(6));
         $user = $request->user();
@@ -58,6 +63,7 @@ class StaffController extends Controller
         $staff = Staff::create([
             ...$validated,
             'slug'=>$slug,
+            'original_slug'=>$original,
             'code'=>$code,
             'created_by'=>$user->id,
             'updated_by'=>$user->id,

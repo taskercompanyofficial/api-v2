@@ -32,6 +32,9 @@ return new class extends Migration {
             $table->date('joining_date')->nullable();
             $table->string('status')->default('active');
             $table->text('notes')->nullable();
+            $table->boolean('has_access_in_crm')->default(false);
+            $table->string('crm_login_email')->nullable();
+            $table->string('crm_login_password')->nullable();
             $table->timestamps();
             $table->softDeletes();
             $table->index(['status','designation']);
