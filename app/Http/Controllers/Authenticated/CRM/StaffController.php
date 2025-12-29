@@ -55,7 +55,9 @@ class StaffController extends Controller
         $slug = Str::slug(trim($fullName));
         $original = $slug; $i=1;
         // hash the password
-        $validated['crm_login_password'] = bcrypt($validated['password']);
+        if(isset($validated['password'])){
+            $validated['crm_login_password'] = bcrypt($validated['password']);
+        }
         while(Staff::where('slug',$slug)->exists()){ $slug=$original.'-'.$i; $i++; }
         $code = 'STF-'.date('Y').'-'.Str::upper(Str::random(6));
         $user = $request->user();
