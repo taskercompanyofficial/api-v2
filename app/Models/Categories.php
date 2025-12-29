@@ -23,13 +23,13 @@ class Categories extends Model
         'images' => 'array',
         'tags' => 'array',
     ];
-    public function createdBy(): BelongsTo
+   public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
     public function services(): HasMany
     {

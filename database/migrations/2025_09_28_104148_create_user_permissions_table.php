@@ -13,15 +13,15 @@ return new class extends Migration
     {
         Schema::create('user_permissions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('staff_id')->constrained('staff')->onDelete('cascade');
             $table->foreignId('permission_id')->constrained('permissions')->onDelete('cascade');
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->boolean('status')->default(true);
             $table->timestamps();
             
             // A user can have multiple permissions, but each permission should be unique per user
-            $table->unique(['user_id', 'permission_id']);
+            $table->unique(['staff_id', 'permission_id']);
         });
     }
 

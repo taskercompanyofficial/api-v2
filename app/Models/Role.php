@@ -26,7 +26,7 @@ class Role extends Model
      */
     public function users(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(Staff::class);
     }
     /**
      * Get the user who created this role.
@@ -35,7 +35,7 @@ class Role extends Model
      */
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
     
     /**
@@ -45,7 +45,7 @@ class Role extends Model
      */
     public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
     
     

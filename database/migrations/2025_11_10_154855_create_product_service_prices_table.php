@@ -12,8 +12,8 @@ return new class extends Migration {
     {
         Schema::create('product_service_prices', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
             $table->foreignId('service_id')->constrained('services')->onDelete('cascade');
             $table->decimal('price', 10, 2);

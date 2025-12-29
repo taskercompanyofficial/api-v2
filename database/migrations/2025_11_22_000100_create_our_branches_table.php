@@ -34,8 +34,8 @@ return new class extends Migration {
 
             $table->index(['city', 'state', 'status']);
             $table->foreign('manager_id')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+    $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
         });
     }
 

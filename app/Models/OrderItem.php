@@ -65,7 +65,7 @@ class OrderItem extends Model
 
     public function technician(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_technician_id');
+        return $this->belongsTo(Staff::class, 'assigned_technician_id');
     }
 
     /**

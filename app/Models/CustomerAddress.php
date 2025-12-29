@@ -39,7 +39,7 @@ class CustomerAddress extends Model
      */
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
 
     /**
@@ -47,6 +47,6 @@ class CustomerAddress extends Model
      */
     public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
 }

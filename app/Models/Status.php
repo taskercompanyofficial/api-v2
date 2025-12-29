@@ -26,7 +26,7 @@ class Status extends Model
      */
     public function users(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(Staff::class);
     }
     
     /**
@@ -36,7 +36,7 @@ class Status extends Model
      */
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
     
     /**
@@ -46,7 +46,7 @@ class Status extends Model
      */
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
     
 }

@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('dealers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
 
             // Business Information
             $table->string('name'); // Shop/Business Name

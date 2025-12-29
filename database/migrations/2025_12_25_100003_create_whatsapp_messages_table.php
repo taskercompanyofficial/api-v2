@@ -24,7 +24,7 @@ return new class extends Migration
             $table->enum('status', ['pending', 'sent', 'delivered', 'read', 'failed'])->default('pending');
             $table->text('error_message')->nullable(); // Error details if failed
             $table->string('error_code')->nullable();
-            $table->foreignId('sent_by')->nullable()->constrained('users')->onDelete('set null'); // Staff who sent (for outbound)
+            $table->foreignId('sent_by')->nullable()->constrained('staff')->onDelete('set null'); // Staff who sent (for outbound)
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('delivered_at')->nullable();
             $table->timestamp('read_at')->nullable();

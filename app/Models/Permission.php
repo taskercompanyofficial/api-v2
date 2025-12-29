@@ -26,7 +26,7 @@ class Permission extends Model
      */
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_permissions')
+        return $this->belongsToMany(Staff::class, 'user_permissions')
             ->withPivot(['status', 'created_by', 'updated_by'])
             ->withTimestamps();
     }
@@ -38,7 +38,7 @@ class Permission extends Model
      */
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
     
     /**
@@ -48,7 +48,7 @@ class Permission extends Model
      */
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
     
     /**

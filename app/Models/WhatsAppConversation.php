@@ -63,7 +63,7 @@ class WhatsAppConversation extends Model
      */
     public function assignedStaff(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_to');
+        return $this->belongsTo(Staff::class, 'assigned_to');
     }
 
     /**

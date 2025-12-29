@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,12 +12,22 @@ class AuthenticatedSessionController extends Controller
     public function checkCredentials(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:staff,crm_login_email',
             'password' => 'required|min:8',
         ]);
 
 
-        if (Auth::attempt($request->only('email', 'password'))) {
+        if (Auth::attempt(['crm_login_email' => $request->email, 'password' => $request->password])) {
+            $staff = Auth::user();
+            
+            // Check if staff has CRM access
+            if (!$staff->has_access_in_crm) {
+                Auth::logout();
+                return response()->json([
+                    'message' => 'You do not have access to the CRM system.',
+                ], 403);
+            }
+            
             return response()->json([
                 'status' => 'success',
                 'message' => 'Logged in successfully',
@@ -36,8 +46,17 @@ class AuthenticatedSessionController extends Controller
         ]);
 
 
-        if (Auth::attempt($request->only('email', 'password'))) {
+        if (Auth::attempt(['crm_login_email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
+            
+            // Check if staff has CRM access
+            if (!$user->has_access_in_crm) {
+                Auth::logout();
+                return response()->json([
+                    'message' => 'You do not have access to the CRM system.',
+                ], 403);
+            }
+            
             $oldToken = $user->tokens()->where('name', 'auth_token')->first();
             if ($oldToken) {
                 $oldToken->delete();
@@ -57,14 +76,14 @@ class AuthenticatedSessionController extends Controller
     }
     public function me(Request $request)
     {
-        $user = $request->user();
-        $user = User::with(['role', 'status'])->find($user->id);
+        $staff = $request->user();
+        $staff = Staff::with(['role', 'status'])->find($staff->id);
 
         // Get permissions separately to avoid the addEagerConstraints error
-        $permissions = $user->getAllPermissions();
+        $permissions = $staff->getAllPermissions();
 
         // Get permitted routes for the sidebar navigation
-        $routes = $user->getPermittedRoutes();
+        $routes = $staff->getPermittedRoutes();
 
         // Format permissions for frontend use
         $formattedPermissions = $permissions->map(function ($permission) {
@@ -89,7 +108,7 @@ class AuthenticatedSessionController extends Controller
         });
 
         return response()->json([
-            'user' => $user,
+            'user' => $staff,
             'permissions' => $formattedPermissions,
             'routes' => $routes
         ], 200);

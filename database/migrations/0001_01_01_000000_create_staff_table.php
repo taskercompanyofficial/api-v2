@@ -9,8 +9,8 @@ return new class extends Migration {
     {
         Schema::create('staff', function (Blueprint $table) {
             $table->id();
-             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+          $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->string('code')->unique();
             $table->string('slug')->unique();
             $table->string('first_name');
@@ -28,9 +28,9 @@ return new class extends Migration {
             $table->string('city')->nullable();
             $table->string('state')->nullable();
             $table->string('postal_code')->nullable();
-            $table->foreignId('designation')->nullable()->constrained('roles')->onDelete('set null');
             $table->date('joining_date')->nullable();
-            $table->string('status')->default('active');
+            $table->unsignedBigInteger('role_id')->nullable();
+            $table->unsignedBigInteger('status_id')->nullable();
             $table->text('notes')->nullable();
             $table->boolean('has_access_in_crm')->default(false);
             $table->string('crm_login_email')->nullable();

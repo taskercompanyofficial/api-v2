@@ -67,7 +67,7 @@ class WhatsAppMessage extends Model
      */
     public function sender(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'sent_by');
+        return $this->belongsTo(Staff::class, 'sent_by');
     }
 
     /**

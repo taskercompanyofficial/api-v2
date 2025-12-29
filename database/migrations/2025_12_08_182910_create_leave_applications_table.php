@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->text('reason');
             $table->enum('status', ['pending', 'approved', 'rejected', 'cancelled'])->default('pending');
             $table->timestamp('applied_at')->useCurrent();
-            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('approved_by')->nullable()->constrained('staff')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->json('attachments')->nullable(); // For medical certificates, etc.

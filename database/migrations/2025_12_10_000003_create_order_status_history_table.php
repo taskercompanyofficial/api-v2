@@ -26,7 +26,7 @@ return new class extends Migration
             $table->json('metadata')->nullable(); // Additional data like reason, etc.
             
             // Who made the change
-            $table->foreignId('changed_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('changed_by')->nullable()->constrained('staff')->onDelete('set null');
             
             $table->timestamps();
             

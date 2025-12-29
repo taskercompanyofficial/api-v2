@@ -43,7 +43,7 @@ return new class extends Migration
             ])->default('pending');
             
             // Technician assignment
-            $table->foreignId('assigned_technician_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('assigned_technician_id')->nullable()->constrained('staff')->onDelete('set null');
             $table->timestamp('assigned_at')->nullable();
             
             // Service completion

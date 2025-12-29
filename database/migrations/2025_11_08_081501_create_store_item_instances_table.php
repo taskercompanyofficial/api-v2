@@ -13,10 +13,10 @@ return new class extends Migration {
         Schema::create('store_item_instances', function (Blueprint $table) {
             $table->id();
             $table->string('item_instance_id')->unique();
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->string('complaint_number')->nullable()->constrained('complaints')->onDelete('set null');
-            $table->foreignId('assigned_to')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('assigned_to')->nullable()->constrained('staff')->onDelete('set null');
             $table->foreignId('store_item_id')->nullable()->constrained('store_items')->onDelete('set null');
             $table->string('barcode');
             $table->string('description')->nullable();

@@ -21,8 +21,8 @@ return new class extends Migration
             $table->string('order')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('routes')->onDelete('set null');
             $table->foreignId('permission_id')->nullable()->constrained('permissions')->onDelete('set null');
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->boolean('status')->default(true);
             $table->timestamps();
         });

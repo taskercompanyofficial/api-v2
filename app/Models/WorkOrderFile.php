@@ -31,7 +31,7 @@ class WorkOrderFile extends Model
 
     public function uploadedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by_id');
+        return $this->belongsTo(Staff::class, 'uploaded_by_id');
     }
 
     // Helper Methods

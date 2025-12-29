@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('customer_addresses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('created_by')->nullable()->constrained('staff')->onDelete('set null');
+            $table->foreignId('updated_by')->nullable()->constrained('staff')->onDelete('set null');
             $table->foreignId('customer_id')->constrained()->onDelete('cascade');
             $table->enum('address_type', ['home', 'office', 'other'])->nullable()  ->default('home');
             $table->enum('area_type', ['residential', 'commercial', 'industrial', 'other'])->nullable()  ->default('residential');

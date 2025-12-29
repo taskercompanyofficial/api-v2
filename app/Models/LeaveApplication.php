@@ -53,7 +53,7 @@ class LeaveApplication extends Model
      */
     public function approver(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(Staff::class, 'approved_by');
     }
 
     /**

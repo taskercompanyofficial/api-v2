@@ -72,17 +72,17 @@ class Dealer extends Model
     /**
      * Get the user who created this dealer.
      */
-    public function createdBy(): BelongsTo
+    public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(Staff::class, 'created_by');
     }
 
     /**
-     * Get the user who last updated this dealer.
+     * Get the user who last updated the address.
      */
-    public function updatedBy(): BelongsTo
+    public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(Staff::class, 'updated_by');
     }
 
     /**

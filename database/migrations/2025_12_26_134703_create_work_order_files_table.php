@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('mime_type', 100)->nullable();
             
             // Upload Info (Optional)
-            $table->foreignId('uploaded_by_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('uploaded_by_id')->nullable()->constrained('staff')->onDelete('set null');
             $table->datetime('uploaded_at')->nullable();
             $table->text('notes')->nullable();
             
