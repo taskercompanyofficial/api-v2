@@ -49,21 +49,34 @@ trait QueryFilterTrait
      */
     public function applyJsonFilters($query, $request): void
     {
-        $filters = json_decode($request->input('filters'), true);
+        $filtersInput = $request->input('filters');
+        
+        // Handle both JSON string and array
+        if (is_string($filtersInput)) {
+            $filters = json_decode($filtersInput, true);
+        } elseif (is_array($filtersInput)) {
+            $filters = $filtersInput;
+        } else {
+            return;
+        }
 
-        if (!$filters) {
+        if (!$filters || !is_array($filters)) {
             return;
         }
 
         foreach ($filters as $filter) {
-            if (!isset($filter['id'], $filter['operator'], $filter['value'])) {
+            // Skip if filter doesn't have required fields
+            if (!isset($filter['id']) || !isset($filter['value'])) {
                 continue;
             }
+            
+            // Default operator to '=' if not provided
+            $operator = $filter['operator'] ?? '=';
 
             $this->applyFilter(
                 $query,
                 $filter['id'],
-                $filter['operator'],
+                $operator,
                 $filter['value']
             );
         }
