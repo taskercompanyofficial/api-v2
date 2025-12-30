@@ -167,7 +167,7 @@ class WorkOrderController extends Controller
             'category',
             'service',
             'parentService',
-            'product',
+            'product',  
             'status',
             'subStatus',
             'assignedTo',
@@ -198,19 +198,21 @@ class WorkOrderController extends Controller
 
         // No validation needed - status updates handled separately
         
-        // Update work order with all editable fields
-        $workOrder->update($request->only([
+        // Get the data and transform empty arrays to null for foreign keys
+        $data = $request->only([
             // Work Order Details
             'brand_complaint_no',
             'priority',
             'reject_reason',
             'satisfation_code',
             'without_satisfaction_code_reason',
+            
             // Descriptions
             'customer_description',
             'defect_description',
             'technician_remarks',
             'service_description',
+            
             // Product Information
             'product_indoor_model',
             'product_outdoor_model',
@@ -226,25 +228,25 @@ class WorkOrderController extends Controller
             'service_id',
             'parent_service_id',
             'product_id',
-        ]));
+        ]);
+
+        // Transform empty arrays to null for foreign key fields
+        $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id'];
+        foreach ($foreignKeys as $key) {
+            if (isset($data[$key]) && (is_array($data[$key]) || $data[$key] === '' || $data[$key] === [])) {
+                $data[$key] = null;
+            }
+        }
+
+        // Update work order with transformed data
+        $workOrder->update($data);
 
         $workOrder->updated_by = auth()->id();
         $workOrder->save();
 
         return response()->json([
-            'success' => true,
+            'status' => "success",
             'message' => 'Work order updated successfully',
-            'data' => $workOrder->load([
-                'customer',
-                'address',
-                'brand',
-                'category',
-                'service',
-                'parentService',
-                'product',
-                'status',
-                'subStatus',
-            ]),
         ]);
     }
 
