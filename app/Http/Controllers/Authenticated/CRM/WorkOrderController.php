@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\QueryFilterTrait;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Validator;
 
 class WorkOrderController extends Controller
 {
+    use QueryFilterTrait;
+
     /**
      * List work orders with filters
      */
@@ -34,36 +37,18 @@ class WorkOrderController extends Controller
             'updatedBy:id,name',
         ]);
 
-        // Filters
-        if ($request->has('customer_id')) {
-            $query->where('customer_id', $request->customer_id);
+        // Apply JSON filters from "filters" parameter
+        $this->applyJsonFilters($query, $request);
+
+        // Apply sorting
+        $this->applySorting($query, $request);
+
+        // Fallback to latest if no sorting specified
+        if (!$request->has('sort')) {
+            $query->latest();
         }
 
-        if ($request->has('status_id')) {
-            $query->where('status_id', $request->status_id);
-        }
-
-        if ($request->has('assigned_to_id')) {
-            $query->where('assigned_to_id', $request->assigned_to_id);
-        }
-
-        if ($request->has('is_warranty_case')) {
-            $query->where('is_warranty_case', $request->is_warranty_case);
-        }
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('work_order_number', 'like', "%{$search}%")
-                    ->orWhere('brand_complaint_no', 'like', "%{$search}%")
-                    ->orWhere('indoor_serial_number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        $workOrders = $query->latest()->paginate(20);
+        $workOrders = $query->paginate(20);
 
         return response()->json([
             'success' => true,
