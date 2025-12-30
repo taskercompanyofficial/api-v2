@@ -174,7 +174,7 @@ class WorkOrder extends Model
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(Category::class, 'category_id');
+        return $this->belongsTo(Categories::class, 'category_id');
     }
 
     public function service(): BelongsTo
@@ -184,7 +184,7 @@ class WorkOrder extends Model
 
     public function parentService(): BelongsTo
     {
-        return $this->belongsTo(ParentService::class, 'parent_service_id');
+        return $this->belongsTo(ParentServices::class, 'parent_service_id');
     }
 
     public function product(): BelongsTo
