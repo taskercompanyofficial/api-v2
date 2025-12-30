@@ -118,6 +118,13 @@ class WorkOrderController extends Controller
 
         try {
             DB::beginTransaction();
+            
+            // Get the default status: Allocated - Just Launched
+            $allocatedStatus = \App\Models\WorkOrderStatus::where('slug', 'allocated')->first();
+            $justLaunchedSubStatus = \App\Models\WorkOrderStatus::where('slug', 'just-launched')
+                ->where('parent_id', $allocatedStatus?->id)
+                ->first();
+            
             // Create work order
             $workOrder = WorkOrder::create([
                 'work_order_number' => WorkOrder::generateNumber(),
@@ -128,6 +135,8 @@ class WorkOrderController extends Controller
                 'brand_complaint_no' => $request->brand_complaint_no,
                 'priority' => $request->priority,
                 'customer_description' => $request->customer_description,
+                'status_id' => $allocatedStatus?->id,
+                'sub_status_id' => $justLaunchedSubStatus?->id,
                 'created_by' => $user->id,
                 'updated_by' => $user->id,
             ]);
@@ -294,6 +303,17 @@ class WorkOrderController extends Controller
             'appointment_time' => $request->scheduled_time,
         ]);
 
+        // Update status to Dispatched - Technician Accepted if work order has an assigned technician
+        if ($workOrder->assigned_to_id) {
+            $dispatchedStatus = \App\Models\WorkOrderStatus::where('slug', 'dispatched')->first();
+            $technicianAcceptedSubStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accepted')
+                ->where('parent_id', $dispatchedStatus?->id)
+                ->first();
+            
+            $workOrder->status_id = $dispatchedStatus?->id;
+            $workOrder->sub_status_id = $technicianAcceptedSubStatus?->id;
+        }
+
         // Optionally add remarks to technician_remarks or a notes field
         if ($request->remarks) {
             $currentRemarks = $workOrder->technician_remarks ?? '';
@@ -357,10 +377,18 @@ class WorkOrderController extends Controller
             ], 422);
         }
 
-        // Update assignment
+        // Get the Dispatched - Assigned to Technician status
+        $dispatchedStatus = \App\Models\WorkOrderStatus::where('slug', 'dispatched')->first();
+        $assignedToTechnicianSubStatus = \App\Models\WorkOrderStatus::where('slug', 'assigned-to-technician')
+            ->where('parent_id', $dispatchedStatus?->id)
+            ->first();
+
+        // Update assignment and status
         $workOrder->update([
             'assigned_to_id' => $newAssignedId,
             'assigned_at' => now(),
+            'status_id' => $dispatchedStatus?->id,
+            'sub_status_id' => $assignedToTechnicianSubStatus?->id,
         ]);
 
         // Add notes to technician_remarks if provided
