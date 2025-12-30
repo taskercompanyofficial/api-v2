@@ -108,6 +108,8 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Work Orders Management
         Route::apiResource('/work-orders', \App\Http\Controllers\Authenticated\CRM\WorkOrderController::class);
+        Route::post('/work-orders/{id}/schedule', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'schedule']);
+        Route::post('/work-orders/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'assign']);
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
     });
 });

@@ -3,10 +3,6 @@
 namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\AuthorizedBrand;
-use App\Models\Customer;
-use App\Models\ParentServices;
-use App\Models\Status;
 use App\Models\WorkOrder;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -248,6 +244,292 @@ class WorkOrderController extends Controller
             'status' => "success",
             'message' => 'Work order updated successfully',
         ]);
+    }
+
+    /**
+     * Schedule work order appointment
+     */
+    public function schedule(Request $request, string $id): JsonResponse
+    {
+        $workOrder = WorkOrder::findOrFail($id);
+
+        // Prevent scheduling if completed or cancelled
+        if ($workOrder->completed_at || $workOrder->cancelled_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot schedule completed or cancelled work order',
+            ], 403);
+        }
+
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'scheduled_date' => 'required|date|after_or_equal:today',
+            'scheduled_time' => 'required|date_format:H:i',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Combine date and time for validation
+        $scheduledDateTime = $request->scheduled_date . ' ' . $request->scheduled_time;
+        $scheduledTimestamp = strtotime($scheduledDateTime);
+        
+        // Check if scheduled time is in the future
+        if ($scheduledTimestamp <= time()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Scheduled date and time must be in the future',
+            ], 422);
+        }
+
+        // Update appointment date and time
+        $workOrder->update([
+            'appointment_date' => $request->scheduled_date,
+            'appointment_time' => $request->scheduled_time,
+        ]);
+
+        // Optionally add remarks to technician_remarks or a notes field
+        if ($request->remarks) {
+            $currentRemarks = $workOrder->technician_remarks ?? '';
+            $newRemarks = $currentRemarks 
+                ? $currentRemarks . "\n\n[Scheduled " . now()->format('Y-m-d H:i') . "]: " . $request->remarks
+                : "[Scheduled " . now()->format('Y-m-d H:i') . "]: " . $request->remarks;
+            
+            $workOrder->technician_remarks = $newRemarks;
+        }
+
+        $workOrder->updated_by = auth()->id();
+        $workOrder->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Work order scheduled successfully for ' . date('F j, Y \a\t g:i A', $scheduledTimestamp),
+            'data' => [
+                'appointment_date' => $workOrder->appointment_date,
+                'appointment_time' => $workOrder->appointment_time,
+            ],
+        ]);
+    }
+
+    /**
+     * Assign or reassign staff to work order
+     */
+    public function assign(Request $request, string $id): JsonResponse
+    {
+        $workOrder = WorkOrder::findOrFail($id);
+
+        // Prevent assignment if completed or cancelled
+        if ($workOrder->completed_at || $workOrder->cancelled_at) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'Cannot assign staff to completed or cancelled work order',
+            ], 403);
+        }
+
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'assigned_to_id' => 'required|exists:staff,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $previousAssignedId = $workOrder->assigned_to_id;
+        $newAssignedId = $request->assigned_to_id;
+
+        // Check if it's the same staff
+        if ($previousAssignedId == $newAssignedId) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'This work order is already assigned to the selected staff member',
+            ], 422);
+        }
+
+        // Update assignment
+        $workOrder->update([
+            'assigned_to_id' => $newAssignedId,
+            'assigned_at' => now(),
+        ]);
+
+        // Add notes to technician_remarks if provided
+        if ($request->notes) {
+            $currentRemarks = $workOrder->technician_remarks ?? '';
+            $staff = \App\Models\Staff::find($newAssignedId);
+            $action = $previousAssignedId ? 'Reassigned' : 'Assigned';
+            
+            $newRemarks = $currentRemarks 
+                ? $currentRemarks . "\n\n[{$action} " . now()->format('Y-m-d H:i') . " to {$staff->first_name} {$staff->last_name}]: " . $request->notes
+                : "[{$action} " . now()->format('Y-m-d H:i') . " to {$staff->first_name} {$staff->last_name}]: " . $request->notes;
+            
+            $workOrder->technician_remarks = $newRemarks;
+        }
+
+        $workOrder->updated_by = auth()->id();
+        $workOrder->save();
+
+        // Get staff details for response
+        $assignedStaff = \App\Models\Staff::find($newAssignedId);
+
+        // Send WhatsApp notification to assigned staff
+        try {
+            if ($assignedStaff->phone) {
+                $whatsappService = new \App\Services\WhatsAppService();
+                $message = $this->formatWorkOrderForWhatsApp($workOrder->fresh([
+                    'customer',
+                    'address',
+                    'brand',
+                    'category',
+                    'service',
+                    'parentService',
+                    'product'
+                ]));
+                
+                $whatsappService->sendTextMessage($assignedStaff->phone, $message);
+                
+                \Illuminate\Support\Facades\Log::info('WhatsApp notification sent to assigned staff', [
+                    'work_order_id' => $workOrder->id,
+                    'staff_id' => $assignedStaff->id,
+                    'phone' => $assignedStaff->phone,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the assignment
+            \Illuminate\Support\Facades\Log::error('Failed to send WhatsApp notification to assigned staff', [
+                'work_order_id' => $workOrder->id,
+                'staff_id' => $assignedStaff->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'status' => "success",
+            'message' => $previousAssignedId 
+                ? "Work order reassigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully"
+                : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully",
+        ]);
+    }
+
+    /**
+     * Format work order details for WhatsApp message
+     */
+    private function formatWorkOrderForWhatsApp(WorkOrder $workOrder): string
+    {
+        $lines = [];
+
+        // Header
+        $lines[] = "═══════════════════════════════════════";
+        $lines[] = "*WORK ORDER: {$workOrder->work_order_number}*";
+        $lines[] = "*Brand Complaint #: {$workOrder->brand_complaint_no}*";
+        $lines[] = "═══════════════════════════════════════";
+        $lines[] = "";
+
+        // Customer Information
+        $lines[] = "*👤 CUSTOMER INFORMATION*";
+        $lines[] = "─────────────────────────────────────";
+        $lines[] = "*Name:* " . ($workOrder->customer->name ?? 'N/A');
+        if ($workOrder->customer->email) {
+            $lines[] = "*Email:* {$workOrder->customer->email}";
+        }
+        if ($workOrder->customer->phone) {
+            $lines[] = "*Phone:* {$workOrder->customer->phone}";
+        }
+        if ($workOrder->customer->whatsapp) {
+            $lines[] = "*WhatsApp:* {$workOrder->customer->whatsapp}";
+        }
+        $lines[] = "";
+
+        // Address Information
+        if ($workOrder->address) {
+            $lines[] = "*📍 ADDRESS INFORMATION*";
+            $lines[] = "─────────────────────────────────────";
+            if ($workOrder->address->address_line_1) {
+                $lines[] = "*Address:* {$workOrder->address->address_line_1}";
+            }
+            if ($workOrder->address->address_line_2) {
+                $lines[] = "         {$workOrder->address->address_line_2}";
+            }
+            $cityStateZip = array_filter([
+                $workOrder->address->city,
+                $workOrder->address->state,
+                $workOrder->address->zip_code
+            ]);
+            if (!empty($cityStateZip)) {
+                $lines[] = "*City:* " . implode(', ', $cityStateZip);
+            }
+            $lines[] = "";
+        }
+
+        // Product Information
+        $lines[] = "*🔧 PRODUCT INFORMATION*";
+        $lines[] = "─────────────────────────────────────";
+        if ($workOrder->brand) {
+            $lines[] = "*Brand:* {$workOrder->brand->name}";
+        }
+        if ($workOrder->product) {
+            $lines[] = "*Product:* {$workOrder->product->name}";
+        }
+        if ($workOrder->product_indoor_model) {
+            $lines[] = "*Indoor Model:* {$workOrder->product_indoor_model}";
+        }
+        if ($workOrder->product_outdoor_model) {
+            $lines[] = "*Outdoor Model:* {$workOrder->product_outdoor_model}";
+        }
+        if ($workOrder->indoor_serial_number) {
+            $lines[] = "*Indoor S/N:* {$workOrder->indoor_serial_number}";
+        }
+        if ($workOrder->outdoor_serial_number) {
+            $lines[] = "*Outdoor S/N:* {$workOrder->outdoor_serial_number}";
+        }
+        $lines[] = "";
+
+        // Service Information
+        $lines[] = "*⚙️ SERVICE INFORMATION*";
+        $lines[] = "─────────────────────────────────────";
+        if ($workOrder->category) {
+            $lines[] = "*Category:* {$workOrder->category->name}";
+        }
+        if ($workOrder->service) {
+            $lines[] = "*Service Type:* {$workOrder->service->name}";
+        }
+        if ($workOrder->parentService) {
+            $lines[] = "*Service:* {$workOrder->parentService->name}";
+        }
+        $lines[] = "";
+
+        // Defect Description
+        if ($workOrder->defect_description) {
+            $lines[] = "*🔍 DEFECT DESCRIPTION*";
+            $lines[] = "─────────────────────────────────────";
+            $lines[] = $workOrder->defect_description;
+            $lines[] = "";
+        }
+
+        // Technician Remarks
+        if ($workOrder->technician_remarks) {
+            $lines[] = "*💬 TECHNICIAN REMARKS*";
+            $lines[] = "─────────────────────────────────────";
+            $lines[] = $workOrder->technician_remarks;
+            $lines[] = "";
+        }
+
+        // Footer
+        $lines[] = "═══════════════════════════════════════";
+        $lines[] = "Generated: " . now()->format('Y-m-d H:i:s');
+        $lines[] = "═══════════════════════════════════════";
+
+        return implode("\n", $lines);
     }
 
     /**
