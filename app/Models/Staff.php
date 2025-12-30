@@ -258,9 +258,9 @@ class Staff extends Authenticatable
         return $this->hasMany(VehicleUsageLog::class);
     }
 
-    public function designation(): BelongsTo
+    public function staffRole(): BelongsTo
     {
-        return $this->belongsTo(Role::class, 'designation');
+        return $this->belongsTo(Role::class, 'role_id');
     }
     
     public function attendances(): HasMany

@@ -145,45 +145,10 @@ class AuthenticatedSessionController extends Controller
         }
     }
 
-    /**
-     * Send a welcome or new-login WhatsApp message to the customer.
-     */
-    private function sendWelcomeMessage($phone, $name, $isNew)
-    {
-        try {
-            $messageText = $isNew
-                ? "🎉 Welcome to Tasker Company, {$name}!\n\nWe’re here to make your life easier — from AC repair, servicing, and installation to all major home services.\n\nTell us what you need help with, and our team will guide you instantly.\nJust reply with your service requirement to get started."
-                : "👋 Welcome back, {$name}!\n\nNeed help again? Whether it’s AC repair, tuning, installation, electrician work, plumbing, or any home service — we’re ready when you are.\n\nJust reply with your requirement and we’ll handle the rest.";
-
-            $curlURL = env('WHATS_APP_GRAPHAPI_URL') . '/' . env('WHATS_APP_PHONE_NUMBER_ID') . '/messages';
-            $curlData = [
-                'messaging_product' => 'whatsapp',
-                'to' => $phone,
-                'type' => 'text',
-                'text' => ['body' => $messageText],
-            ];
-
-            $curl = curl_init();
-            curl_setopt($curl, CURLOPT_URL, $curlURL);
-            curl_setopt($curl, CURLOPT_POST, 1);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($curlData));
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . env('WHATS_APP_ACCESS_TOKEN'),
-            ]);
-
-            curl_exec($curl);
-            curl_close($curl);
-
-        } catch (\Exception $e) {
-            \Log::error('Welcome message send failed: ' . $e->getMessage());
-        }
-    }
     public function me(Request $request)
     {
         $user = $request->user();
-        $user = Staff::with('designation:id,name')->find($user->id);
+        $user = Staff::with('staffRole:id,name')->find($user->id);
         
         // Check if profile is complete
         $requiredFields = [
