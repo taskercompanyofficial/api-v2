@@ -12,45 +12,144 @@ class WorkOrder extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        // Basic Info
         'work_order_number',
         'customer_id',
         'customer_address_id',
+        
+        // Foreign Keys
         'authorized_brand_id',
+        'branch_id',
+        'category_id',
+        'service_id',
+        'parent_service_id',
+        'product_id',
+        
+        // Work Order Details
         'brand_complaint_no',
+        'work_order_source',
+        'priority',
+        'reject_reason',
+        'satisfation_code',
+        'without_satisfaction_code_reason',
+        
+        // Service Timing
+        'appointment_date',
+        'appointment_time',
+        'service_start_date',
+        'service_start_time',
+        'service_end_date',
+        'service_end_time',
+        
+        // Descriptions
+        'customer_description',
+        'defect_description',
+        'technician_remarks',
+        'service_description',
+        
+        // Product Information
+        'product_indoor_model',
+        'product_outdoor_model',
         'indoor_serial_number',
         'outdoor_serial_number',
-        'warranty_card_serial',
+        'warrenty_serial_number',
         'product_model',
-        'priority',
-        'customer_description',
+        'purchase_date',
+        
+        // Warranty Information
         'is_warranty_case',
         'warranty_verified',
         'warranty_expiry_date',
+        'warrenty_start_date',
+        'warrenty_end_date',
+        'warrenty_status',
+        'warranty_card_serial',
+        
+        // Status & Assignment
         'status_id',
         'sub_status_id',
         'assigned_to_id',
         'assigned_at',
+        
+        // Financial
         'total_amount',
         'discount',
         'final_amount',
         'payment_status',
+        
+        // Completion & Tracking
         'completed_at',
+        'completed_by',
+        'closed_at',
+        'closed_by',
         'cancelled_at',
+        'cancelled_by',
+        
+        // Audit
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
+        // Boolean
         'is_warranty_case' => 'boolean',
         'warranty_verified' => 'boolean',
+        
+        // Dates
         'warranty_expiry_date' => 'date',
+        'warrenty_start_date' => 'date',
+        'warrenty_end_date' => 'date',
+        'purchase_date' => 'date',
+        'appointment_date' => 'date',
+        'service_start_date' => 'date',
+        'service_end_date' => 'date',
+        
+        // DateTime
         'assigned_at' => 'datetime',
         'completed_at' => 'datetime',
+        'closed_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        
+        // Decimal
         'total_amount' => 'decimal:2',
         'discount' => 'decimal:2',
         'final_amount' => 'decimal:2',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Validate status and sub_status relationship before saving
+        static::saving(function ($workOrder) {
+            // If both status and sub_status are set, validate they match
+            if ($workOrder->status_id && $workOrder->sub_status_id) {
+                $subStatus = WorkOrderStatus::find($workOrder->sub_status_id);
+                
+                // Sub-status must have a parent_id (be a child status)
+                if ($subStatus && is_null($subStatus->parent_id)) {
+                    throw new \InvalidArgumentException(
+                        "Sub-status must be a child status, not a parent status."
+                    );
+                }
+                
+                // Sub-status parent must match the selected status
+                if ($subStatus && $subStatus->parent_id !== $workOrder->status_id) {
+                    throw new \InvalidArgumentException(
+                        "Sub-status does not belong to the selected status. Please select a valid sub-status."
+                    );
+                }
+            }
+            
+            // If only sub_status is set without status, set the parent as status
+            if (!$workOrder->status_id && $workOrder->sub_status_id) {
+                $subStatus = WorkOrderStatus::find($workOrder->sub_status_id);
+                if ($subStatus && $subStatus->parent_id) {
+                    $workOrder->status_id = $subStatus->parent_id;
+                }
+            }
+        });
+    }
 
     // Relationships
     public function customer(): BelongsTo
@@ -68,14 +167,39 @@ class WorkOrder extends Model
         return $this->belongsTo(AuthorizedBrand::class, 'authorized_brand_id');
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(OurBranch::class, 'branch_id');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class, 'service_id');
+    }
+
+    public function parentService(): BelongsTo
+    {
+        return $this->belongsTo(ParentService::class, 'parent_service_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
     public function status(): BelongsTo
     {
-        return $this->belongsTo(Status::class, 'status_id');
+        return $this->belongsTo(WorkOrderStatus::class, 'status_id');
     }
 
     public function subStatus(): BelongsTo
     {
-        return $this->belongsTo(Status::class, 'sub_status_id');
+        return $this->belongsTo(WorkOrderStatus::class, 'sub_status_id');
     }
 
     public function assignedTo(): BelongsTo
@@ -111,9 +235,9 @@ class WorkOrder extends Model
     // Helper Methods
     public static function generateNumber(): string
     {
-        $date = now()->format('Ymd');
+        $date = now()->format('dmY');
         $count = self::whereDate('created_at', now())->count() + 1;
-        return "WO-{$date}-" . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return "TC{$date}" . str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 
     public function calculateTotal(): void
@@ -141,7 +265,7 @@ class WorkOrder extends Model
         ]);
     }
 
-    public function updateStatus(Status $status, ?Status $subStatus = null, ?string $notes = null, User $changedBy): void
+    public function updateStatus(WorkOrderStatus $status, ?WorkOrderStatus $subStatus = null, ?string $notes = null, User $changedBy): void
     {
         $oldStatusId = $this->status_id;
         $oldSubStatusId = $this->sub_status_id;

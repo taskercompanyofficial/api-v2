@@ -108,5 +108,6 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Work Orders Management
         Route::apiResource('/work-orders', \App\Http\Controllers\Authenticated\CRM\WorkOrderController::class);
+        Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
     });
 });

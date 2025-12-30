@@ -8,7 +8,7 @@ use App\Models\Customer;
 use App\Models\ParentServices;
 use App\Models\Status;
 use App\Models\WorkOrder;
-use App\Models\WorkOrderService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,12 +22,20 @@ class WorkOrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = WorkOrder::with([
-            'customer',
-            'address',
-            'brand',
-            'status',
-            'assignedTo',
-            'services'
+            'customer:id,name,email,phone,whatsapp',
+            'address:id,address_line_1,address_line_2,city,state,country,zip_code',
+            'brand:id,name',
+            'category:id,name',
+            'service:id,name',
+            'parentService:id,name',
+            'product:id,name',
+            'status:id,name',
+            'subStatus:id,name',
+            'assignedTo:id,name',
+            'services',
+            'branch:id,name',
+            'createdBy:id,name',
+            'updatedBy:id,name',
         ]);
 
         // Filters
@@ -77,14 +85,33 @@ class WorkOrderController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'customer_description' => 'required|string|min:10',
-            'priority' => 'required|in:low,medium,high,urgent',
-            
-            // Optional fields
+            'authorized_brand_id' => 'required|exists:authorized_brands,id',
+            'branch_id' => 'required|exists:our_branches,id',
             'brand_complaint_no' => 'nullable|string|max:100',
-            // Services
-            'services' => 'required|array|min:1',
+            'priority'=> 'required|in:low,medium,high',
+            'status_id' => 'nullable|exists:work_order_statuses,id',
+            'sub_status_id' => [
+                'nullable',
+                'exists:work_order_statuses,id',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($value && $request->status_id) {
+                        $subStatus = \App\Models\WorkOrderStatus::find($value);
+                        
+                        // Must be a child status
+                        if ($subStatus && is_null($subStatus->parent_id)) {
+                            $fail('The selected sub-status must be a child status, not a parent status.');
+                        }
+                        
+                        // Must belong to the selected parent status
+                        if ($subStatus && $subStatus->parent_id != $request->status_id) {
+                            $fail('The selected sub-status does not belong to the selected status.');
+                        }
+                    }
+                },
+            ],
         ]);
 
+        $user = $request->user();
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -95,84 +122,36 @@ class WorkOrderController extends Controller
 
         try {
             DB::beginTransaction();
-
             // Create work order
             $workOrder = WorkOrder::create([
                 'work_order_number' => WorkOrder::generateNumber(),
                 'customer_id' => $request->customer_id,
                 'customer_address_id' => $request->customer_address_id,
                 'authorized_brand_id' => $request->authorized_brand_id,
+                'branch_id' => $request->branch_id,
                 'brand_complaint_no' => $request->brand_complaint_no,
-                'indoor_serial_number' => $request->indoor_serial_number,
-                'outdoor_serial_number' => $request->outdoor_serial_number,
-                'warranty_card_serial' => $request->warranty_card_serial,
-                'product_model' => $request->product_model,
                 'priority' => $request->priority,
                 'customer_description' => $request->customer_description,
-                'is_warranty_case' => $request->is_warranty_case ?? false,
-                'created_by' => auth()->id(),
-                'updated_by' => auth()->id(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
-
-            // Create services
-            foreach ($request->services as $serviceData) {
-                $parentService = ParentServices::find($serviceData['parent_service_id']);
-                
-                // Get brand tariff price if available
-                $brandTariffPrice = null;
-                if ($request->authorized_brand_id) {
-                    $brand = AuthorizedBrand::find($request->authorized_brand_id);
-                    $tariff = collect($brand->service_charges ?? [])
-                        ->firstWhere('service_id', $serviceData['parent_service_id']);
-                    $brandTariffPrice = $tariff['paid_price'] ?? null;
-                }
-
-                $finalPrice = $brandTariffPrice ?? $parentService->price;
-
-                // For warranty cases, price is 0
-                if ($request->is_warranty_case && ($serviceData['service_type'] ?? 'paid') === 'warranty') {
-                    $finalPrice = 0;
-                }
-
-                WorkOrderService::create([
-                    'work_order_id' => $workOrder->id,
-                    'category_id' => $parentService->service->category_id,
-                    'service_id' => $parentService->service_id,
-                    'parent_service_id' => $parentService->id,
-                    'service_name' => $parentService->name,
-                    'service_type' => $serviceData['service_type'] ?? 'paid',
-                    'base_price' => $parentService->price,
-                    'brand_tariff_price' => $brandTariffPrice,
-                    'final_price' => $finalPrice,
-                    'is_warranty_covered' => $request->is_warranty_case && ($serviceData['service_type'] ?? 'paid') === 'warranty',
-                ]);
-            }
-
-            // Calculate total
-            $workOrder->calculateTotal();
-
-            // Set initial status (assuming status ID 1 is "New")
-            $newStatus = Status::where('name', 'New')->first();
-            if ($newStatus) {
-                $workOrder->update(['status_id' => $newStatus->id]);
-            }
 
             DB::commit();
 
             return response()->json([
-                'success' => true,
+                'status' => "success",
                 'message' => 'Work order created successfully',
                 'data' => $workOrder->load(['customer', 'address', 'services']),
-            ], 201);
+            ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to create work order',
-                'error' => $e->getMessage(),
-            ], 500);
+                'status' => "error",
+                'code' => 500,
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -185,11 +164,14 @@ class WorkOrderController extends Controller
             'customer',
             'address',
             'brand',
+            'category',
+            'service',
+            'parentService',
+            'product',
             'status',
             'subStatus',
             'assignedTo',
             'services.parentService',
-            'statusHistory.changedBy',
             'files',
         ])->findOrFail($id);
 
@@ -214,13 +196,36 @@ class WorkOrderController extends Controller
             ], 403);
         }
 
+        // No validation needed - status updates handled separately
+        
+        // Update work order with all editable fields
         $workOrder->update($request->only([
+            // Work Order Details
+            'brand_complaint_no',
             'priority',
+            'reject_reason',
+            'satisfation_code',
+            'without_satisfaction_code_reason',
+            // Descriptions
             'customer_description',
+            'defect_description',
+            'technician_remarks',
+            'service_description',
+            // Product Information
+            'product_indoor_model',
+            'product_outdoor_model',
             'indoor_serial_number',
             'outdoor_serial_number',
-            'warranty_card_serial',
-            'product_model',
+            'warrenty_serial_number',
+            'purchase_date',
+            
+            // Foreign Keys
+            'authorized_brand_id',
+            'branch_id',
+            'category_id',
+            'service_id',
+            'parent_service_id',
+            'product_id',
         ]));
 
         $workOrder->updated_by = auth()->id();
@@ -229,7 +234,17 @@ class WorkOrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Work order updated successfully',
-            'data' => $workOrder,
+            'data' => $workOrder->load([
+                'customer',
+                'address',
+                'brand',
+                'category',
+                'service',
+                'parentService',
+                'product',
+                'status',
+                'subStatus',
+            ]),
         ]);
     }
 
