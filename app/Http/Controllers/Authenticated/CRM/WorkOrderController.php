@@ -30,11 +30,11 @@ class WorkOrderController extends Controller
             'product:id,name',
             'status:id,name',
             'subStatus:id,name',
-            'assignedTo:id,name',
+            'assignedTo:id,first_name,last_name',
             'services',
             'branch:id,name',
-            'createdBy:id,name',
-            'updatedBy:id,name',
+            'createdBy:id,first_name,last_name',
+            'updatedBy:id,first_name,last_name',
         ]);
 
         // Apply JSON filters from "filters" parameter
