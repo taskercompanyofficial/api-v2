@@ -85,6 +85,10 @@ class WorkOrder extends Model
         'cancelled_at',
         'cancelled_by',
         
+        // Lock Fields
+        'is_locked',
+        'locked_reason',
+        
         // Audit
         'created_by',
         'updated_by',
@@ -94,6 +98,7 @@ class WorkOrder extends Model
         // Boolean
         'is_warranty_case' => 'boolean',
         'warranty_verified' => 'boolean',
+        'is_locked' => 'boolean',
         
         // Dates
         'warranty_expiry_date' => 'date',
