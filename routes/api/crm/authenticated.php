@@ -28,6 +28,8 @@ use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
 use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
 use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -108,10 +110,19 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/test-broadcast', [TestBroadcastController::class, 'testMessageBroadcast']);
 
         // Work Orders Management
-        Route::apiResource('/work-orders', \App\Http\Controllers\Authenticated\CRM\WorkOrderController::class);
-        Route::post('/work-orders/{id}/schedule', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'schedule']);
-        Route::post('/work-orders/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'assign']);
-        Route::post('/work-orders/{id}/cancel', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'cancel']);
+        Route::apiResource('/work-orders', WorkOrderController::class);
+        Route::post('/work-orders/{id}/schedule', [WorkOrderController::class, 'schedule']);
+        Route::post('/work-orders/{id}/assign', [WorkOrderController::class, 'assign']);
+        Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
+        
+        // Work Order Files Management (nested routes)
+        Route::prefix('work-orders/{workOrderId}')->group(function () {
+            Route::get('/files', [WorkOrderFileController::class, 'index']);
+            Route::post('/files', [WorkOrderFileController::class, 'store']);
+            Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
+            Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
+        });
+        
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
 
         // File Types Management

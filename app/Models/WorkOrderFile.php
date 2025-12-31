@@ -9,6 +9,7 @@ class WorkOrderFile extends Model
 {
     protected $fillable = [
         'work_order_id',
+        'file_type_id',
         'file_name',
         'file_path',
         'file_type',
@@ -32,6 +33,11 @@ class WorkOrderFile extends Model
     public function uploadedBy(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'uploaded_by_id');
+    }
+
+    public function fileType(): BelongsTo
+    {
+        return $this->belongsTo(FileType::class, 'file_type_id');
     }
 
     // Helper Methods
