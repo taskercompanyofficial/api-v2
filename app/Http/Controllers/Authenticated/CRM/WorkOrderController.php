@@ -546,6 +546,75 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Cancel work order
+     */
+    public function cancel(Request $request, string $id): JsonResponse
+    {
+        $workOrder = WorkOrder::findOrFail($id);
+
+        // Prevent cancellation if already completed or cancelled
+        if ($workOrder->completed_at) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'Cannot cancel a completed work order',
+            ], 403);
+        }
+
+        if ($workOrder->cancelled_at) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'Work order is already cancelled',
+            ], 403);
+        }
+
+        // Validation
+        $validator = Validator::make($request->all(), [
+            'cancellation_reason' => 'required|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => "error",
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Get the Cancelled status
+        $cancelledStatus = \App\Models\WorkOrderStatus::where('slug', 'cancelled')->first();
+        $customerCancelledSubStatus = \App\Models\WorkOrderStatus::where('slug', 'customer-cancelled')
+            ->where('parent_id', $cancelledStatus?->id)
+            ->first();
+
+        // Update work order
+        $workOrder->update([
+            'status_id' => $cancelledStatus?->id,
+            'sub_status_id' => $customerCancelledSubStatus?->id,
+            'cancelled_at' => now(),
+            'cancelled_by' => auth()->id(),
+            'reject_reason' => $request->cancellation_reason, // Store cancellation reason
+        ]);
+
+        $workOrder->updated_by = auth()->id();
+        $workOrder->save();
+
+        // Get staff details for logging
+        $staff = \App\Models\Staff::find(auth()->id());
+
+        \Illuminate\Support\Facades\Log::info('Work order cancelled', [
+            'work_order_id' => $workOrder->id,
+            'work_order_number' => $workOrder->work_order_number,
+            'cancelled_by' => $staff?->first_name . ' ' . $staff?->last_name,
+            'reason' => $request->cancellation_reason,
+        ]);
+
+        return response()->json([
+            'status' => "success",
+            'message' => "Work order #{$workOrder->work_order_number} has been cancelled successfully",
+        ]);
+    }
+
+    /**
      * Delete work order
      */
     public function destroy(string $id): JsonResponse

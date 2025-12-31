@@ -110,6 +110,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/work-orders', \App\Http\Controllers\Authenticated\CRM\WorkOrderController::class);
         Route::post('/work-orders/{id}/schedule', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'schedule']);
         Route::post('/work-orders/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'assign']);
+        Route::post('/work-orders/{id}/cancel', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'cancel']);
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
     });
 });
