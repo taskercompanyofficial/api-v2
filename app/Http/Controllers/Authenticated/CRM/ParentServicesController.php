@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\ParentServices;
+use App\Models\ServiceRequiredFile;
 use App\QueryFilterTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -24,6 +25,7 @@ class ParentServicesController extends Controller
             'createdBy:id,name',
             'updatedBy:id,name',
             'service:id,name,slug',
+            'requiredFileTypes.fileType',
         ]);
 
         $this->applyJsonFilters($query, $request);
@@ -71,6 +73,9 @@ class ParentServicesController extends Controller
             'excludes.*' => 'string',
             'notes' => 'nullable|string',
             'status' => 'required|string|in:active,inactive,draft,archived',
+            'required_file_types' => 'nullable|array',
+            'required_file_types.*.file_type_id' => 'required|exists:file_types,id',
+            'required_file_types.*.is_required' => 'required|boolean',
         ]);
 
         // Generate slug
@@ -108,6 +113,17 @@ class ParentServicesController extends Controller
                 'updated_by' => $user->id,
             ]);
 
+            // Sync required file types
+            if (isset($validated['required_file_types'])) {
+                foreach ($validated['required_file_types'] as $fileType) {
+                    ServiceRequiredFile::create([
+                        'parent_service_id' => $parentService->id,
+                        'file_type_id' => $fileType['file_type_id'],
+                        'is_required' => $fileType['is_required'],
+                    ]);
+                }
+            }
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Parent Service created successfully',
@@ -129,7 +145,8 @@ class ParentServicesController extends Controller
         $parentService = ParentServices::with([
             'createdBy:id,name',
             'updatedBy:id,name',
-            'service:id,name,slug,image'
+            'service:id,name,slug,image',
+            'requiredFileTypes.fileType',
         ])->where('slug', $slug)->first();
 
         if (!$parentService) {
@@ -185,7 +202,10 @@ class ParentServicesController extends Controller
             'excludes' => 'nullable|array',
             'excludes.*' => 'string',
             'notes' => 'nullable|string',
-            'status' => 'sometimes|required|string|in:active,inactive,draft,archived'
+            'status' => 'sometimes|required|string|in:active,inactive,draft,archived',
+            'required_file_types' => 'nullable|array',
+            'required_file_types.*.file_type_id' => 'required|exists:file_types,id',
+            'required_file_types.*.is_required' => 'required|boolean',
         ]);
 
         // Generate new slug if name changed
@@ -206,6 +226,21 @@ class ParentServicesController extends Controller
 
         try {
             $parentService->update($validated);
+
+            // Sync required file types
+            if (isset($validated['required_file_types'])) {
+                // Delete existing
+                ServiceRequiredFile::where('parent_service_id', $parentService->id)->delete();
+                
+                // Create new
+                foreach ($validated['required_file_types'] as $fileType) {
+                    ServiceRequiredFile::create([
+                        'parent_service_id' => $parentService->id,
+                        'file_type_id' => $fileType['file_type_id'],
+                        'is_required' => $fileType['is_required'],
+                    ]);
+                }
+            }
 
             return response()->json([
                 'status' => 'success',

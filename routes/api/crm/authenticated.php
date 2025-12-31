@@ -28,6 +28,7 @@ use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
 use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
 use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
+use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RolePermissionController;
@@ -112,5 +113,11 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'assign']);
         Route::post('/work-orders/{id}/cancel', [\App\Http\Controllers\Authenticated\CRM\WorkOrderController::class, 'cancel']);
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
+
+        // File Types Management
+        Route::apiResource('/file-types', FileTypeController::class);
+        Route::post('/file-types/{id}/toggle-status', [FileTypeController::class, 'toggleStatus']);
+        Route::post('/file-types/{id}/restore', [FileTypeController::class, 'restore']);
+        Route::post('/file-types/{id}/validate-file', [FileTypeController::class, 'validateFile']);
     });
 });

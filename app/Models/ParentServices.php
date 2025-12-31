@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ParentServices extends Model
 {
@@ -48,5 +49,13 @@ class ParentServices extends Model
     public function orderItems(): MorphMany
     {
         return $this->morphMany(OrderItem::class, 'itemable');
+    }
+
+    /**
+     * Get the required file types for this parent service
+     */
+    public function requiredFileTypes(): HasMany
+    {
+        return $this->hasMany(ServiceRequiredFile::class, 'parent_service_id');
     }
 }
