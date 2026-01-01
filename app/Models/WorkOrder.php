@@ -237,6 +237,11 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderFile::class);
     }
 
+    public function histories(): HasMany
+    {
+        return $this->hasMany(WorkOrderHistory::class)->orderBy('created_at', 'desc');
+    }
+
     // Helper Methods
     public static function generateNumber(): string
     {

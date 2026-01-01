@@ -646,4 +646,30 @@ class WorkOrderController extends Controller
             'message' => 'Work order deleted successfully',
         ]);
     }
+
+    /**
+     * Get work order history
+     */
+    public function history(string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($id);
+            
+            $histories = $workOrder->histories()
+                ->with('user:id,name,email')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $histories,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve work order history.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

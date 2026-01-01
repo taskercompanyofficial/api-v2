@@ -117,6 +117,8 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Work Orders Management
         Route::apiResource('/work-orders', WorkOrderController::class);
+        Route::get('/work-orders/{id}/history', [WorkOrderController::class, 'history']);
+        Route::post('/work-orders/{id}/lock', [WorkOrderController::class, 'lock']);
         Route::post('/work-orders/{id}/schedule', [WorkOrderController::class, 'schedule']);
         Route::post('/work-orders/{id}/assign', [WorkOrderController::class, 'assign']);
         Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
