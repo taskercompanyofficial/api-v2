@@ -138,4 +138,43 @@ class CustomerAddressController extends Controller
 
         return response()->json(['message' => 'Customer address deleted successfully'], 204); // 204 No Content
     }
+
+    public function addressesRaw(Request $request)
+    {
+        try {
+            $customerId = $request->input('customer_id');
+
+            if (!$customerId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'customer_id is required',
+                    'data' => null,
+                ]);
+            }
+
+            $addresses = CustomerAddress::where('customer_id', $customerId)
+                ->where('status', 'active')
+                ->select('id', 'address_type', 'area_type', 'address_line_1', 'address_line_2', 'city', 'state', 'zip_code', 'country')
+                ->get()
+                ->map(function ($address) {
+                    return [
+                        'value' => $address->id,
+                        'label' => "{$address->address_type} - {$address->city}",
+                        'description' => $address->address_line_1,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $addresses,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve addresses.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }

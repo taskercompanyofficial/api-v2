@@ -203,4 +203,48 @@ class CustomerController extends Controller
             ]);
         }
     }
+
+    public function customersRaw(Request $request)
+    {
+        try {
+            // Get search query parameter
+            $searchQuery = $request->input('name');
+
+            $query = Customer::query();
+            // If search query exists, search across multiple fields
+            if ($searchQuery) {
+                $query->where(function ($q) use ($searchQuery) {
+                    $q->where('name', 'LIKE', "%{$searchQuery}%")
+                        ->orWhere('phone', 'LIKE', "%{$searchQuery}%")
+                        ->orWhere('whatsapp', 'LIKE', "%{$searchQuery}%")
+                        ->orWhere('email', 'LIKE', "%{$searchQuery}%");
+                });
+            }
+
+            // Get customers and format for SearchSelect component
+            $customers = $query->select('id', 'name', 'email', 'phone', 'whatsapp', 'avatar')
+                ->limit(50) // Limit results for performance
+                ->get()
+                ->map(function ($customer) {
+                    return [
+                        'value' => $customer->id,
+                        'label' => $customer->name ,
+                        'description' => $customer->phone,
+                        'image' => $customer->avatar_url,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $customers,
+            ]);
+        } catch (Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve customers.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }
