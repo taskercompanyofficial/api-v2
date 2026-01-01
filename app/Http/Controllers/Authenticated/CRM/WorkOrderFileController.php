@@ -61,22 +61,6 @@ class WorkOrderFileController extends Controller
             
             // Get uploaded file
             $uploadedFile = $request->file('file');
-            
-            // Validate file against file type constraints
-            if ($fileType->max_file_size && $uploadedFile->getSize() > ($fileType->max_file_size * 1024)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "File size exceeds maximum allowed size of {$fileType->max_file_size} KB",
-                ], 422);
-            }
-
-            // Validate MIME type
-            if ($fileType->mime_types && !in_array($uploadedFile->getMimeType(), $fileType->mime_types)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'File type not allowed for this file type category',
-                ], 422);
-            }
 
             // Generate unique filename: filetype_slug_randomstring.extension
             $extension = $uploadedFile->getClientOriginalExtension();
