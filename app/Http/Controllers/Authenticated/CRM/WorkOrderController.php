@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderHistory;
 use App\Models\WorkOrderStatus;
 use App\QueryFilterTrait;
 use Exception;
@@ -323,6 +324,18 @@ class WorkOrderController extends Controller
         $workOrder->updated_by = auth()->id();
         $workOrder->save();
 
+        // Log scheduling history
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: 'scheduled',
+            description: "Work order scheduled for {$workOrder->appointment_date} at {$workOrder->appointment_time}",
+            metadata: [
+                'appointment_date' => $workOrder->appointment_date,
+                'appointment_time' => $workOrder->appointment_time,
+                'remarks' => $request->remarks,
+            ]
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Work order scheduled successfully for ' . date('F j, Y \a\t g:i A', $scheduledTimestamp),
@@ -405,6 +418,29 @@ class WorkOrderController extends Controller
 
         // Get staff details for response
         $assignedStaff = \App\Models\Staff::find($newAssignedId);
+        $previousStaff = $previousAssignedId ? \App\Models\Staff::find($previousAssignedId) : null;
+
+        // Log assignment history
+        $action = $previousAssignedId ? 'reassigned' : 'assigned';
+        $description = $previousAssignedId 
+            ? "Work order reassigned from {$previousStaff->first_name} {$previousStaff->last_name} to {$assignedStaff->first_name} {$assignedStaff->last_name}"
+            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}";
+
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: $action,
+            description: $description,
+            fieldName: 'assigned_to_id',
+            oldValue: $previousStaff ? "{$previousStaff->first_name} {$previousStaff->last_name}" : null,
+            newValue: "{$assignedStaff->first_name} {$assignedStaff->last_name}",
+            metadata: [
+                'previous_staff_id' => $previousAssignedId,
+                'new_staff_id' => $newAssignedId,
+                'notes' => $request->notes,
+                'status_changed_to' => $dispatchedStatus?->name,
+                'sub_status_changed_to' => $assignedToTechnicianSubStatus?->name,
+            ]
+        );
 
         // Send WhatsApp notification to assigned staff
         try {
@@ -611,6 +647,20 @@ class WorkOrderController extends Controller
 
         // Get staff details for logging
         $staff = \App\Models\Staff::find(auth()->id());
+
+        // Log cancellation history
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: 'cancelled',
+            description: "Work order cancelled by {$staff->first_name} {$staff->last_name}. Reason: {$request->cancellation_reason}",
+            metadata: [
+                'cancellation_reason' => $request->cancellation_reason,
+                'cancelled_by_staff_id' => auth()->id(),
+                'cancelled_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
+                'status_changed_to' => $cancelledStatus?->name,
+                'sub_status_changed_to' => $customerCancelledSubStatus?->name,
+            ]
+        );
 
         \Illuminate\Support\Facades\Log::info('Work order cancelled', [
             'work_order_id' => $workOrder->id,
