@@ -37,6 +37,27 @@ class WorkOrderController extends Controller
             'updatedBy:id,first_name,last_name',
         ]);
 
+        // Global search across multiple fields
+        if ($request->has('work_order_number') && $request->work_order_number) {
+            $searchTerm = $request->work_order_number;
+            
+            $query->where(function ($q) use ($searchTerm) {
+                // Search in work order fields
+                $q->where('work_order_number', 'like', "%{$searchTerm}%")
+                  ->orWhere('brand_complaint_no', 'like', "%{$searchTerm}%")
+                  ->orWhere('indoor_serial_number', 'like', "%{$searchTerm}%")
+                  ->orWhere('outdoor_serial_number', 'like', "%{$searchTerm}%")
+                  ->orWhere('product_indoor_model', 'like', "%{$searchTerm}%")
+                  ->orWhere('product_outdoor_model', 'like', "%{$searchTerm}%")
+                  // Search in customer relationship
+                  ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
+                      $customerQuery->where('name', 'like', "%{$searchTerm}%")
+                                    ->orWhere('phone', 'like', "%{$searchTerm}%")
+                                    ->orWhere('whatsapp', 'like', "%{$searchTerm}%");
+                  });
+            });
+        }
+
         // Apply JSON filters from "filters" parameter
         $this->applyJsonFilters($query, $request);
 

@@ -10,32 +10,70 @@ trait QueryFilterTrait
     public function applyFilter($query, $column, $operator, $value): void
     {
         switch ($operator) {
+            // Text operators
+            case 'iLike': // Case-insensitive LIKE (contains)
+                $query->where($column, 'like', "%{$value}%");
+                break;
+            case 'notILike': // Case-insensitive NOT LIKE (does not contain)
+                $query->where($column, 'not like', "%{$value}%");
+                break;
             case 'like':
                 $query->where($column, 'like', "%{$value}%");
                 break;
             case 'not_like':
                 $query->where($column, 'not like', "%{$value}%");
                 break;
+            
+            // Equality operators
+            case 'eq': // Equals
             case '=':
-            case '!=':
-            case '<':
-            case '<=':
-            case '>':
-            case '>=':
-                $query->where($column, $operator, $value);
+                $query->where($column, '=', $value);
                 break;
+            case 'ne': // Not equals
+            case '!=':
+                $query->where($column, '!=', $value);
+                break;
+            
+            // Comparison operators
+            case 'lt': // Less than
+            case '<':
+                $query->where($column, '<', $value);
+                break;
+            case 'lte': // Less than or equal
+            case '<=':
+                $query->where($column, '<=', $value);
+                break;
+            case 'gt': // Greater than
+            case '>':
+                $query->where($column, '>', $value);
+                break;
+            case 'gte': // Greater than or equal
+            case '>=':
+                $query->where($column, '>=', $value);
+                break;
+            
+            // Array operators
+            case 'inArray': // Has any of (multi-select)
             case 'in':
                 $query->whereIn($column, (array) $value);
                 break;
+            case 'notInArray': // Has none of (multi-select)
             case 'not_in':
                 $query->whereNotIn($column, (array) $value);
                 break;
+            
+            // Null operators
+            case 'isEmpty': // Is empty/null
             case 'is_null':
                 $query->whereNull($column);
                 break;
+            case 'isNotEmpty': // Is not empty/null
             case 'is_not_null':
                 $query->whereNotNull($column);
                 break;
+            
+            // Range operators
+            case 'isBetween': // Is between
             case 'between':
                 if (is_array($value) && count($value) === 2) {
                     $query->whereBetween($column, $value);
