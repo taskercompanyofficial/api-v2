@@ -240,4 +240,46 @@ class ServicesController extends Controller
             'data' => $service,
         ]);
     }
+
+    public function servicesRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+            $categoryId = $request->input('category_id');
+
+            $query = Service::query()->where('status', 'active');
+
+            // Filter by category if provided
+            if ($categoryId) {
+                $query->where('category_id', $categoryId);
+            }
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $services = $query->select('id', 'name', 'description')
+                ->limit(50)
+                ->get()
+                ->map(function ($service) {
+                    return [
+                        'value' => $service->id,
+                        'label' => $service->name,
+                        'description' => $service->description,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $services,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve services.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }

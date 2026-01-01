@@ -301,4 +301,46 @@ class ParentServicesController extends Controller
         ], 500);
     }
     }
+
+    public function parentServicesRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+            $serviceId = $request->input('service_id');
+
+            $query = ParentServices::query()->where('status', 'active');
+
+            // Filter by service if provided
+            if ($serviceId) {
+                $query->where('service_id', $serviceId);
+            }
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $parentServices = $query->select('id', 'name', 'description', 'price')
+                ->limit(50)
+                ->get()
+                ->map(function ($service) {
+                    return [
+                        'value' => $service->id,
+                        'label' => $service->name,
+                        'description' => $service->description,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $parentServices,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve parent services.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }

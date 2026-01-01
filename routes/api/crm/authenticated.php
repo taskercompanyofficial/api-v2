@@ -59,6 +59,10 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/rawData/customers', [CustomerController::class, 'customersRaw']);
         Route::apiResource('/customer-address', CustomerAddressController::class);
         Route::get('/rawData/customer-address', [CustomerAddressController::class, 'addressesRaw']);
+        Route::get('/rawData/categories', [CategoriesController::class, 'categoriesRaw']);
+        Route::get('/rawData/services', [ServicesController::class, 'servicesRaw']);
+        Route::get('/rawData/parent-services', [ParentServicesController::class, 'parentServicesRaw']);
+        Route::get('/rawData/products', [ProductsController::class, 'productsRaw']);
         Route::apiResource('/dealers', DealersController::class);
         Route::apiResource('/dealer-branches', DealerBranchesController::class);
         Route::apiResource('/social-handlers', SocialHandlersController::class);

@@ -208,4 +208,40 @@ class CategoriesController extends Controller
             'data' => $category,
         ]);
     }
+
+    public function categoriesRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+
+            $query = Categories::query()->where('status', 'active');
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $categories = $query->select('id', 'name', 'description')
+                ->limit(50)
+                ->get()
+                ->map(function ($category) {
+                    return [
+                        'value' => $category->id,
+                        'label' => $category->name,
+                        'description' => $category->description,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $categories,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve categories.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }

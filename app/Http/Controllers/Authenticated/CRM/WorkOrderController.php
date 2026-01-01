@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderStatus;
 use App\QueryFilterTrait;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -86,31 +87,16 @@ class WorkOrderController extends Controller
         $validator = Validator::make($request->all(), [
             'customer_id' => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
+            'category_id'=> 'required|exists:categories,id',
+            'service_id'=> 'required|exists:services,id',
+            'parent_service_id'=> 'exists:parent_services,id',
+            'product_id'=> 'required|exists:products,id',
             'customer_description' => 'required|string|min:10',
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'branch_id' => 'required|exists:our_branches,id',
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority'=> 'required|in:low,medium,high',
-            'status_id' => 'nullable|exists:work_order_statuses,id',
-            'sub_status_id' => [
-                'nullable',
-                'exists:work_order_statuses,id',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($value && $request->status_id) {
-                        $subStatus = \App\Models\WorkOrderStatus::find($value);
-                        
-                        // Must be a child status
-                        if ($subStatus && is_null($subStatus->parent_id)) {
-                            $fail('The selected sub-status must be a child status, not a parent status.');
-                        }
-                        
-                        // Must belong to the selected parent status
-                        if ($subStatus && $subStatus->parent_id != $request->status_id) {
-                            $fail('The selected sub-status does not belong to the selected status.');
-                        }
-                    }
-                },
-            ],
+           
         ]);
 
         $user = $request->user();
@@ -126,8 +112,8 @@ class WorkOrderController extends Controller
             DB::beginTransaction();
             
             // Get the default status: Allocated - Just Launched
-            $allocatedStatus = \App\Models\WorkOrderStatus::where('slug', 'allocated')->first();
-            $justLaunchedSubStatus = \App\Models\WorkOrderStatus::where('slug', 'just-launched')
+            $allocatedStatus = WorkOrderStatus::where('slug', 'allocated')->first();
+            $justLaunchedSubStatus = WorkOrderStatus::where('slug', 'just-launched')
                 ->where('parent_id', $allocatedStatus?->id)
                 ->first();
             
@@ -136,6 +122,10 @@ class WorkOrderController extends Controller
                 'work_order_number' => WorkOrder::generateNumber(),
                 'customer_id' => $request->customer_id,
                 'customer_address_id' => $request->customer_address_id,
+                'category_id' => $request->category_id,
+                'service_id' => $request->service_id,
+                'parent_service_id' => $request->parent_service_id,
+                'product_id' => $request->product_id,
                 'authorized_brand_id' => $request->authorized_brand_id,
                 'branch_id' => $request->branch_id,
                 'brand_complaint_no' => $request->brand_complaint_no,

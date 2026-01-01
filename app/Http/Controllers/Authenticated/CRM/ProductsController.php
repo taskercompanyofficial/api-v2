@@ -189,4 +189,40 @@ class ProductsController extends Controller
             ], 500);
         }
     }
+
+    public function productsRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+
+            $query = Product::query()->where('status', 'active');
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $products = $query->select('id', 'name', 'description')
+                ->limit(50)
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'value' => $product->id,
+                        'label' => $product->name,
+                        'description' => $product->description,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $products,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve products.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }
