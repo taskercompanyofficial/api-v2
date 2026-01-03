@@ -23,6 +23,12 @@ class WorkOrderPart extends Model
         'faulty_part_returned_at',
         'status',
         'notes',
+        'payment_proof_path',
+        'payment_proof_uploaded_at',
+        'gas_pass_slip_path',
+        'gas_pass_slip_uploaded_at',
+        'return_slip_path',
+        'return_slip_uploaded_at',
         'created_by',
         'updated_by',
     ];
@@ -30,6 +36,9 @@ class WorkOrderPart extends Model
     protected $casts = [
         'is_returned_faulty' => 'boolean',
         'faulty_part_returned_at' => 'datetime',
+        'payment_proof_uploaded_at' => 'datetime',
+        'gas_pass_slip_uploaded_at' => 'datetime',
+        'return_slip_uploaded_at' => 'datetime',
         'unit_price' => 'decimal:2',
         'total_price' => 'decimal:2',
         'quantity' => 'integer',

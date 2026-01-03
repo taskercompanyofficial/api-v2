@@ -43,7 +43,6 @@ class WorkOrderPartController extends Controller
             'part_request_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
-        Log::info($request->all());
 
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
@@ -86,6 +85,9 @@ class WorkOrderPartController extends Controller
             'status' => 'sometimes|in:requested,dispatched,received,installed,returned,cancelled',
             'is_returned_faulty' => 'sometimes|boolean',
             'notes' => 'nullable|string',
+            'payment_proof' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'gas_pass_slip' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'return_slip' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
 
         try {
@@ -93,10 +95,59 @@ class WorkOrderPartController extends Controller
                 ->where('id', $workOrderPartId)
                 ->firstOrFail();
 
+            // Workflow validation: Payable parts require payment proof before dispatch
+            if ($request->has('status') && $request->status === 'dispatched') {
+                if ($workOrderPart->request_type === 'payable' && !$workOrderPart->payment_proof_path && !$request->hasFile('payment_proof')) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Payment proof is required before dispatching payable parts'
+                    ], 422);
+                }
+            }
+
             $updateData = $request->only([
                 'quantity', 'request_type', 'pricing_source', 'unit_price',
                 'part_request_number', 'status', 'is_returned_faulty', 'notes'
             ]);
+
+            // Handle document uploads
+            $workOrder = WorkOrder::findOrFail($workOrderId);
+            
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $fileName = 'payment_proof_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs(
+                    'work-orders/' . $workOrder->work_order_number . '/parts',
+                    $fileName,
+                    'public'
+                );
+                $updateData['payment_proof_path'] = $path;
+                $updateData['payment_proof_uploaded_at'] = now();
+            }
+
+            if ($request->hasFile('gas_pass_slip')) {
+                $file = $request->file('gas_pass_slip');
+                $fileName = 'gas_pass_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs(
+                    'work-orders/' . $workOrder->work_order_number . '/parts',
+                    $fileName,
+                    'public'
+                );
+                $updateData['gas_pass_slip_path'] = $path;
+                $updateData['gas_pass_slip_uploaded_at'] = now();
+            }
+
+            if ($request->hasFile('return_slip')) {
+                $file = $request->file('return_slip');
+                $fileName = 'return_slip_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs(
+                    'work-orders/' . $workOrder->work_order_number . '/parts',
+                    $fileName,
+                    'public'
+                );
+                $updateData['return_slip_path'] = $path;
+                $updateData['return_slip_uploaded_at'] = now();
+            }
 
             if ($request->has('is_returned_faulty') && $request->is_returned_faulty && !$workOrderPart->is_returned_faulty) {
                 $updateData['faulty_part_returned_at'] = now();
