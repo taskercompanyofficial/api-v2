@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderFile;
 use App\Models\WorkOrderHistory;
 use App\Models\WorkOrderStatus;
 use App\QueryFilterTrait;
@@ -398,8 +399,8 @@ class WorkOrderController extends Controller
         }
 
         // Get the Dispatched - Assigned to Technician status
-        $dispatchedStatus = \App\Models\WorkOrderStatus::where('slug', 'dispatched')->first();
-        $assignedToTechnicianSubStatus = \App\Models\WorkOrderStatus::where('slug', 'assigned-to-technician')
+        $dispatchedStatus = WorkOrderStatus::where('slug', 'dispatched')->first();
+        $assignedToTechnicianSubStatus = WorkOrderStatus::where('slug', 'assigned-to-technician')
             ->where('parent_id', $dispatchedStatus?->id)
             ->first();
 
@@ -486,7 +487,7 @@ class WorkOrderController extends Controller
                     'phone' => $assignedStaff->phone,
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log error but don't fail the assignment
             \Illuminate\Support\Facades\Log::error('Failed to send WhatsApp notification to assigned staff', [
                 'work_order_id' => $workOrder->id,
@@ -650,8 +651,8 @@ class WorkOrderController extends Controller
         }
 
         // Get the Cancelled status
-        $cancelledStatus = \App\Models\WorkOrderStatus::where('slug', 'cancelled')->first();
-        $customerCancelledSubStatus = \App\Models\WorkOrderStatus::where('slug', 'customer-cancelled')
+        $cancelledStatus = WorkOrderStatus::where('slug', 'cancelled')->first();
+        $customerCancelledSubStatus = WorkOrderStatus::where('slug', 'customer-cancelled')
             ->where('parent_id', $cancelledStatus?->id)
             ->first();
 
@@ -789,10 +790,10 @@ class WorkOrderController extends Controller
 
             if ($validator->fails()) {
                 return response()->json([
-                    'success' => false,
+                    'status' => 'error',
                     'message' => 'Validation failed',
                     'errors' => $validator->errors(),
-                ], 422);
+                ]);
             }
 
             // Load original work order
@@ -847,17 +848,22 @@ class WorkOrderController extends Controller
             $newWorkOrder = WorkOrder::create($newWorkOrderData);
 
             // Conditionally copy attachments
-            if ($request->copy_attachments && $originalWorkOrder->files->isNotEmpty()) {
-                foreach ($originalWorkOrder->files as $file) {
-                    \App\Models\WorkOrderFile::create([
-                        'work_order_id' => $newWorkOrder->id,
-                        'file_type_id' => $file->file_type_id,
-                        'file_path' => $file->file_path,
-                        'file_name' => $file->file_name,
-                        'file_size' => $file->file_size,
-                        'mime_type' => $file->mime_type,
-                        'uploaded_by' => auth()->id(),
-                    ]);
+            if ($request->copy_attachments) {
+                // Reload files to ensure we have the collection
+                $files = WorkOrderFile::where('work_order_id', $originalWorkOrder->id)->get();
+                
+                if ($files->isNotEmpty()) {
+                    foreach ($files as $file) {
+                        WorkOrderFile::create([
+                            'work_order_id' => $newWorkOrder->id,
+                            'file_type_id' => $file->file_type_id,
+                            'file_path' => $file->file_path,
+                            'file_name' => $file->file_name,
+                            'file_size' => $file->file_size,
+                            'mime_type' => $file->mime_type,
+                            'uploaded_by' => auth()->id(),
+                        ]);
+                    }
                 }
             }
 
@@ -887,19 +893,15 @@ class WorkOrderController extends Controller
             );
 
             return response()->json([
-                'success' => true,
+                'status' => "success",
                 'message' => "Work order duplicated successfully as #{$newWorkOrder->work_order_number}",
-                'data' => [
-                    'id' => $newWorkOrder->id,
-                    'work_order_number' => $newWorkOrder->work_order_number,
-                ],
+               
             ]);
         } catch (Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to duplicate work order',
-                'error' => $e->getMessage(),
-            ], 500);
+                'status' => "error",
+                'message' => 'Failed to duplicate work order .'.$e->getMessage(),
+            ], );
         }
     }
 }
