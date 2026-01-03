@@ -92,6 +92,9 @@ class WorkOrder extends Model
         'is_locked',
         'locked_reason',
         
+        // Reminders
+        'reminders',
+        
         // Audit
         'created_by',
         'updated_by',
