@@ -265,8 +265,8 @@ class WorkOrder extends Model
 
     public function calculateTotal(): void
     {
-        $this->total_amount = $this->services()->sum('final_price');
-        $this->final_amount = $this->total_amount - $this->discount;
+        $this->total_amount = (float)($this->services()->sum('final_price') ?? 0);
+        $this->final_amount = (float)($this->total_amount - ($this->discount ?? 0));
         $this->save();
     }
 
