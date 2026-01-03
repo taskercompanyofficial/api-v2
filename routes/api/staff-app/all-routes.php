@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\App\AuthenticatedSessionController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\StaffApp\AttendanceController;
 use App\Http\Controllers\Authenticated\StaffApp\LeaveController;
 use Illuminate\Support\Facades\Route;
@@ -43,5 +44,20 @@ Route::group(['prefix' => 'staff-app'], function () {
         // Profile routes
         Route::get('/profile/status', [App\Http\Controllers\Authenticated\StaffApp\StaffProfileController::class, 'getProfileStatus']);
         Route::put('/profile/complete', [App\Http\Controllers\Authenticated\StaffApp\StaffProfileController::class, 'completeProfile']);
+        
+        // File Types route
+        Route::get('/file-types', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'getFileTypes']);
+        
+        // Work Order routes
+        Route::get('/work-orders/summary', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'summary']);
+        Route::get('/work-orders', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'index']);
+        Route::get('/work-orders/{id}', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'show']);
+        Route::post('/work-orders/{id}/accept', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'accept']);
+        Route::post('/work-orders/{id}/reject', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'reject']);
+        Route::patch('/work-orders/{id}/update-details', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateDetails']);
+        Route::post('/work-orders/{id}/upload-file', [WorkOrderFileController::class, 'store']);
+        Route::delete('/work-orders/{id}/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
+        Route::post('/work-orders/{id}/update-status', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatus']);
+        Route::post('/work-orders/{id}/update-status-by-slug', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatusBySlug']);
     });
 });
