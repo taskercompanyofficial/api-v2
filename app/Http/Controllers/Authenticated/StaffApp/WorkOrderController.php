@@ -189,35 +189,35 @@ class WorkOrderController extends Controller
             ])->where('assigned_to_id', $staff->id)
               ->findOrFail($id);
 
-            if ($workOrder->status?->slug === 'dispatched' && 
-                $workOrder->subStatus?->slug === 'assigned-to-technician' &&
-                is_null($workOrder->accepted_at) &&
-                is_null($workOrder->rejected_at)) {
+            // if ($workOrder->status?->slug === 'dispatched' && 
+            //     $workOrder->subStatus?->slug === 'assigned-to-technician' &&
+            //     is_null($workOrder->accepted_at) &&
+            //     is_null($workOrder->rejected_at)) {
                 
-                $technicianAcceptPendingStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accept-pending')
-                                                                              ->where('parent_id', $workOrder->status_id)
-                                                                              ->first();
+            //     $technicianAcceptPendingStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accept-pending')
+            //                                                                   ->where('parent_id', $workOrder->status_id)
+            //                                                                   ->first();
                 
-                if ($technicianAcceptPendingStatus) {
-                    $workOrder->sub_status_id = $technicianAcceptPendingStatus->id;
-                    $workOrder->updated_by = $staff->id;
-                    $workOrder->save();
+            //     if ($technicianAcceptPendingStatus) {
+            //         $workOrder->sub_status_id = $technicianAcceptPendingStatus->id;
+            //         $workOrder->updated_by = $staff->id;
+            //         $workOrder->save();
 
-                    // Log status change
-                    WorkOrderHistory::log(
-                        workOrderId: $workOrder->id,
-                        actionType: 'status_updated',
-                        description: "Status auto-updated to Technician Accept Pending when {$staff->first_name} {$staff->last_name} viewed the work order",
-                        fieldName: 'sub_status',
-                        oldValue: 'Assigned to Technician',
-                        newValue: 'Technician Accept Pending',
-                        metadata: [
-                            'auto_updated' => true,
-                            'viewed_by_staff_id' => $staff->id,
-                        ]
-                    );
-                }
-            }
+            //         // Log status change
+            //         WorkOrderHistory::log(
+            //             workOrderId: $workOrder->id,
+            //             actionType: 'status_updated',
+            //             description: "Status auto-updated to Technician Accept Pending when {$staff->first_name} {$staff->last_name} viewed the work order",
+            //             fieldName: 'sub_status',
+            //             oldValue: 'Assigned to Technician',
+            //             newValue: 'Technician Accept Pending',
+            //             metadata: [
+            //                 'auto_updated' => true,
+            //                 'viewed_by_staff_id' => $staff->id,
+            //             ]
+            //         );
+            //     }
+            // }
 
             return response()->json([
                 'status' => 'success',
