@@ -77,7 +77,15 @@ class WorkOrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $workOrders,
+            'data' => $workOrders->items(),
+            'pagination' => [
+                'total' => $workOrders->total(),
+                'per_page' => $workOrders->perPage(),
+                'current_page' => $workOrders->currentPage(),
+                'last_page' => $workOrders->lastPage(),
+                'from' => $workOrders->firstItem(),
+                'to' => $workOrders->lastItem(),
+            ],
         ]);
     }
 
