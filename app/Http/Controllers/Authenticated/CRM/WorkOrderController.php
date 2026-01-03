@@ -1022,7 +1022,117 @@ class WorkOrderController extends Controller
             return response()->json([
                 'status' => "error",
                 'message' => 'Failed to duplicate work order .'.$e->getMessage(),
-            ], );
+            ], 500);
+        }
+    }
+
+    /**
+     * Reopen a work order (create new work order with incremental suffix)
+     */
+    public function reopen(Request $request, string $id): JsonResponse
+    {
+        try {
+            $originalWorkOrder = WorkOrder::findOrFail($id);
+
+            // Get the base work order number (without any suffix)
+            $baseWorkOrderNumber = $originalWorkOrder->work_order_number;
+            
+            // Remove existing suffix if present (e.g., "WO-001-1" becomes "WO-001")
+            $baseWorkOrderNumber = preg_replace('/-\d+$/', '', $baseWorkOrderNumber);
+
+            // Find all work orders with this base number
+            $existingReopened = WorkOrder::where('work_order_number', 'like', $baseWorkOrderNumber . '-%')
+                ->orderBy('work_order_number', 'desc')
+                ->first();
+
+            // Determine the next suffix number
+            $nextSuffix = 1;
+            if ($existingReopened) {
+                // Extract the suffix from the last reopened work order
+                if (preg_match('/-(\d+)$/', $existingReopened->work_order_number, $matches)) {
+                    $nextSuffix = (int)$matches[1] + 1;
+                }
+            }
+
+            // Generate new work order number with suffix
+            $newWorkOrderNumber = $baseWorkOrderNumber . '-' . $nextSuffix;
+
+            // Create new work order with copied data
+            $newWorkOrder = WorkOrder::create([
+                'work_order_number' => $newWorkOrderNumber,
+                'customer_id' => $originalWorkOrder->customer_id,
+                'customer_address_id' => $originalWorkOrder->customer_address_id,
+                'authorized_brand_id' => $originalWorkOrder->authorized_brand_id,
+                'branch_id' => $originalWorkOrder->branch_id,
+                'category_id' => $originalWorkOrder->category_id,
+                'service_id' => $originalWorkOrder->service_id,
+                'parent_service_id' => $originalWorkOrder->parent_service_id,
+                'product_id' => $originalWorkOrder->product_id,
+                
+                // Copy product details
+                'product_indoor_model' => $originalWorkOrder->product_indoor_model,
+                'product_outdoor_model' => $originalWorkOrder->product_outdoor_model,
+                'indoor_serial_number' => $originalWorkOrder->indoor_serial_number,
+                'outdoor_serial_number' => $originalWorkOrder->outdoor_serial_number,
+                'warrenty_serial_number' => $originalWorkOrder->warrenty_serial_number,
+                'warrenty_status' => $originalWorkOrder->warrenty_status,
+                'warrenty_end_date' => $originalWorkOrder->warrenty_end_date,
+                
+                // Copy descriptions
+                'customer_description' => $originalWorkOrder->customer_description,
+                'defect_description' => $originalWorkOrder->defect_description,
+                
+                // Set initial status
+                'status_id' => WorkOrderStatus::where('name', 'Pending')->first()?->id,
+                
+                // Set priority
+                'priority' => $request->priority ?? $originalWorkOrder->priority ?? 'medium',
+                
+                // Audit fields
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
+            ]);
+
+            // Log reopening in history for new work order
+            WorkOrderHistory::log(
+                workOrderId: $newWorkOrder->id,
+                actionType: 'created',
+                description: "Work order reopened from #{$originalWorkOrder->work_order_number}",
+                metadata: [
+                    'original_work_order_id' => $originalWorkOrder->id,
+                    'original_work_order_number' => $originalWorkOrder->work_order_number,
+                    'reopen_reason' => $request->reopen_reason ?? 'Complaint reopened',
+                    'reopen_count' => $nextSuffix,
+                ]
+            );
+
+            // Log in original work order
+            WorkOrderHistory::log(
+                workOrderId: $originalWorkOrder->id,
+                actionType: 'reopened',
+                description: "Work order reopened as #{$newWorkOrder->work_order_number}",
+                metadata: [
+                    'new_work_order_id' => $newWorkOrder->id,
+                    'new_work_order_number' => $newWorkOrder->work_order_number,
+                    'reopen_reason' => $request->reopen_reason ?? 'Complaint reopened',
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Work order reopened successfully as #{$newWorkOrder->work_order_number}",
+                'data' => [
+                    'id' => $newWorkOrder->id,
+                    'work_order_number' => $newWorkOrder->work_order_number,
+                    'original_work_order_id' => $originalWorkOrder->id,
+                    'original_work_order_number' => $originalWorkOrder->work_order_number,
+                ]
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to reopen work order: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

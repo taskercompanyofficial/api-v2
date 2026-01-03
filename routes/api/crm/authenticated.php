@@ -123,6 +123,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/assign', [WorkOrderController::class, 'assign']);
         Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
         Route::post('/work-orders/{id}/duplicate', [WorkOrderController::class, 'duplicate']);
+        Route::post('/work-orders/{id}/reopen', [WorkOrderController::class, 'reopen']);
         Route::post('/work-orders/{id}/send-reminder', [WorkOrderController::class, 'sendReminder']);
         
         // Parts Management
