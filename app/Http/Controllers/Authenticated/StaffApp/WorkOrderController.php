@@ -275,17 +275,17 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // Log acceptance
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'accepted',
-                description: "Work order accepted by {$staff->first_name} {$staff->last_name}",
-                metadata: [
-                    'accepted_by_staff_id' => $staff->id,
-                    'accepted_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
-                    'notes' => $request->notes,
-                ]
-            );
+            // // Log acceptance
+            // WorkOrderHistory::log(
+            //     workOrderId: $workOrder->id,
+            //     actionType: 'accepted',
+            //     description: "Work order accepted by {$staff->first_name} {$staff->last_name}",
+            //     metadata: [
+            //         'accepted_by_staff_id' => $staff->id,
+            //         'accepted_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
+            //         'notes' => $request->notes,
+            //     ]
+            // );
 
             return response()->json([
                 'status' => 'success',
@@ -338,16 +338,16 @@ class WorkOrderController extends Controller
             $workOrder->save();
 
             // Log rejection
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'rejected',
-                description: "Work order rejected by {$staff->first_name} {$staff->last_name}. Reason: {$request->reason}",
-                metadata: [
-                    'rejected_by_staff_id' => $staff->id,
-                    'rejected_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
-                    'rejection_reason' => $request->reason,
-                ]
-            );
+            // WorkOrderHistory::log(
+            //     workOrderId: $workOrder->id,
+            //     actionType: 'rejected',
+            //     description: "Work order rejected by {$staff->first_name} {$staff->last_name}. Reason: {$request->reason}",
+            //     metadata: [
+            //         'rejected_by_staff_id' => $staff->id,
+            //         'rejected_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
+            //         'rejection_reason' => $request->reason,
+            //     ]
+            // );
 
             return response()->json([
                 'status' => 'success',
@@ -407,21 +407,21 @@ class WorkOrderController extends Controller
             $workOrder->save();
 
             // Log update
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'details_updated',
-                description: "Product details updated by {$staff->first_name} {$staff->last_name}",
-                metadata: [
-                    'updated_fields' => array_keys($request->only([
-                        'indoor_serial_number',
-                        'outdoor_serial_number',
-                        'product_indoor_model',
-                        'product_outdoor_model',
-                        'purchase_date',
-                        'warranty_serial_number',
-                    ])),
-                ]
-            );
+            // WorkOrderHistory::log(
+            //     workOrderId: $workOrder->id,
+            //     actionType: 'details_updated',
+            //     description: "Product details updated by {$staff->first_name} {$staff->last_name}",
+            //     metadata: [
+            //         'updated_fields' => array_keys($request->only([
+            //             'indoor_serial_number',
+            //             'outdoor_serial_number',
+            //             'product_indoor_model',
+            //             'product_outdoor_model',
+            //             'purchase_date',
+            //             'warranty_serial_number',
+            //         ])),
+            //     ]
+            // );
 
             return response()->json([
                 'status' => 'success',
@@ -472,18 +472,18 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // Log status change
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'status_updated',
-                description: "Status changed from {$oldStatus->name} to {$newStatus->name} by {$staff->first_name} {$staff->last_name}",
-                fieldName: 'status',
-                oldValue: $oldStatus->name,
-                newValue: $newStatus->name,
-                metadata: [
-                    'notes' => $request->notes,
-                ]
-            );
+            // // Log status change
+            // WorkOrderHistory::log(
+            //     workOrderId: $workOrder->id,
+            //     actionType: 'status_updated',
+            //     description: "Status changed from {$oldStatus->name} to {$newStatus->name} by {$staff->first_name} {$staff->last_name}",
+            //     fieldName: 'status',
+            //     oldValue: $oldStatus->name,
+            //     newValue: $newStatus->name,
+            //     metadata: [
+            //         'notes' => $request->notes,
+            //     ]
+            // );
 
             return response()->json([
                 'status' => 'success',
@@ -621,15 +621,15 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // Log status change
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'status_updated',
-                description: "Status changed from {$oldStatus?->name} → {$oldSubStatus?->name} to {$status->name} → {$subStatus->name} by {$staff->first_name} {$staff->last_name}",
-                fieldName: 'status',
-                oldValue: "{$oldStatus?->name} → {$oldSubStatus?->name}",
-                newValue: "{$status->name} → {$subStatus->name}",
-            );
+            // // Log status change
+            // WorkOrderHistory::log(
+            //     workOrderId: $workOrder->id,
+            //     actionType: 'status_updated',
+            //     description: "Status changed from {$oldStatus?->name} → {$oldSubStatus?->name} to {$status->name} → {$subStatus->name} by {$staff->first_name} {$staff->last_name}",
+            //     fieldName: 'status',
+            //     oldValue: "{$oldStatus?->name} → {$oldSubStatus?->name}",
+            //     newValue: "{$status->name} → {$subStatus->name}",
+            // );
 
             return response()->json([
                 'status' => 'success',
