@@ -40,12 +40,11 @@ class WorkOrderPartController extends Controller
             'unit_price' => 'nullable|numeric|min:0',
             'part_request_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
-            'work_order_id' => 'required|exists:work_orders,id',
         ]);
 
         try {
             $part = WorkOrderPart::create([
-                'work_order_id' => $workOrder->id || $request->work_order_id,
+                'work_order_id' => $workOrder->id,
                 'part_id' => $request->part_id,
                 'quantity' => $request->quantity,
                 'request_type' => $request->request_type,
