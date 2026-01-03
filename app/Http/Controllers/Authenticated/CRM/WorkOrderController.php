@@ -404,13 +404,38 @@ class WorkOrderController extends Controller
             ->where('parent_id', $dispatchedStatus?->id)
             ->first();
 
-        // Update assignment and status
-        $workOrder->update([
+        // Prepare update data
+        $updateData = [
             'assigned_to_id' => $newAssignedId,
             'assigned_at' => now(),
             'status_id' => $dispatchedStatus?->id,
             'sub_status_id' => $assignedToTechnicianSubStatus?->id,
-        ]);
+        ];
+
+        // If reassigning (not first assignment), reset all action timestamps
+        if ($previousAssignedId) {
+            $updateData['accepted_at'] = null;
+            $updateData['rejected_at'] = null;
+            $updateData['rejected_by'] = null;
+            $updateData['reject_reason'] = null;
+            
+            // Reset service timing
+            $updateData['appointment_date'] = null;
+            $updateData['appointment_time'] = null;
+            $updateData['service_start_date'] = null;
+            $updateData['service_start_time'] = null;
+            $updateData['service_end_date'] = null;
+            $updateData['service_end_time'] = null;
+            
+            // Reset completion & tracking
+            $updateData['completed_at'] = null;
+            $updateData['completed_by'] = null;
+            $updateData['closed_at'] = null;
+            $updateData['closed_by'] = null;
+        }
+
+        // Update assignment and status
+        $workOrder->update($updateData);
 
         // Add notes to technician_remarks if provided
         if ($request->notes) {

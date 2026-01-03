@@ -125,6 +125,9 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/duplicate', [WorkOrderController::class, 'duplicate']);
         Route::post('/work-orders/{id}/send-reminder', [WorkOrderController::class, 'sendReminder']);
         
+        // Parts Management
+        Route::apiResource('/parts', \App\Http\Controllers\Authenticated\CRM\PartController::class);
+        
         // Work Order Files Management (nested routes)
         Route::prefix('work-orders/{workOrderId}')->group(function () {
             Route::get('/files', [WorkOrderFileController::class, 'index']);
