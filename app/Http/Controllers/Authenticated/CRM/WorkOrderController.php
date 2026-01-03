@@ -895,7 +895,10 @@ class WorkOrderController extends Controller
             return response()->json([
                 'status' => "success",
                 'message' => "Work order duplicated successfully as #{$newWorkOrder->work_order_number}",
-               
+               'data' => [
+                   'id' => $newWorkOrder->id,
+                   'work_order_number' => $newWorkOrder->work_order_number,
+               ]
             ]);
         } catch (Exception $e) {
             return response()->json([
