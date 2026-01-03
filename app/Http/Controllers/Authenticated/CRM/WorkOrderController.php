@@ -442,8 +442,19 @@ class WorkOrderController extends Controller
             ]
         );
 
+
         // Send WhatsApp notification to assigned staff
         try {
+            // Send Push Notification
+            if ($assignedStaff->device_token) {
+                $this->sendPushNotification(
+                    $assignedStaff->device_token,
+                    "New Work Order Assigned",
+                    "You have been assigned logic for Work Order #{$workOrder->work_order_number}",
+                    ['work_order_id' => $workOrder->id]
+                );
+            }
+
             if ($assignedStaff->phone) {
                 $whatsappService = new \App\Services\WhatsAppService();
                 $message = $this->formatWorkOrderForWhatsApp($workOrder->fresh([
@@ -721,5 +732,34 @@ class WorkOrderController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Send Push Notification using Expo
+     */
+    private function sendPushNotification($to, $title, $body, $data = [])
+    {
+        $url = 'https://exp.host/--/api/v2/push/send';
+        $postData = [
+            'to' => $to,
+            'title' => $title,
+            'body' => $body,
+            'data' => $data,
+            'sound' => 'default',
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($postData));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Accept: application/json',
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        
+        $response = curl_exec($ch);
+        curl_close($ch);
+        
+        return $response;
     }
 }

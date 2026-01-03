@@ -40,6 +40,7 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::get('/notifications/unread-count', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'unreadCount']);
         Route::put('/notifications/{id}/read', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'markAsRead']);
         Route::put('/notifications/mark-all-read', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'markAllAsRead']);
+        Route::post('/notifications/register-token', [App\Http\Controllers\Authenticated\StaffApp\NotificationController::class, 'registerToken']);
         
         // Profile routes
         Route::get('/profile/status', [App\Http\Controllers\Authenticated\StaffApp\StaffProfileController::class, 'getProfileStatus']);

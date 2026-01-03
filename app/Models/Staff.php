@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class Staff extends Authenticatable
 {
-    use SoftDeletes, HasApiTokens;
+    use SoftDeletes, HasApiTokens, Notifiable;
 
     protected $table = 'staff';
 
@@ -28,6 +29,7 @@ class Staff extends Authenticatable
         'gender',
         'email',
         'phone',
+        'device_token',
         'profile_image',
         'cnic_front_image',
         'cnic_back_image',

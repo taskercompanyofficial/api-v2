@@ -114,4 +114,30 @@ class NotificationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Register device token for push notifications
+     */
+    public function registerToken(Request $request)
+    {
+        try {
+            $request->validate([
+                'token' => 'required|string',
+            ]);
+
+            $staff = Auth::user();
+            $staff->device_token = $request->token;
+            $staff->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Device token registered successfully',
+            ]);
+        } catch (\Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
+    }
 }
