@@ -231,7 +231,8 @@ class WorkOrderController extends Controller
             'indoor_serial_number',
             'outdoor_serial_number',
             'warrenty_serial_number',
-            'purchase_date',
+            'warrenty_status',
+            'warrenty_end_date',
             
             // Foreign Keys
             'authorized_brand_id',
