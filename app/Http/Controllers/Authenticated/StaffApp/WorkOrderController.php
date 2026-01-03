@@ -113,6 +113,17 @@ class WorkOrderController extends Controller
                 'brand:id,name',
             ])->where('assigned_to_id', $staff->id);
 
+            // Search by work order number or customer phone
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('work_order_number', 'LIKE', "%{$search}%")
+                      ->orWhereHas('customer', function ($q) use ($search) {
+                          $q->where('phone', 'LIKE', "%{$search}%");
+                      });
+                });
+            }
+
             // Filter by status
             if ($request->has('status')) {
                 $statusFilter = $request->status;
