@@ -189,9 +189,7 @@ class WorkOrderController extends Controller
             ])->where('assigned_to_id', $staff->id)
               ->findOrFail($id);
 
-            // Auto-update status when worker views the work order
-            // If status is "Assigned to Technician", update to "Technician Accept Pending"
-            if ($workOrder->status->slug === 'dispatched' && 
+            if ($workOrder->status?->slug === 'dispatched' && 
                 $workOrder->subStatus?->slug === 'assigned-to-technician' &&
                 is_null($workOrder->accepted_at) &&
                 is_null($workOrder->rejected_at)) {
