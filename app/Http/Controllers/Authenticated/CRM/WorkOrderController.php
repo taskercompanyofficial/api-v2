@@ -366,7 +366,7 @@ class WorkOrderController extends Controller
         $workOrder = WorkOrder::findOrFail($id);
 
         // Prevent assignment if completed or cancelled
-        if ($workOrder->completed_at || $workOrder->cancelled_at) {
+        if ($workOrder->completed_at || $workOrder->cancelled_at || $workOrder->rejected_at || $workOrder->closed_at) {
             return response()->json([
                 'status' => "error",
                 'message' => 'Cannot assign staff to completed or cancelled work order',
@@ -426,12 +426,6 @@ class WorkOrderController extends Controller
             $updateData['service_start_time'] = null;
             $updateData['service_end_date'] = null;
             $updateData['service_end_time'] = null;
-            
-            // Reset completion & tracking
-            $updateData['completed_at'] = null;
-            $updateData['completed_by'] = null;
-            $updateData['closed_at'] = null;
-            $updateData['closed_by'] = null;
         }
 
         // Update assignment and status
