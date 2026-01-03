@@ -773,4 +773,133 @@ class WorkOrderController extends Controller
         
         return $response;
     }
+
+    /**
+     * Duplicate work order with selective copying
+     */
+    public function duplicate(Request $request, string $id): JsonResponse
+    {
+        try {
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'copy_product_details' => 'boolean',
+                'copy_service_details' => 'boolean',
+                'copy_attachments' => 'boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            // Load original work order
+            $originalWorkOrder = WorkOrder::with(['files'])->findOrFail($id);
+
+            // Create new work order data
+            $newWorkOrderData = [
+                // Always copy customer and address
+                'customer_id' => $originalWorkOrder->customer_id,
+                'customer_address_id' => $originalWorkOrder->customer_address_id,
+                
+                // Generate new work order number
+                'work_order_number' => WorkOrder::generateNumber(),
+                
+                // Copy basic fields
+                'work_order_source' => $originalWorkOrder->work_order_source,
+                'priority' => $originalWorkOrder->priority,
+                'customer_description' => $originalWorkOrder->customer_description,
+                'defect_description' => $originalWorkOrder->defect_description,
+                
+                // Set initial status (not assigned/dispatched)
+                'status_id' => null,
+                'sub_status_id' => null,
+                
+                // Audit
+                'created_by' => auth()->id(),
+                'updated_by' => auth()->id(),
+            ];
+
+            // Conditionally copy service details
+            if ($request->copy_service_details) {
+                $newWorkOrderData['authorized_brand_id'] = $originalWorkOrder->authorized_brand_id;
+                $newWorkOrderData['branch_id'] = $originalWorkOrder->branch_id;
+                $newWorkOrderData['category_id'] = $originalWorkOrder->category_id;
+                $newWorkOrderData['service_id'] = $originalWorkOrder->service_id;
+                $newWorkOrderData['parent_service_id'] = $originalWorkOrder->parent_service_id;
+            }
+
+            // Conditionally copy product details
+            if ($request->copy_product_details) {
+                $newWorkOrderData['product_id'] = $originalWorkOrder->product_id;
+                $newWorkOrderData['product_indoor_model'] = $originalWorkOrder->product_indoor_model;
+                $newWorkOrderData['product_outdoor_model'] = $originalWorkOrder->product_outdoor_model;
+                $newWorkOrderData['indoor_serial_number'] = $originalWorkOrder->indoor_serial_number;
+                $newWorkOrderData['outdoor_serial_number'] = $originalWorkOrder->outdoor_serial_number;
+                $newWorkOrderData['warrenty_serial_number'] = $originalWorkOrder->warrenty_serial_number;
+                $newWorkOrderData['purchase_date'] = $originalWorkOrder->purchase_date;
+                $newWorkOrderData['warrenty_status'] = $originalWorkOrder->warrenty_status;
+            }
+
+            // Create new work order
+            $newWorkOrder = WorkOrder::create($newWorkOrderData);
+
+            // Conditionally copy attachments
+            if ($request->copy_attachments && $originalWorkOrder->files->isNotEmpty()) {
+                foreach ($originalWorkOrder->files as $file) {
+                    \App\Models\WorkOrderFile::create([
+                        'work_order_id' => $newWorkOrder->id,
+                        'file_type_id' => $file->file_type_id,
+                        'file_path' => $file->file_path,
+                        'file_name' => $file->file_name,
+                        'file_size' => $file->file_size,
+                        'mime_type' => $file->mime_type,
+                        'uploaded_by' => auth()->id(),
+                    ]);
+                }
+            }
+
+            // Log duplication in history
+            WorkOrderHistory::log(
+                workOrderId: $newWorkOrder->id,
+                actionType: 'created',
+                description: "Work order created as duplicate of #{$originalWorkOrder->work_order_number}",
+                metadata: [
+                    'original_work_order_id' => $originalWorkOrder->id,
+                    'original_work_order_number' => $originalWorkOrder->work_order_number,
+                    'copied_product_details' => $request->copy_product_details ?? false,
+                    'copied_service_details' => $request->copy_service_details ?? false,
+                    'copied_attachments' => $request->copy_attachments ?? false,
+                ]
+            );
+
+            // Also log in original work order
+            WorkOrderHistory::log(
+                workOrderId: $originalWorkOrder->id,
+                actionType: 'duplicated',
+                description: "Work order duplicated to #{$newWorkOrder->work_order_number}",
+                metadata: [
+                    'new_work_order_id' => $newWorkOrder->id,
+                    'new_work_order_number' => $newWorkOrder->work_order_number,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => "Work order duplicated successfully as #{$newWorkOrder->work_order_number}",
+                'data' => [
+                    'id' => $newWorkOrder->id,
+                    'work_order_number' => $newWorkOrder->work_order_number,
+                ],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to duplicate work order',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
