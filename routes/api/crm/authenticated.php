@@ -123,6 +123,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/assign', [WorkOrderController::class, 'assign']);
         Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
         Route::post('/work-orders/{id}/duplicate', [WorkOrderController::class, 'duplicate']);
+        Route::post('/work-orders/{id}/send-reminder', [WorkOrderController::class, 'sendReminder']);
         
         // Work Order Files Management (nested routes)
         Route::prefix('work-orders/{workOrderId}')->group(function () {

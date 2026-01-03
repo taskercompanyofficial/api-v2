@@ -747,6 +747,66 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Send reminder notification to assigned staff
+     */
+    public function sendReminder(string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::with(['assignedTo', 'customer'])->findOrFail($id);
+
+            // Check if work order has assigned staff
+            if (!$workOrder->assigned_to_id || !$workOrder->assignedTo) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'This work order is not assigned to any staff member.',
+                ]);
+            }
+
+            // Check if assigned staff has device token
+            if (!$workOrder->assignedTo->device_token) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Assigned staff does not have push notifications enabled.',
+                ]);
+            }
+
+            // Send push notification
+            $notificationSent = $this->sendPushNotification(
+                $workOrder->assignedTo->device_token,
+                'Work Order Reminder',
+                "Reminder: Work Order #{$workOrder->work_order_number} for {$workOrder->customer->name}",
+                [
+                    'work_order_id' => $workOrder->id,
+                    'work_order_number' => $workOrder->work_order_number,
+                    'type' => 'reminder',
+                ]
+            );
+
+            // Log reminder in history
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'reminder_sent',
+                description: "Reminder notification sent to {$workOrder->assignedTo->first_name} {$workOrder->assignedTo->last_name}",
+                metadata: [
+                    'staff_id' => $workOrder->assignedTo->id,
+                    'staff_name' => $workOrder->assignedTo->first_name . ' ' . $workOrder->assignedTo->last_name,
+                    'notification_sent' => $notificationSent,
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Reminder sent to {$workOrder->assignedTo->first_name} {$workOrder->assignedTo->last_name}",
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to send reminder: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Send Push Notification using Expo
      */
     private function sendPushNotification($to, $title, $body, $data = [])
