@@ -8,14 +8,16 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderPart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WorkOrderPartController extends Controller
 {
     /**
      * Display a listing of parts for a specific work order.
      */
-    public function index(WorkOrder $workOrder)
+    public function index($workOrderId)
     {
+        $workOrder = WorkOrder::findOrFail($workOrderId);
         $parts = $workOrder->workOrderParts()
             ->with(['part', 'creator', 'updater'])
             ->orderBy('created_at', 'desc')
@@ -30,7 +32,7 @@ class WorkOrderPartController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request, WorkOrder $workOrder)
+    public function store(Request $request, $workOrderId)
     {
         $request->validate([
             'part_id' => 'required|exists:parts,id',
@@ -41,8 +43,10 @@ class WorkOrderPartController extends Controller
             'part_request_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
+        Log::info($request->all());
 
         try {
+            $workOrder = WorkOrder::findOrFail($workOrderId);
             $part = WorkOrderPart::create([
                 'work_order_id' => $workOrder->id,
                 'part_id' => $request->part_id,
@@ -71,7 +75,7 @@ class WorkOrderPartController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, WorkOrder $workOrder, WorkOrderPart $workOrderPart)
+    public function update(Request $request, $workOrderId, $workOrderPartId)
     {
         $request->validate([
             'quantity' => 'sometimes|integer|min:1',
@@ -85,6 +89,10 @@ class WorkOrderPartController extends Controller
         ]);
 
         try {
+            $workOrderPart = WorkOrderPart::where('work_order_id', $workOrderId)
+                ->where('id', $workOrderPartId)
+                ->firstOrFail();
+
             $updateData = $request->only([
                 'quantity', 'request_type', 'pricing_source', 'unit_price',
                 'part_request_number', 'status', 'is_returned_faulty', 'notes'
@@ -112,9 +120,13 @@ class WorkOrderPartController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(WorkOrder $workOrder, WorkOrderPart $workOrderPart)
+    public function destroy($workOrderId, $workOrderPartId)
     {
         try {
+            $workOrderPart = WorkOrderPart::where('work_order_id', $workOrderId)
+                ->where('id', $workOrderPartId)
+                ->firstOrFail();
+
             if ($workOrderPart->status !== 'requested') {
                 return response()->json([
                     'status' => 'error',
@@ -138,7 +150,7 @@ class WorkOrderPartController extends Controller
     /**
      * Bulk update status for multiple parts.
      */
-    public function bulkUpdateStatus(Request $request, WorkOrder $workOrder)
+    public function bulkUpdateStatus(Request $request, $workOrderId)
     {
         $request->validate([
             'part_ids' => 'required|array',
@@ -148,7 +160,7 @@ class WorkOrderPartController extends Controller
 
         try {
             WorkOrderPart::whereIn('id', $request->part_ids)
-                ->where('work_order_id', $workOrder->id)
+                ->where('work_order_id', $workOrderId)
                 ->update([
                     'status' => $request->status,
                     'updated_by' => auth()->id(),
