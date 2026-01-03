@@ -134,6 +134,13 @@ Route::group(['prefix' => 'crm'], function () {
             Route::post('/files', [WorkOrderFileController::class, 'store']);
             Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
             Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
+            
+            // Work Order Parts
+            Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);
+            Route::post('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'store']);
+            Route::patch('/parts/bulk-status', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'bulkUpdateStatus']);
+            Route::patch('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'update']);
+            Route::delete('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'destroy']);
         });
         
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
