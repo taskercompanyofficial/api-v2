@@ -749,9 +749,22 @@ class WorkOrderController extends Controller
     /**
      * Send reminder notification to assigned staff
      */
-    public function sendReminder(string $id): JsonResponse
+    public function sendReminder(Request $request, string $id): JsonResponse
     {
         try {
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'remark' => 'required|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ]);
+            }
+
             $workOrder = WorkOrder::with(['assignedTo', 'customer'])->findOrFail($id);
 
             // Check if work order has assigned staff
@@ -770,11 +783,32 @@ class WorkOrderController extends Controller
                 ]);
             }
 
-            // Send push notification
+            // Prepare reminder data
+            $reminderData = [
+                'sent_at' => now()->toDateTimeString(),
+                'sent_by' => auth()->id(),
+                'sent_by_name' => auth()->user()->name,
+                'remark' => $request->remark,
+                'staff_id' => $workOrder->assignedTo->id,
+                'staff_name' => $workOrder->assignedTo->first_name . ' ' . $workOrder->assignedTo->last_name,
+            ];
+
+            // Get existing reminders or initialize empty array
+            $reminders = $workOrder->reminders ? json_decode($workOrder->reminders, true) : [];
+            
+            // Add new reminder to array
+            $reminders[] = $reminderData;
+
+            // Update work order with new reminders array
+            $workOrder->update([
+                'reminders' => json_encode($reminders),
+            ]);
+
+            // Send push notification with custom remark
             $notificationSent = $this->sendPushNotification(
                 $workOrder->assignedTo->device_token,
                 'Work Order Reminder',
-                "Reminder: Work Order #{$workOrder->work_order_number} for {$workOrder->customer->name}",
+                $request->remark,
                 [
                     'work_order_id' => $workOrder->id,
                     'work_order_number' => $workOrder->work_order_number,
@@ -786,17 +820,22 @@ class WorkOrderController extends Controller
             WorkOrderHistory::log(
                 workOrderId: $workOrder->id,
                 actionType: 'reminder_sent',
-                description: "Reminder notification sent to {$workOrder->assignedTo->first_name} {$workOrder->assignedTo->last_name}",
+                description: "Reminder sent: {$request->remark}",
                 metadata: [
                     'staff_id' => $workOrder->assignedTo->id,
                     'staff_name' => $workOrder->assignedTo->first_name . ' ' . $workOrder->assignedTo->last_name,
+                    'remark' => $request->remark,
                     'notification_sent' => $notificationSent,
+                    'reminder_count' => count($reminders),
                 ]
             );
 
             return response()->json([
                 'status' => 'success',
                 'message' => "Reminder sent to {$workOrder->assignedTo->first_name} {$workOrder->assignedTo->last_name}",
+                'data' => [
+                    'reminder_count' => count($reminders),
+                ],
             ]);
         } catch (Exception $e) {
             return response()->json([
