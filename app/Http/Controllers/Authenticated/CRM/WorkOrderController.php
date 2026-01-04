@@ -1455,7 +1455,9 @@ class WorkOrderController extends Controller
             }
 
             // Find "Part in Demand" status
-            $status = WorkOrderStatus::where('slug', 'part-in-demand')
+            $status = WorkOrderStatus::where('slug', 'in-progress')
+                ->first();
+            $subStatus = WorkOrderStatus::where('slug', 'part-in-demand')
                 ->first();
 
             if (!$status) {
@@ -1470,7 +1472,7 @@ class WorkOrderController extends Controller
 
             // Update work order status
             $workOrder->status_id = $status->id;
-            $workOrder->sub_status_id = null;
+            $workOrder->sub_status_id = $subStatus->id;
             $workOrder->updated_by = auth()->id();
             $workOrder->save();
 
@@ -1484,7 +1486,7 @@ class WorkOrderController extends Controller
                     'new_status_id' => $status->id,
                     'old_sub_status_id' => $oldSubStatusId,
                     'new_sub_status_id' => null,
-                    'parts_count' => $workOrder->parts->count(),
+                    'parts_count' => $workOrder->workOrderParts->count(),
                 ]
             );
 
