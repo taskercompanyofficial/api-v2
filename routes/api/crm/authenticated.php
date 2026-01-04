@@ -127,6 +127,7 @@ Route::group(['prefix' => 'crm'], function () {
         // Dashboard Statistics
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/dashboard/admin', [DashboardController::class, 'adminDashboard']);
+        Route::get('/dashboard/analytics', [DashboardController::class, 'analytics']);
 
         // Work Orders Management
         Route::apiResource('/work-orders', WorkOrderController::class);

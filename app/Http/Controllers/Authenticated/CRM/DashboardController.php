@@ -222,4 +222,157 @@ class DashboardController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get work order analytics data
+     */
+    public function analytics(Request $request): JsonResponse
+    {
+        try {
+            // Get filter parameters
+            $categoryId = $request->get('category_id');
+            $serviceId = $request->get('service_id');
+            $parentServiceId = $request->get('parent_service_id');
+            $statusId = $request->get('status_id');
+            $subStatusId = $request->get('sub_status_id');
+
+            // Base query for open work orders
+            $baseQuery = WorkOrder::whereNull('completed_at')
+                ->whereNull('cancelled_at');
+
+            // Apply filters if provided
+            if ($categoryId) {
+                $baseQuery->where('category_id', $categoryId);
+            }
+            if ($serviceId) {
+                $baseQuery->where('service_id', $serviceId);
+            }
+            if ($parentServiceId) {
+                $baseQuery->where('parent_service_id', $parentServiceId);
+            }
+            if ($statusId) {
+                $baseQuery->where('status_id', $statusId);
+            }
+            if ($subStatusId) {
+                $baseQuery->where('sub_status_id', $subStatusId);
+            }
+
+            // Get counts by category
+            $byCategory = DB::table('work_orders')
+                ->join('categories', 'work_orders.category_id', '=', 'categories.id')
+                ->select(
+                    'categories.id',
+                    'categories.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
+                ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
+                ->groupBy('categories.id', 'categories.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get counts by service
+            $byService = DB::table('work_orders')
+                ->join('services', 'work_orders.service_id', '=', 'services.id')
+                ->select(
+                    'services.id',
+                    'services.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
+                ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
+                ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
+                ->groupBy('services.id', 'services.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get counts by parent service
+            $byParentService = DB::table('work_orders')
+                ->join('parent_services', 'work_orders.parent_service_id', '=', 'parent_services.id')
+                ->select(
+                    'parent_services.id',
+                    'parent_services.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
+                ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
+                ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
+                ->groupBy('parent_services.id', 'parent_services.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get counts by status
+            $byStatus = DB::table('work_orders')
+                ->join('work_order_statuses', 'work_orders.status_id', '=', 'work_order_statuses.id')
+                ->select(
+                    'work_order_statuses.id',
+                    'work_order_statuses.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
+                ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
+                ->groupBy('work_order_statuses.id', 'work_order_statuses.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get counts by sub-status
+            $bySubStatus = DB::table('work_orders')
+                ->join('work_order_sub_statuses', 'work_orders.sub_status_id', '=', 'work_order_sub_statuses.id')
+                ->select(
+                    'work_order_sub_statuses.id',
+                    'work_order_sub_statuses.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
+                ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
+                ->groupBy('work_order_sub_statuses.id', 'work_order_sub_statuses.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get total count
+            $totalCount = $baseQuery->count();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'total' => $totalCount,
+                    'byCategory' => $byCategory,
+                    'byService' => $byService,
+                    'byParentService' => $byParentService,
+                    'byStatus' => $byStatus,
+                    'bySubStatus' => $bySubStatus,
+                    'filters' => [
+                        'category_id' => $categoryId,
+                        'service_id' => $serviceId,
+                        'parent_service_id' => $parentServiceId,
+                        'status_id' => $statusId,
+                        'sub_status_id' => $subStatusId,
+                    ],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch analytics data: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
