@@ -39,20 +39,13 @@ class CustomerFeedbackController extends Controller
      */
     public function store(Request $request, string $workOrderId): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $validator = $request->validate([
             'rating' => 'required|integer|min:1|max:5',
             'feedback_type' => 'required|in:service_quality,technician_behavior,timeliness,overall',
-            'remarks' => 'nullable|string|max:1000',
+            'remarks' => 'required|string|max:1000',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
+    $user =$request->user();
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
 
@@ -62,8 +55,8 @@ class CustomerFeedbackController extends Controller
                 'rating' => $request->rating,
                 'feedback_type' => $request->feedback_type,
                 'remarks' => $request->remarks,
-                'created_by' => auth()->id(),
-                'updated_by' => auth()->id(),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
             ]);
 
             $feedback->load(['customer:id,name', 'createdBy:id,first_name,last_name', 'updatedBy:id,first_name,last_name']);
@@ -86,20 +79,13 @@ class CustomerFeedbackController extends Controller
      */
     public function update(Request $request, string $workOrderId, string $id): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $validator = $request->validate([
             'rating' => 'sometimes|required|integer|min:1|max:5',
             'feedback_type' => 'sometimes|required|in:service_quality,technician_behavior,timeliness,overall',
             'remarks' => 'nullable|string|max:1000',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
+        $user =$request->user();
         try {
             $feedback = CustomerFeedback::where('work_order_id', $workOrderId)
                 ->findOrFail($id);
@@ -108,7 +94,7 @@ class CustomerFeedbackController extends Controller
                 'rating' => $request->rating ?? $feedback->rating,
                 'feedback_type' => $request->feedback_type ?? $feedback->feedback_type,
                 'remarks' => $request->remarks ?? $feedback->remarks,
-                'updated_by' => auth()->id(),
+                'updated_by' => $user->id,
             ]);
 
             $feedback->load(['customer:id,name', 'createdBy:id,first_name,last_name', 'updatedBy:id,first_name,last_name']);
