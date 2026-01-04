@@ -125,7 +125,17 @@ class DashboardController extends Controller
                     'color' => '#f59e0b',
                 ],
                 [
-                    'age' => '6+ Days',
+                    'age' => '6-7 Days',
+                    'count' => WorkOrder::whereNull('completed_at')
+                        ->whereBetween('created_at', [
+                            $today->copy()->subDays(6),
+                            $today->copy()->subDays(7)
+                        ])
+                        ->count(),
+                    'color' => '#ef4444',
+                ],
+                [
+                    'age' => '8+ Days',
                     'count' => WorkOrder::whereNull('completed_at')
                         ->where('created_at', '<', $today->copy()->subDays(6))
                         ->count(),
