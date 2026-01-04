@@ -1441,13 +1441,13 @@ class WorkOrderController extends Controller
     /**
      * Mark work order as Part in Demand
      */
-    public function markAsPartInDemand(Request $request, string $id): JsonResponse
+    public function markAsPartInDemand($id): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::with('parts')->findOrFail($id);
+            $workOrder = WorkOrder::with('workOrderParts')->findOrFail($id);
 
             // Check if work order has at least one part demanded
-            if ($workOrder->parts->isEmpty()) {
+            if ($workOrder->workOrderParts->isEmpty()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Cannot mark as part in demand. No parts have been demanded for this work order.',
@@ -1456,13 +1456,12 @@ class WorkOrderController extends Controller
 
             // Find "Part in Demand" status
             $status = WorkOrderStatus::where('slug', 'part-in-demand')
-                ->whereNull('parent_id')
                 ->first();
 
             if (!$status) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Status "Part in Demand" not found',
+                    'message' => 'Sub Status "Part in Demand" not found',
                 ], 404);
             }
 
@@ -1502,84 +1501,4 @@ class WorkOrderController extends Controller
         }
     }
 
-    /**
-     * Complete work order from Part in Demand status
-     */
-    public function completeFromPartDemand(Request $request, string $id): JsonResponse
-    {
-        try {
-            $workOrder = WorkOrder::with('parts')->findOrFail($id);
-
-            // Verify work order is in Part in Demand status
-            if ($workOrder->status->slug !== 'part-in-demand') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Work order is not in Part in Demand status',
-                ], 422);
-            }
-
-            // Check if all parts are installed
-            $pendingParts = $workOrder->parts->filter(function ($part) {
-                return in_array($part->status, ['requested', 'dispatched', 'received']);
-            });
-
-            if ($pendingParts->isNotEmpty()) {
-                $pendingStatuses = $pendingParts->pluck('status')->unique()->implode(', ');
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "Cannot complete. Some parts are still pending (Status: {$pendingStatuses}). All parts must be installed before completing.",
-                ], 422);
-            }
-
-            // Find "Completed" status
-            $status = WorkOrderStatus::where('slug', 'completed')
-                ->whereNull('parent_id')
-                ->first();
-
-            if (!$status) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Status "Completed" not found',
-                ], 404);
-            }
-
-            $oldStatusId = $workOrder->status_id;
-
-            // Update work order
-            $workOrder->status_id = $status->id;
-            $workOrder->sub_status_id = null;
-            $workOrder->service_end_date = now()->toDateString();
-            $workOrder->service_end_time = now()->toTimeString();
-            $workOrder->completed_at = now();
-            $workOrder->completed_by = auth()->id();
-            $workOrder->updated_by = auth()->id();
-            $workOrder->save();
-
-            // Log in history
-            WorkOrderHistory::log(
-                workOrderId: $workOrder->id,
-                actionType: 'completed',
-                description: "Work order completed from Part in Demand status",
-                metadata: [
-                    'old_status_id' => $oldStatusId,
-                    'new_status_id' => $status->id,
-                    'service_end_date' => $workOrder->service_end_date,
-                    'service_end_time' => $workOrder->service_end_time,
-                    'completed_by' => auth()->id(),
-                    'parts_installed' => $workOrder->parts->where('status', 'installed')->count(),
-                ]
-            );
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Work order completed successfully',
-                'data' => $workOrder->fresh(['status', 'subStatus']),
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to complete work order: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
 }
