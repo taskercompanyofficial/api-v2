@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Authenticated\CRM;
 
+use App\Events\TestNotificationEvent;
 use App\Events\WhatsAppMessageReceived;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
@@ -14,36 +15,28 @@ class TestBroadcastController extends Controller
      */
     public function testMessageBroadcast(Request $request)
     {
-        // Get a recent message or create a test one
-        $message = WhatsAppMessage::with(['conversation.contact'])
-            ->latest()
-            ->first();
+        // // Get a recent message or create a test one
+        // $message = WhatsAppMessage::with(['conversation.contact'])
+        //     ->latest()
+        //     ->first();
 
-        if (!$message) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No messages found to broadcast',
-            ], 404);
-        }
+        // if (!$message) {
+        //     return response()->json([
+        //         'status' => 'error',
+        //         'message' => 'No messages found to broadcast',
+        //     ], 404);
+        // }
 
         // Get user ID from conversation or use authenticated user
-        $userId = $message->conversation->assigned_to ?? auth()->id();
+        $userId = '1';
 
         // Broadcast the event
-        broadcast(new WhatsAppMessageReceived($message, $userId));
+        broadcast(new TestNotificationEvent('Hellooo', $userId));
 
         return response()->json([
             'status' => 'success',
             'message' => 'Event broadcasted successfully',
-            'data' => [
-                'message_id' => $message->id,
-                'conversation_id' => $message->whatsapp_conversation_id,
-                'user_id' => $userId,
-                'channels' => [
-                    'conversation.' . $message->whatsapp_conversation_id,
-                    $userId ? 'user.' . $userId : null,
-                ],
-            ],
+            
         ]);
     }
 }

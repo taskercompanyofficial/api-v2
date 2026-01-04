@@ -30,6 +30,7 @@ use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
 use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
+use App\Http\Controllers\Authenticated\CRM\NotificationController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -114,6 +115,13 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Test Broadcast (for development)
         Route::post('/test-broadcast', [TestBroadcastController::class, 'testMessageBroadcast']);
+
+        // Notifications Management
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
         // Work Orders Management
         Route::apiResource('/work-orders', WorkOrderController::class);
