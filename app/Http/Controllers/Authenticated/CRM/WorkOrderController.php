@@ -1238,14 +1238,14 @@ class WorkOrderController extends Controller
                 ], 404);
             }
 
-            $subStatus = WorkOrderStatus::where('slug', 'on-going')
+            $subStatus = WorkOrderStatus::where('slug', 'going-to-work')
                 ->where('parent_id', $status->id)
                 ->first();
 
             if (!$subStatus) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Sub-status "On Going" not found',
+                    'message' => 'Sub-status "Going to work" not found',
                 ], 404);
             }
 
