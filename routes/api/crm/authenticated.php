@@ -154,6 +154,12 @@ Route::group(['prefix' => 'crm'], function () {
             Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
             Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
             
+            // Customer Feedbacks
+            Route::get('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'index']);
+            Route::post('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'store']);
+            Route::put('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'update']);
+            Route::delete('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'destroy']);
+            
             // Work Order Parts
             Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);
             Route::post('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'store']);
