@@ -139,6 +139,9 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/duplicate', [WorkOrderController::class, 'duplicate']);
         Route::post('/work-orders/{id}/reopen', [WorkOrderController::class, 'reopen']);
         Route::post('/work-orders/{id}/send-reminder', [WorkOrderController::class, 'sendReminder']);
+        Route::post('/work-orders/{id}/start-service', [WorkOrderController::class, 'startService']);
+        Route::post('/work-orders/{id}/start-work', [WorkOrderController::class, 'startWork']);
+        Route::post('/work-orders/{id}/complete-service', [WorkOrderController::class, 'completeService']);
         
         // Parts Management
         Route::apiResource('/parts', \App\Http\Controllers\Authenticated\CRM\PartController::class);

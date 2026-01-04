@@ -1158,4 +1158,224 @@ class WorkOrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Start service - Update status to In Progress / On Going
+     */
+    public function startService(Request $request, string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($id);
+
+            // Find "In Progress" status and "On Going" sub-status
+            $status = WorkOrderStatus::where('slug', 'in-progress')
+                ->whereNull('parent_id')
+                ->first();
+
+            if (!$status) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Status "In Progress" not found',
+                ], 404);
+            }
+
+            $subStatus = WorkOrderStatus::where('slug', 'on-going')
+                ->where('parent_id', $status->id)
+                ->first();
+
+            if (!$subStatus) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Sub-status "On Going" not found',
+                ], 404);
+            }
+
+            // Update work order
+            $workOrder->status_id = $status->id;
+            $workOrder->sub_status_id = $subStatus->id;
+            $workOrder->service_start_date = now()->toDateString();
+            $workOrder->service_start_time = now()->toTimeString();
+            $workOrder->updated_by = auth()->id();
+            $workOrder->save();
+
+            // Log in history
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'status_updated',
+                description: "Service started - Status updated to {$status->name} / {$subStatus->name}",
+                metadata: [
+                    'old_status_id' => null,
+                    'new_status_id' => $status->id,
+                    'old_sub_status_id' => null,
+                    'new_sub_status_id' => $subStatus->id,
+                    'service_start_date' => $workOrder->service_start_date,
+                    'service_start_time' => $workOrder->service_start_time,
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Service started successfully',
+                'data' => $workOrder->fresh(['status', 'subStatus']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to start service: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Start work - Update sub-status to Work Started
+     */
+    public function startWork(Request $request, string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($id);
+
+            // Find "In Progress" status and "Work Started" sub-status
+            $status = WorkOrderStatus::where('slug', 'in-progress')
+                ->whereNull('parent_id')
+                ->first();
+
+            if (!$status) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Status "In Progress" not found',
+                ], 404);
+            }
+
+            $subStatus = WorkOrderStatus::where('slug', 'work-started')
+                ->where('parent_id', $status->id)
+                ->first();
+
+            if (!$subStatus) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Sub-status "Work Started" not found',
+                ], 404);
+            }
+
+            $oldSubStatusId = $workOrder->sub_status_id;
+
+            // Update work order
+            $workOrder->status_id = $status->id;
+            $workOrder->sub_status_id = $subStatus->id;
+            $workOrder->updated_by = auth()->id();
+            $workOrder->save();
+
+            // Log in history
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'status_updated',
+                description: "Work started - Sub-status updated to {$subStatus->name}",
+                metadata: [
+                    'old_sub_status_id' => $oldSubStatusId,
+                    'new_sub_status_id' => $subStatus->id,
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Work started successfully',
+                'data' => $workOrder->fresh(['status', 'subStatus']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to start work: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Complete service - Update status to Completed
+     */
+    public function completeService(Request $request, string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::with('files')->findOrFail($id);
+
+            // Check for required files
+            $requiredFiles = \App\Models\ServiceRequiredFile::where('parent_service_id', $workOrder->parent_service_id)
+                ->where('is_required', true)
+                ->with('fileType')
+                ->get();
+
+            if ($requiredFiles->isNotEmpty()) {
+                $uploadedFileTypeIds = $workOrder->files()->pluck('file_type_id')->unique()->toArray();
+                $missingFiles = $requiredFiles->filter(function ($req) use ($uploadedFileTypeIds) {
+                    return !in_array($req->file_type_id, $uploadedFileTypeIds);
+                });
+
+                if ($missingFiles->isNotEmpty()) {
+                    $missingNames = $missingFiles->map(function ($req) {
+                        return $req->fileType->name ?? 'Unknown Type';
+                    })->implode(', ');
+
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Required files missing: {$missingNames}. Please upload them before completing.",
+                    ], 422);
+                }
+            }
+
+            // Find "Completed" status
+            $status = WorkOrderStatus::where('slug', 'completed')
+                ->whereNull('parent_id')
+                ->first();
+
+            if (!$status) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Status "Completed" not found',
+                ], 404);
+            }
+
+            // Find first sub-status under completed (or use null if none)
+            $subStatus = WorkOrderStatus::where('parent_id', $status->id)
+                ->first();
+
+            $oldStatusId = $workOrder->status_id;
+            $oldSubStatusId = $workOrder->sub_status_id;
+
+            // Update work order
+            $workOrder->status_id = $status->id;
+            $workOrder->sub_status_id = $subStatus?->id;
+            $workOrder->service_end_date = now()->toDateString();
+            $workOrder->service_end_time = now()->toTimeString();
+            $workOrder->completed_at = now();
+            $workOrder->completed_by = auth()->id();
+            $workOrder->updated_by = auth()->id();
+            $workOrder->save();
+
+            // Log in history
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'completed',
+                description: "Service completed - Status updated to {$status->name}",
+                metadata: [
+                    'old_status_id' => $oldStatusId,
+                    'new_status_id' => $status->id,
+                    'old_sub_status_id' => $oldSubStatusId,
+                    'new_sub_status_id' => $subStatus?->id,
+                    'service_end_date' => $workOrder->service_end_date,
+                    'service_end_time' => $workOrder->service_end_time,
+                    'completed_by' => auth()->id(),
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Service completed successfully',
+                'data' => $workOrder->fresh(['status', 'subStatus']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to complete service: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
