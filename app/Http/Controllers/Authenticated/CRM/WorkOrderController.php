@@ -102,12 +102,10 @@ class WorkOrderController extends Controller
             'category_id'=> 'required|exists:categories,id',
             'service_id'=> 'required|exists:services,id',
             'parent_service_id'=> 'exists:parent_services,id',
-            'product_id'=> 'required|exists:products,id',
             'customer_description' => 'required|string|min:10',
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority'=> 'required|in:low,medium,high',
-           
         ]);
 
         $user = $request->user();
@@ -129,7 +127,6 @@ class WorkOrderController extends Controller
                 'category_id' => $request->category_id,
                 'service_id' => $request->service_id,
                 'parent_service_id' => $request->parent_service_id,
-                'product_id' => $request->product_id,
                 'authorized_brand_id' => $request->authorized_brand_id,
                 'brand_complaint_no' => $request->brand_complaint_no,
                 'priority' => $request->priority,
