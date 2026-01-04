@@ -347,7 +347,7 @@ class DashboardController extends Controller
                 ->orderByDesc('count')
                 ->get();
 
-            // Get counts by status
+            // Get counts by status (only parent statuses)
             $byStatus = DB::table('work_orders')
                 ->join('work_order_statuses', 'work_orders.status_id', '=', 'work_order_statuses.id')
                 ->select(
@@ -357,6 +357,7 @@ class DashboardController extends Controller
                 )
                 ->whereNull('work_orders.completed_at')
                 ->whereNull('work_orders.cancelled_at')
+                ->whereNull('work_order_statuses.parent_id') // Only get parent statuses
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
@@ -366,22 +367,23 @@ class DashboardController extends Controller
                 ->orderByDesc('count')
                 ->get();
 
-            // Get counts by sub-status
+            // Get counts by sub-status (statuses with parent_id)
             $bySubStatus = DB::table('work_orders')
-                ->join('work_order_sub_statuses', 'work_orders.sub_status_id', '=', 'work_order_sub_statuses.id')
+                ->join('work_order_statuses', 'work_orders.sub_status_id', '=', 'work_order_statuses.id')
                 ->select(
-                    'work_order_sub_statuses.id',
-                    'work_order_sub_statuses.name',
+                    'work_order_statuses.id',
+                    'work_order_statuses.name',
                     DB::raw('count(*) as count')
                 )
                 ->whereNull('work_orders.completed_at')
                 ->whereNull('work_orders.cancelled_at')
+                ->whereNotNull('work_order_statuses.parent_id') // Only get sub-statuses
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
                 ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
-                ->groupBy('work_order_sub_statuses.id', 'work_order_sub_statuses.name')
+                ->groupBy('work_order_statuses.id', 'work_order_statuses.name')
                 ->orderByDesc('count')
                 ->get();
 
