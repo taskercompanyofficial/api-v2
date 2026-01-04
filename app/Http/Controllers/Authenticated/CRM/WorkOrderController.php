@@ -1160,6 +1160,65 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Accept work order
+     */
+    public function acceptWorkOrder(Request $request, string $id): JsonResponse
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($id);
+
+            if ($workOrder->accepted_at) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Work order already accepted',
+                ], 400);
+            }
+
+            // Find "Dispatched" status and "Technician Accepted" sub-status
+            $dispatchedStatus = WorkOrderStatus::where('slug', 'dispatched')
+                ->whereNull('parent_id')
+                ->first();
+
+            if ($dispatchedStatus) {
+                $technicianAcceptedStatus = WorkOrderStatus::where('slug', 'technician-accepted')
+                    ->where('parent_id', $dispatchedStatus->id)
+                    ->first();
+
+                if ($technicianAcceptedStatus) {
+                    $workOrder->status_id = $dispatchedStatus->id;
+                    $workOrder->sub_status_id = $technicianAcceptedStatus->id;
+                }
+            }
+
+            $workOrder->accepted_at = now();
+            $workOrder->updated_by = auth()->id();
+            $workOrder->save();
+
+            // Log acceptance
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'accepted',
+                description: "Work order accepted",
+                metadata: [
+                    'accepted_by' => auth()->id(),
+                    'accepted_at' => $workOrder->accepted_at,
+                ]
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Work order accepted successfully',
+                'data' => $workOrder->fresh(['status', 'subStatus']),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to accept work order: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Start service - Update status to In Progress / On Going
      */
     public function startService(Request $request, string $id): JsonResponse
