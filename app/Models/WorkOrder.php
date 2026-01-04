@@ -31,6 +31,7 @@ class WorkOrder extends Model
         'priority',
         'reject_reason',
         'satisfation_code',
+        'customer_rating',
         'without_satisfaction_code_reason',
         
         // Service Timing

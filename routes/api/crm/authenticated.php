@@ -31,6 +31,7 @@ use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\CRM\NotificationController;
+use App\Http\Controllers\Authenticated\CRM\DashboardController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -122,6 +123,10 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
         Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+
+        // Dashboard Statistics
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard/admin', [DashboardController::class, 'adminDashboard']);
 
         // Work Orders Management
         Route::apiResource('/work-orders', WorkOrderController::class);
