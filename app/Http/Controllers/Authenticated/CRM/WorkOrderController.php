@@ -96,7 +96,7 @@ class WorkOrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         // Validation
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'category_id'=> 'required|exists:categories,id',
@@ -111,14 +111,7 @@ class WorkOrderController extends Controller
         ]);
 
         $user = $request->user();
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
+       
         try {
             DB::beginTransaction();
             
