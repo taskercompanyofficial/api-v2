@@ -18,12 +18,21 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         $phone = $validated['phone'];
-        $user = Staff::where('phone', $phone)->first();
+        $user = Staff::with('status')->where('phone', $phone)->first();
         if (!$user) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Account not found.',
             ]);
+        }
+        
+        // Check if staff status is active
+        if (!$user->status || $user->status->slug !== 'active') {
+            $statusMessage = $user->status ? $user->status->name : 'Unknown';
+            return response()->json([
+                'status' => 'error',
+                'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+            ], 403);
         }
 
         // Count OTP requests for this phone in the last 24 hours
@@ -66,7 +75,17 @@ class AuthenticatedSessionController extends Controller
             ], 400);
         }
         $otpRecord->update(['status' => 'expired']);
-        $user = Staff::where('phone', $phone)->first();
+        $user = Staff::with('status')->where('phone', $phone)->first();
+        
+        // Check if staff status is active
+        if (!$user->status || $user->status->slug !== 'active') {
+            $statusMessage = $user->status ? $user->status->name : 'Unknown';
+            return response()->json([
+                'status' => 'error',
+                'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+            ], 403);
+        }
+        
         $token = $user->createToken('auth_token')->plainTextToken;
         // Send new-login WhatsApp message
         return response()->json([
@@ -148,7 +167,17 @@ class AuthenticatedSessionController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-        $user = Staff::with('staffRole:id,name')->find($user->id);
+        $user = Staff::with(['staffRole:id,name', 'status'])->find($user->id);
+        
+        // Check if staff status is active
+        if (!$user->status || $user->status->slug !== 'active') {
+            $user->tokens()->delete();
+            $statusMessage = $user->status ? $user->status->name : 'Unknown';
+            return response()->json([
+                'status' => 'error',
+                'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+            ], 403);
+        }
         
         // Check if profile is complete
         $requiredFields = [

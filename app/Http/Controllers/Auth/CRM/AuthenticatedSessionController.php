@@ -28,6 +28,16 @@ class AuthenticatedSessionController extends Controller
                 ], 403);
             }
             
+            // Check staff status - only active staff can login
+            $staffWithStatus = Staff::with('status')->find($staff->id);
+            if (!$staffWithStatus->status || $staffWithStatus->status->slug !== 'active') {
+                Auth::logout();
+                $statusMessage = $staffWithStatus->status ? $staffWithStatus->status->name : 'Unknown';
+                return response()->json([
+                    'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+                ], 403);
+            }
+            
             return response()->json([
                 'status' => 'success',
                 'message' => 'Logged in successfully',
@@ -57,6 +67,16 @@ class AuthenticatedSessionController extends Controller
                 ], 403);
             }
             
+            // Check staff status - only active staff can login
+            $staffWithStatus = Staff::with('status')->find($user->id);
+            if (!$staffWithStatus->status || $staffWithStatus->status->slug !== 'active') {
+                Auth::logout();
+                $statusMessage = $staffWithStatus->status ? $staffWithStatus->status->name : 'Unknown';
+                return response()->json([
+                    'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+                ], 403);
+            }
+            
             $oldToken = $user->tokens()->where('name', 'auth_token')->first();
             if ($oldToken) {
                 $oldToken->delete();
@@ -78,6 +98,15 @@ class AuthenticatedSessionController extends Controller
     {
         $staff = $request->user();
         $staff = Staff::with(['role', 'status'])->find($staff->id);
+        
+        // Check if staff status is active
+        if (!$staff->status || $staff->status->slug !== 'active') {
+            $staff->tokens()->delete();
+            $statusMessage = $staff->status ? $staff->status->name : 'Unknown';
+            return response()->json([
+                'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
+            ], 403);
+        }
 
         // Get permissions separately to avoid the addEagerConstraints error
         $permissions = $staff->getAllPermissions();
