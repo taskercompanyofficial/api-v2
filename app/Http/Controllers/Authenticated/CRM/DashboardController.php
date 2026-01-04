@@ -243,6 +243,7 @@ class DashboardController extends Controller
             $categoryId = $request->get('category_id');
             $serviceId = $request->get('service_id');
             $parentServiceId = $request->get('parent_service_id');
+            $productId = $request->get('product_id');
             $statusId = $request->get('status_id');
             $subStatusId = $request->get('sub_status_id');
 
@@ -259,6 +260,9 @@ class DashboardController extends Controller
             }
             if ($parentServiceId) {
                 $baseQuery->where('parent_service_id', $parentServiceId);
+            }
+            if ($productId) {
+                $baseQuery->where('product_id', $productId);
             }
             if ($statusId) {
                 $baseQuery->where('status_id', $statusId);
@@ -279,6 +283,7 @@ class DashboardController extends Controller
                 ->whereNull('work_orders.cancelled_at')
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
                 ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
                 ->groupBy('categories.id', 'categories.name')
@@ -297,6 +302,7 @@ class DashboardController extends Controller
                 ->whereNull('work_orders.cancelled_at')
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
                 ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
                 ->groupBy('services.id', 'services.name')
@@ -315,9 +321,29 @@ class DashboardController extends Controller
                 ->whereNull('work_orders.cancelled_at')
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
                 ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
                 ->groupBy('parent_services.id', 'parent_services.name')
+                ->orderByDesc('count')
+                ->get();
+
+            // Get counts by product
+            $byProduct = DB::table('work_orders')
+                ->join('products', 'work_orders.product_id', '=', 'products.id')
+                ->select(
+                    'products.id',
+                    'products.name',
+                    DB::raw('count(*) as count')
+                )
+                ->whereNull('work_orders.completed_at')
+                ->whereNull('work_orders.cancelled_at')
+                ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
+                ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
+                ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
+                ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
+                ->groupBy('products.id', 'products.name')
                 ->orderByDesc('count')
                 ->get();
 
@@ -334,6 +360,7 @@ class DashboardController extends Controller
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($subStatusId, fn($q) => $q->where('work_orders.sub_status_id', $subStatusId))
                 ->groupBy('work_order_statuses.id', 'work_order_statuses.name')
                 ->orderByDesc('count')
@@ -352,6 +379,7 @@ class DashboardController extends Controller
                 ->when($categoryId, fn($q) => $q->where('work_orders.category_id', $categoryId))
                 ->when($serviceId, fn($q) => $q->where('work_orders.service_id', $serviceId))
                 ->when($parentServiceId, fn($q) => $q->where('work_orders.parent_service_id', $parentServiceId))
+                ->when($productId, fn($q) => $q->where('work_orders.product_id', $productId))
                 ->when($statusId, fn($q) => $q->where('work_orders.status_id', $statusId))
                 ->groupBy('work_order_sub_statuses.id', 'work_order_sub_statuses.name')
                 ->orderByDesc('count')
@@ -367,12 +395,14 @@ class DashboardController extends Controller
                     'byCategory' => $byCategory,
                     'byService' => $byService,
                     'byParentService' => $byParentService,
+                    'byProduct' => $byProduct,
                     'byStatus' => $byStatus,
                     'bySubStatus' => $bySubStatus,
                     'filters' => [
                         'category_id' => $categoryId,
                         'service_id' => $serviceId,
                         'parent_service_id' => $parentServiceId,
+                        'product_id' => $productId,
                         'status_id' => $statusId,
                         'sub_status_id' => $subStatusId,
                     ],
