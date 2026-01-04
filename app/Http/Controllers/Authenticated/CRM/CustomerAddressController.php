@@ -35,11 +35,13 @@ class CustomerAddressController extends Controller
                 'address_line_1' => 'sometimes|required|string|max:255',
                 'address_line_2' => 'nullable|string|max:255',
                 'city' => 'sometimes|required|string|max:255',
-                'state' => 'sometimes|required|string|max:255',
-                'zip_code' => 'sometimes|nullable|string|max:10',
-                'country' => 'sometimes|required|string|max:255',
-                'latitude' => 'sometimes|nullable|numeric',
-                'longitude' => 'sometimes|nullable|numeric',
+                'state' => 'nullable|string|max:255',
+                'zip_code' => 'nullable|string|max:10',
+                'country' => 'required|string|max:255',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+                'area' => 'nullable|string|max:255',
+                'status' => 'required|string|max:255',
             ]);
             try {
 

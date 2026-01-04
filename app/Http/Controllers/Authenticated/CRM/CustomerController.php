@@ -67,7 +67,7 @@ class CustomerController extends Controller
         try {
             $validatedData = $request->validate([
                 'name' => 'required|string|max:255',
-                'avatar' => 'nullable|string|max:255', // Added avatar validation
+                'avatar' => 'nullable|string|max:255',
                 'email' => 'nullable|email|max:255|unique:customers,email',
                 'phone' => 'nullable|string|max:20',
                 'whatsapp' => 'nullable|string|max:20',
