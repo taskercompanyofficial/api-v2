@@ -105,7 +105,6 @@ class WorkOrderController extends Controller
             'product_id'=> 'required|exists:products,id',
             'customer_description' => 'required|string|min:10',
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
-            'branch_id' => 'required|exists:our_branches,id',
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority'=> 'required|in:low,medium,high',
            
@@ -139,7 +138,6 @@ class WorkOrderController extends Controller
                 'parent_service_id' => $request->parent_service_id,
                 'product_id' => $request->product_id,
                 'authorized_brand_id' => $request->authorized_brand_id,
-                'branch_id' => $request->branch_id,
                 'brand_complaint_no' => $request->brand_complaint_no,
                 'priority' => $request->priority,
                 'customer_description' => $request->customer_description,
