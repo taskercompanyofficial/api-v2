@@ -7,6 +7,7 @@ use App\Models\Part;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class PartController extends Controller
 {
@@ -56,22 +57,14 @@ class PartController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => 'required|string|max:255',
-            'part_number' => 'nullable|string|unique:parts,part_number',
-            'slug' => 'nullable|string|unique:parts,slug',
             'product_id' => 'nullable|exists:products,id',
             'description' => 'nullable|string',
             'status' => 'nullable|in:active,inactive,discontinued',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ]);
-        }
+        $request->slug = Str::slug($request->name);
+        $request->part_number = 'PART-' . Str::random(10);
 
         $part = Part::create([
             'name' => $request->name,
