@@ -260,6 +260,16 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderHistory::class)->orderBy('created_at', 'desc');
     }
 
+    public function dealer(): BelongsTo
+    {
+        return $this->belongsTo(Dealer::class, 'dealer_id');
+    }
+
+    public function dealerBranch(): BelongsTo
+    {
+        return $this->belongsTo(DealerBranch::class, 'dealer_branch_id');
+    }
+
     // Helper Methods
     public static function generateNumber(): string
     {
