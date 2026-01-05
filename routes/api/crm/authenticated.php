@@ -51,6 +51,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/authorized-brands', AuthorizedBrandsController::class);
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
+        Route::get('/rawData/staff', [StaffController::class, 'staffRaw']);
         Route::apiResource('/roles', RoleController::class);
         Route::apiResource('/permissions', PermissionController::class);
         Route::post('/role-permissions/sync', [RolePermissionController::class, 'syncPermissions']);

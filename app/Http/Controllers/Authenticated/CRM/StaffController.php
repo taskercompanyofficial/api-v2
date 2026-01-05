@@ -139,4 +139,48 @@ class StaffController extends Controller
         $staff->delete();
         return response()->json(['status'=>'success','message'=>'Staff deleted successfully']);
     }
+
+    public function staffRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+            $branchId = $request->input('branch_id');
+
+            $query = Staff::query()->where('status_id', 'active');
+
+            if ($branchId) {
+                $query->where('branch_id', $branchId);
+            }
+
+            if ($searchQuery) {
+                $query->where(function($q) use ($searchQuery) {
+                    $q->where('first_name', 'LIKE', "%{$searchQuery}%")
+                      ->orWhere('last_name', 'LIKE', "%{$searchQuery}%")
+                      ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$searchQuery}%"]);
+                });
+            }
+
+            $staff = $query->select('id', 'first_name', 'last_name', 'email', 'branch_id')
+                ->limit(50)
+                ->get()
+                ->map(function ($member) {
+                    return [
+                        'value' => $member->id,
+                        'label' => $member->first_name . ' ' . $member->last_name . ($member->email ? " ({$member->email})" : ""),
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $staff,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve staff.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }
