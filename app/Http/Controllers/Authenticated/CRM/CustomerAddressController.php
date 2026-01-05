@@ -37,7 +37,7 @@ class CustomerAddressController extends Controller
                 'city' => 'sometimes|required|string|max:255',
                 'state' => 'nullable|string|max:255',
                 'zip_code' => 'nullable|string|max:10',
-                'country' => 'required|string|max:255',
+                'country' => 'nullable|string|max:255',
                 'latitude' => 'nullable|numeric',
                 'longitude' => 'nullable|numeric',
                 'area' => 'nullable|string|max:255',
