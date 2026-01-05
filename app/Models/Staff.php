@@ -46,6 +46,7 @@ class Staff extends Authenticatable
         'status_id',
         'created_by',
         'updated_by',
+        'branch_id',
     ];
 
     protected $casts = [
@@ -115,6 +116,16 @@ class Staff extends Authenticatable
     public function status(): BelongsTo
     {
         return $this->belongsTo(Status::class);
+    }
+
+    /**
+     * Get the branch associated with the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(OurBranch::class);
     }
 
     /**
