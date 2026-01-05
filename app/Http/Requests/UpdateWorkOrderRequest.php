@@ -43,6 +43,7 @@ class UpdateWorkOrderRequest extends FormRequest
             'warrenty_serial_number' => 'nullable|string|max:100',
             'warrenty_status' => 'nullable|string|max:50',
             'warrenty_end_date' => 'nullable|date',
+            'purchase_date' => 'nullable|date',
             
             // Foreign Keys
             'authorized_brand_id' => 'required|exists:authorized_brands,id',

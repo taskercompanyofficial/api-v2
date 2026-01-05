@@ -66,14 +66,14 @@ class WorkOrderAssignmentService
 
         // // Add notes to technician_remarks if provided
         // if ($notes) {
-        //     $currentRemarks = $workOrder->service_remarks ?? '';
+        //     $currentRemarks = $workOrder->service_description ?? '';
         //     $actionText = $previousAssignedId ? 'Reassigned' : 'Assigned';
             
         //     $newRemarks = $currentRemarks 
         //         ? $currentRemarks . "\n\n[{$actionText} " . now()->format('Y-m-d H:i') . " to {$assignedStaff->first_name} {$assignedStaff->last_name}]: " . $notes
         //         : "[{$actionText} " . now()->format('Y-m-d H:i') . " to {$assignedStaff->first_name} {$assignedStaff->last_name}]: " . $notes;
             
-        //     $workOrder->update(['service_remarks' => $newRemarks]);
+        //     $workOrder->update(['service_description' => $newRemarks]);
         // }
 
         // Log history

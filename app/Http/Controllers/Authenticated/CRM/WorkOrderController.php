@@ -54,7 +54,7 @@ class WorkOrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $page = $request->page ?? 1;
-        $perPage = $request->perPage ?? 20;
+        $perPage = $request->perPage ?? 50;
         $query = WorkOrder::with([
             'customer:id,name,email,phone,whatsapp',
             'address:id,address_line_1,address_line_2,city,state,country,zip_code',
