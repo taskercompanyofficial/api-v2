@@ -51,6 +51,8 @@ class UpdateWorkOrderRequest extends FormRequest
             'service_id' => 'required|exists:services,id',
             'parent_service_id' => 'required|exists:parent_services,id',
             'product_id' => 'required|exists:products,id',
+            'dealer_id' => 'nullable|exists:dealers,id',
+            'dealer_branch_id' => 'nullable|exists:dealer_branches,id',
         ];
     }
 }

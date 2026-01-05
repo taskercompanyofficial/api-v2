@@ -68,6 +68,8 @@ class WorkOrderController extends Controller
             'assignedTo:id,first_name,last_name',
             'services',
             'branch:id,name',
+            'dealer:id,name',
+            'dealerBranch:id,name',
             'createdBy:id,first_name,last_name',
             'updatedBy:id,first_name,last_name',
         ]);
@@ -159,6 +161,8 @@ class WorkOrderController extends Controller
             'subStatus',
             'assignedTo',
             'services.parentService',
+            'dealer',
+            'dealerBranch',
             'files',
         ])->findOrFail($id);
 

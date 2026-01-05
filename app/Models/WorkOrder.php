@@ -54,8 +54,12 @@ class WorkOrder extends Model
         'indoor_serial_number',
         'outdoor_serial_number',
         'warrenty_serial_number',
+        'reference',
+        'dealer_id',
+        'dealer_branch_id',
         'product_model',
         'purchase_date',
+
         
         // Warranty Information
         'is_warranty_case',
