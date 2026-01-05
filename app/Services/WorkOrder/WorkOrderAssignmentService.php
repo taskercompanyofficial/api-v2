@@ -18,9 +18,9 @@ class WorkOrderAssignmentService
     public function assignStaff(WorkOrder $workOrder, int $staffId, ?string $notes, int $currentUserId): array
     {
         // Prevent assignment if completed, cancelled, rejected, or closed
-        if ($workOrder->completed_at || $workOrder->cancelled_at || $workOrder->rejected_at || $workOrder->closed_at) {
-            throw new Exception('Cannot assign staff to completed, cancelled, or closed work order');
-        }
+        // if ($workOrder->completed_at || $workOrder->cancelled_at || $workOrder->rejected_at || $workOrder->closed_at) {
+        //     throw new Exception('Cannot assign staff to completed, cancelled, or closed work order');
+        // }
 
         $previousAssignedId = $workOrder->assigned_to_id;
 
