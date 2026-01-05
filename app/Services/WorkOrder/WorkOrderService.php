@@ -223,9 +223,9 @@ class WorkOrderService
     public function updateWorkOrder(WorkOrder $workOrder, array $data, int $userId): WorkOrder
     {
         // Prevent updates if completed or cancelled
-        if ($workOrder->completed_at || $workOrder->cancelled_at) {
-            throw new Exception('Cannot update completed or cancelled work order');
-        }
+        // if ($workOrder->completed_at || $workOrder->cancelled_at) {
+        //     throw new Exception('Cannot update completed or cancelled work order');
+        // }
 
         // Transform empty arrays/strings to null for foreign key fields
         $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id'];
