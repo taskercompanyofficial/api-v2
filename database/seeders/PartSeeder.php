@@ -14,10 +14,7 @@ class PartSeeder extends Seeder
      */
     public function run(): void
     {
-        // Remove all existing parts before seeding
-        Part::truncate();
         
-        // Define specific parts for different product types
         $partsMap = [
             'Air Conditioner' => [
                 // Indoor Parts
