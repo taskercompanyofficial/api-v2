@@ -11,6 +11,7 @@ use App\Http\Requests\ReopenWorkOrderRequest;
 use App\Http\Requests\ScheduleWorkOrderRequest;
 use App\Http\Requests\StoreWorkOrderRequest;
 use App\Http\Requests\UpdateWorkOrderRequest;
+use App\Models\Staff;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderFile;
 use App\QueryFilterTrait;
@@ -214,6 +215,13 @@ class WorkOrderController extends Controller
     {
         try {
             $workOrder = WorkOrder::findOrFail($id);
+            $staff = Staff::findOrFail($request->assigned_to_id);
+            if($staff->status_id !== 1){
+                return response()->json([
+                    'status' => "error",
+                    'message' => "Staff is not available",
+                ], 422);
+            }
             $result = $this->assignmentService->assignStaff(
                 $workOrder,
                 $request->assigned_to_id,
