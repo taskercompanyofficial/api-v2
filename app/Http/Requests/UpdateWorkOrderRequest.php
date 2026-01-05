@@ -45,12 +45,12 @@ class UpdateWorkOrderRequest extends FormRequest
             'warrenty_end_date' => 'nullable|date',
             
             // Foreign Keys
-            'authorized_brand_id' => 'nullable|exists:authorized_brands,id',
-            'branch_id' => 'nullable|exists:our_branches,id',
-            'category_id' => 'nullable|exists:categories,id',
-            'service_id' => 'nullable|exists:services,id',
-            'parent_service_id' => 'nullable|exists:parent_services,id',
-            'product_id' => 'nullable|exists:products,id',
+            'authorized_brand_id' => 'required|exists:authorized_brands,id',
+            'branch_id' => 'required|exists:our_branches,id',
+            'category_id' => 'required|exists:categories,id',
+            'service_id' => 'required|exists:services,id',
+            'parent_service_id' => 'required|exists:parent_services,id',
+            'product_id' => 'required|exists:products,id',
         ];
     }
 }
