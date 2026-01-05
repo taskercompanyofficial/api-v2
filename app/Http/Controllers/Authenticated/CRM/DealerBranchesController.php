@@ -256,4 +256,44 @@ class DealerBranchesController extends Controller
             ], 422);
         }
     }
+
+    public function dealerBranchesRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+            $dealerId = $request->input('dealer_id');
+
+            $query = DealerBranch::query()->where('status', 'active');
+
+            if ($dealerId) {
+                $query->where('dealer_id', $dealerId);
+            }
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $branches = $query->select('id', 'name', 'branch_code', 'city')
+                ->limit(50)
+                ->get()
+                ->map(function ($branch) {
+                    return [
+                        'value' => $branch->id,
+                        'label' => $branch->name . ($branch->branch_code ? " - {$branch->branch_code}" : "") . ($branch->city ? " ({$branch->city})" : ""),
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $branches,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve dealer branches.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }

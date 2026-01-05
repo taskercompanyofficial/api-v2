@@ -258,4 +258,39 @@ class DealersController extends Controller
             ], 422);
         }
     }
+
+    public function dealersRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+
+            $query = Dealer::query()->where('status', 'active');
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $dealers = $query->select('id', 'name', 'city')
+                ->limit(50)
+                ->get()
+                ->map(function ($dealer) {
+                    return [
+                        'value' => $dealer->id,
+                        'label' => $dealer->name . ($dealer->city ? " ({$dealer->city})" : ""),
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $dealers,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve dealers.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }
