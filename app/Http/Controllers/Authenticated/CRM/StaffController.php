@@ -146,7 +146,7 @@ class StaffController extends Controller
             $searchQuery = $request->input('name');
             $branchId = $request->input('branch_id');
 
-            $query = Staff::query()->where('status_id', 'active');
+            $query = Staff::query()->where('status_id', 1);
 
             if ($branchId) {
                 $query->where('branch_id', $branchId);
