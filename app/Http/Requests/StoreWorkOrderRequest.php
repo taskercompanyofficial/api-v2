@@ -31,9 +31,9 @@ class StoreWorkOrderRequest extends FormRequest
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority' => 'required|in:low,medium,high',
-            'dealer_id' => 'nullable|exists:dealers,id',
-            'dealer_branch_id' => 'nullable|exists:dealer_branches,id',
-            'reference' => 'nullable|string|max:100',
+            'dealer_id' => 'required|exists:dealers,id',
+            'dealer_branch_id' => 'required|exists:dealer_branches,id',
+            'reference' => 'required|string|max:100',
         ];
     }
 }
