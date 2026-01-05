@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\Part;
+use App\QueryFilterTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -11,35 +12,43 @@ use Illuminate\Support\Str;
 
 class PartController extends Controller
 {
+    use QueryFilterTrait;
     /**
      * Display a listing of parts
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('per_page', 15);
-        $search = $request->input('search');
-        $productId = $request->input('product_id');
+        $page = $request->page ?? 1;
+        $perPage = $request->perPage ?? 50;
 
         $query = Part::with(['product', 'createdBy', 'updatedBy']);
 
-        // Search filter
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('part_number', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+         if ($request->has('name') && $request->name) {
+            $searchTerm = $request->name;
+            
+            $query->where(function ($q) use ($searchTerm) {
+                // Search in work order fields
+                $q->where('name', 'like', "%{$searchTerm}%")
+                  ->orWhere('part_number', 'like', "%{$searchTerm}%")
+                  ->orWhere('slug', 'like', "%{$searchTerm}%")
+                  ->orWhere('description', 'like', "%{$searchTerm}%");
             });
         }
 
-        // Product filter
-        if ($productId) {
-            $query->where('product_id', $productId);
+        $this->applyJsonFilters($query, $request);
+
+        // Apply sorting
+        $this->applySorting($query, $request);
+
+        // Fallback to latest if no sorting specified
+        if (!$request->has('sort')) {
+            $query->latest();
         }
 
-        $parts = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $parts = $query->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'status' => 'success',
+            'success' => true,
             'data' => $parts->items(),
             'pagination' => [
                 'total' => $parts->total(),

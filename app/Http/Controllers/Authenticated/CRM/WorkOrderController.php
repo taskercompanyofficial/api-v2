@@ -52,7 +52,7 @@ class WorkOrderController extends Controller
      * List work orders with filters
      */
     public function index(Request $request): JsonResponse
-    {
+    { 
         $page = $request->page ?? 1;
         $perPage = $request->perPage ?? 50;
         $query = WorkOrder::with([
