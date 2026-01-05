@@ -64,7 +64,7 @@ class PartController extends Controller
             'status' => 'nullable|in:active,inactive,discontinued',
         ]);
         $request->slug = Str::slug($request->name);
-        $request->part_number = 'PART-' . Str::random(10);
+        $request->part_number = 'PART-' . strtoupper(Str::random(8));
 
         $part = Part::create([
             'name' => $request->name,
