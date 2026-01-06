@@ -160,4 +160,42 @@ class PartController extends Controller
             'message' => 'Part deleted successfully',
         ]);
     }
+    public function partsRaw(Request $request)
+    {
+        $searchQuery = $request->input('name');
+        $productId = $request->input('product_id');
+
+        $query = Part::query()->where('status', 'active');
+        if ($searchQuery) {
+            $query->where('name', 'LIKE', "%{$searchQuery}%");
+        }
+        if ($productId) {
+            $query->where('product_id', $productId);
+        }
+            
+        try {
+            $parts = $query->select('id', 'name', 'description')
+                ->limit(50)
+                ->get()
+                ->map(function ($part) {
+                    return [
+                        'value' => $part->id,
+                        'label' => $part->name,
+                        'description' => $part->description,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $parts,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve parts.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
+    }
 }
