@@ -137,6 +137,7 @@ class WorkOrderFileController extends Controller
     }
 
     /**
+    /**
      * Delete a file
      */
     public function destroy(Request $request, $workOrderId, $fileId)
@@ -158,6 +159,89 @@ class WorkOrderFileController extends Controller
                 'status' => 'success',
                 'message' => 'File deleted successfully',
             ]);
+        } catch (\Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Download a single file
+     */
+    public function download(Request $request, $workOrderId, $fileId)
+    {
+        try {
+            $file = WorkOrderFile::where('work_order_id', $workOrderId)
+                ->where('id', $fileId)
+                ->firstOrFail();
+
+            $filePath = storage_path('app/public/' . $file->file_path);
+
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'File not found on server',
+                ], 404);
+            }
+
+            return response()->download($filePath, $file->file_name);
+        } catch (\Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Download all files as ZIP
+     */
+    public function downloadAll(Request $request, $workOrderId)
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($workOrderId);
+            $files = WorkOrderFile::where('work_order_id', $workOrderId)->get();
+
+            if ($files->isEmpty()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No files to download',
+                ], 404);
+            }
+
+            // Create ZIP file
+            $zipFileName = 'work-order-' . $workOrder->work_order_number . '-files.zip';
+            $zipFilePath = storage_path('app/temp/' . $zipFileName);
+
+            // Ensure temp directory exists
+            if (!file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Could not create ZIP file',
+                ], 500);
+            }
+
+            // Add files to ZIP
+            foreach ($files as $file) {
+                $filePath = storage_path('app/public/' . $file->file_path);
+                if (file_exists($filePath)) {
+                    // Use file_type slug as folder name for organization
+                    $folderName = $file->file_type ?? 'other';
+                    $zip->addFile($filePath, $folderName . '/' . $file->file_name);
+                }
+            }
+
+            $zip->close();
+
+            // Return ZIP file and delete after sending
+            return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
         } catch (\Exception $err) {
             return response()->json([
                 'status' => 'error',

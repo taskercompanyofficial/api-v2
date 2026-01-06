@@ -57,6 +57,8 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::post('/work-orders/{id}/reject', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'reject']);
         Route::patch('/work-orders/{id}/update-details', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateDetails']);
         Route::post('/work-orders/{id}/upload-file', [WorkOrderFileController::class, 'store']);
+        Route::get('/work-orders/{id}/files/{fileId}/download', [WorkOrderFileController::class, 'download']);
+        Route::get('/work-orders/{id}/files/download-all', [WorkOrderFileController::class, 'downloadAll']);
         Route::delete('/work-orders/{id}/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
         Route::post('/work-orders/{id}/update-status', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatus']);
         Route::post('/work-orders/{id}/update-status-by-slug', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatusBySlug']);
