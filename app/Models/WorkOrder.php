@@ -16,6 +16,7 @@ class WorkOrder extends Model
         'work_order_number',
         'customer_id',
         'customer_address_id',
+        'extra_number',
         
         // Foreign Keys
         'authorized_brand_id',

@@ -34,6 +34,7 @@ class WorkOrderService
                 'parent_service_id' => $data['parent_service_id'] ?? null,
                 'authorized_brand_id' => $data['authorized_brand_id'],
                 'brand_complaint_no' => $data['brand_complaint_no'] ?? null,
+                'extra_number' => $data['extra_number'] ?? null,
                 'priority' => $data['priority'],
                 'customer_description' => $data['customer_description'],
                 'status_id' => $allocatedStatus?->id,
