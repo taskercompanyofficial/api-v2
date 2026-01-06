@@ -222,6 +222,7 @@ class WorkOrderFileController extends Controller
 
             $zip = new \ZipArchive();
             if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                \Log::error('Failed to create ZIP file: ' . $zipFilePath);
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Could not create ZIP file',
@@ -229,20 +230,38 @@ class WorkOrderFileController extends Controller
             }
 
             // Add files to ZIP
+            $addedCount = 0;
             foreach ($files as $file) {
                 $filePath = storage_path('app/public/' . $file->file_path);
                 if (file_exists($filePath)) {
-                    // Use file_type slug as folder name for organization
-                    $folderName = $file->file_type ?? 'other';
-                    $zip->addFile($filePath, $folderName . '/' . $file->file_name);
+                    // Use file_type column (slug) as folder name for organization
+                    $folderName = $file->file_type ?: 'other';
+                    $zipPath = $folderName . '/' . $file->file_name;
+                    
+                    if ($zip->addFile($filePath, $zipPath)) {
+                        $addedCount++;
+                    } else {
+                        \Log::warning('Failed to add file to ZIP: ' . $filePath);
+                    }
+                } else {
+                    \Log::warning('File not found: ' . $filePath);
                 }
             }
 
             $zip->close();
 
+            if ($addedCount === 0) {
+                @unlink($zipFilePath);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No files could be added to ZIP',
+                ], 500);
+            }
+
             // Return ZIP file and delete after sending
             return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
         } catch (\Exception $err) {
+            \Log::error('Download all files error: ' . $err->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $err->getMessage(),
