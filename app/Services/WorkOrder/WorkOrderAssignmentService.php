@@ -100,7 +100,7 @@ class WorkOrderAssignmentService
     /**
      * Send Push and WhatsApp notifications
      */
-    private function sendNotifications(WorkOrder $workOrder, Staff $staff): void
+    private function sendNotifications(WorkOrder $workOrder, Staff $staff, string $notes): void
     {
         try {
             $notificationService = new \App\Services\NotificationService();
@@ -110,7 +110,7 @@ class WorkOrderAssignmentService
                 $notificationService->sendPushNotification(
                     $staff->device_token,
                     "New Work Order Assigned",
-                    "You have been assigned to Work Order #{$workOrder->work_order_number}",
+                    "You have been assigned to Work Order #{$workOrder->work_order_number} with notes: {$notes}",
                     ['work_order_id' => $workOrder->id]
                 );
             }
