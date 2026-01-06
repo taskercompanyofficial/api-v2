@@ -64,24 +64,11 @@ class WorkOrderAssignmentService
         // Update work order
         $workOrder->update($updateData);
 
-        // Add notes to technician_remarks if provided
-        if ($notes) {
-            $currentRemarks = $workOrder->service_description ?? '';
-            $actionText = $previousAssignedId ? 'Reassigned' : 'Assigned';
-            
-            $newRemarks = $currentRemarks 
-                ? $currentRemarks . "\n\n[{$actionText} " . now()->format('Y-m-d H:i') . " to {$assignedStaff->first_name} {$assignedStaff->last_name}]: " . $notes
-                : "[{$actionText} " . now()->format('Y-m-d H:i') . " to {$assignedStaff->first_name} {$assignedStaff->last_name}]: " . $notes;
-            
-            $workOrder->update(['service_description' => $newRemarks]);
-        }
-
-        // Log history
         $previousStaff = $previousAssignedId ? Staff::find($previousAssignedId) : null;
         $action = $previousAssignedId ? 'reassigned' : 'assigned';
         $description = $previousAssignedId 
             ? "Work order reassigned from {$previousStaff->first_name} {$previousStaff->last_name} to {$assignedStaff->first_name} {$assignedStaff->last_name}"
-            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}";
+            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}" . ($notes ? " with notes: {$notes}" : '');
 
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
