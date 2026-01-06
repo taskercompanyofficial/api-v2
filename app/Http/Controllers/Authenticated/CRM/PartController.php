@@ -166,12 +166,13 @@ class PartController extends Controller
         $productId = $request->input('product_id');
 
         $query = Part::query()->where('status', 'active');
+           if ($productId) {
+            $query->where('product_id', $productId);
+        }
         if ($searchQuery) {
             $query->where('name', 'LIKE', "%{$searchQuery}%");
         }
-        if ($productId) {
-            $query->where('product_id', $productId);
-        }
+     
             
         try {
             $parts = $query->select('id', 'name', 'description')
