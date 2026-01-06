@@ -50,36 +50,14 @@ class WorkOrderFileController extends Controller
     public function store(Request $request, $workOrderId)
     {
         $validated = $request->validate([
-            'file_type_id' => 'required', // Can be ID or slug
+            'file_type_id' => 'required|exists:file_types,id',
             'file' => 'required|file|max:51200', // 50MB max
         ]);
 
         try {
             $user = $request->user();
             $workOrder = WorkOrder::findOrFail($workOrderId);
-            
-            // Resolve file_type_id - check if it's an ID or slug
-            $fileTypeIdentifier = $validated['file_type_id'];
-            
-            // Try to find by ID first (if it's numeric)
-            if (is_numeric($fileTypeIdentifier)) {
-                $fileType = FileType::find($fileTypeIdentifier);
-            } else {
-                $fileType = null;
-            }
-            
-            // If not found by ID, try to find by slug
-            if (!$fileType) {
-                $fileType = FileType::where('slug', $fileTypeIdentifier)->first();
-            }
-            
-            // If still not found, throw error
-            if (!$fileType) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid file type. File type not found.',
-                ], 422);
-            }
+            $fileType = FileType::findOrFail($validated['file_type_id']);
             
             // Get uploaded file
             $uploadedFile = $request->file('file');
@@ -99,10 +77,10 @@ class WorkOrderFileController extends Controller
             // Get file size in KB
             $fileSizeKb = round($uploadedFile->getSize() / 1024, 2);
 
-            // Create file record using the resolved file_type ID
+            // Create file record
             $file = WorkOrderFile::create([
                 'work_order_id' => $workOrderId,
-                'file_type_id' => $fileType->id, // Use the resolved ID
+                'file_type_id' => $validated['file_type_id'],
                 'file_name' => $uploadedFile->getClientOriginalName(),
                 'file_path' => $filePath,
                 'file_type' => $fileType->slug,

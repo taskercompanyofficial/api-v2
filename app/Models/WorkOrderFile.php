@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderFile extends Model
 {
+    /**
+     * Relationships to always load
+     */
+    protected $with = ['fileType', 'uploadedBy'];
+
     protected $fillable = [
         'work_order_id',
         'file_type_id',
