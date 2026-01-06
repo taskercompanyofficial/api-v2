@@ -87,7 +87,7 @@ class WorkOrderAssignmentService
         );
 
         // Send Notifications
-        $this->sendNotifications($workOrder, $assignedStaff);
+        $this->sendNotifications($workOrder, $assignedStaff, $notes);
 
         return [
             'status' => 'success',
