@@ -296,7 +296,7 @@ class WorkOrderController extends Controller
             
             $histories = $workOrder->histories()
                 ->with('user:id,name,email')
-                ->orderBy('created_at', 'desc')
+                ->orderBy('id', 'desc')
                 ->get();
 
             return response()->json([
