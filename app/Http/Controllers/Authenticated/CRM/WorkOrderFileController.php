@@ -177,94 +177,28 @@ class WorkOrderFileController extends Controller
                 ->where('id', $fileId)
                 ->firstOrFail();
 
+            // The file_path is relative to the 'public' disk root (storage/app/public)
             $filePath = storage_path('app/public/' . $file->file_path);
 
             if (!file_exists($filePath)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'File not found on server',
-                ], 404);
+                // Fallback: check if it's stored in app/ directly
+                $filePath = storage_path('app/' . $file->file_path);
+                
+                if (!file_exists($filePath)) {
+                    \Log::error("File not found for download: {$file->file_path} (ID: {$file->id})");
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'File not found on server',
+                    ], 404);
+                }
             }
 
             return response()->download($filePath, $file->file_name);
         } catch (\Exception $err) {
+            \Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => $err->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Download all files as ZIP
-     */
-    public function downloadAll(Request $request, $workOrderId)
-    {
-        try {
-            $workOrder = WorkOrder::findOrFail($workOrderId);
-            $files = WorkOrderFile::where('work_order_id', $workOrderId)->get();
-
-            if ($files->isEmpty()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No files to download',
-                ], 404);
-            }
-
-            // Create ZIP file
-            $zipFileName = 'work-order-' . $workOrder->work_order_number . '-files.zip';
-            $zipFilePath = storage_path('app/temp/' . $zipFileName);
-
-            // Ensure temp directory exists
-            if (!file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
-            }
-
-            $zip = new \ZipArchive();
-            if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-                \Log::error('Failed to create ZIP file: ' . $zipFilePath);
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Could not create ZIP file',
-                ], 500);
-            }
-
-            // Add files to ZIP
-            $addedCount = 0;
-            foreach ($files as $file) {
-                $filePath = storage_path('app/public/' . $file->file_path);
-                if (file_exists($filePath)) {
-                    // Use file_type column (slug) as folder name for organization
-                    $folderName = $file->file_type ?: 'other';
-                    $zipPath = $folderName . '/' . $file->file_name;
-                    
-                    if ($zip->addFile($filePath, $zipPath)) {
-                        $addedCount++;
-                    } else {
-                        \Log::warning('Failed to add file to ZIP: ' . $filePath);
-                    }
-                } else {
-                    \Log::warning('File not found: ' . $filePath);
-                }
-            }
-
-            $zip->close();
-
-            if ($addedCount === 0) {
-                @unlink($zipFilePath);
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No files could be added to ZIP',
-                ], 500);
-            }
-
-            // Return ZIP file and delete after sending
-            return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
-        } catch (\Exception $err) {
-            \Log::error('Download all files error: ' . $err->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => $err->getMessage(),
+                'message' => 'An error occurred while trying to download the file.',
             ], 500);
         }
     }
