@@ -52,7 +52,7 @@ class WorkOrderController extends Controller
      * List work orders with filters
      */
     public function index(Request $request): JsonResponse
-    { 
+    {
         $page = $request->page ?? 1;
         $perPage = $request->perPage ?? 50;
         $query = WorkOrder::with([
@@ -77,21 +77,21 @@ class WorkOrderController extends Controller
         // Global search across multiple fields
         if ($request->has('work_order_number') && $request->work_order_number) {
             $searchTerm = $request->work_order_number;
-            
+
             $query->where(function ($q) use ($searchTerm) {
                 // Search in work order fields
                 $q->where('work_order_number', 'like', "%{$searchTerm}%")
-                  ->orWhere('brand_complaint_no', 'like', "%{$searchTerm}%")
-                  ->orWhere('indoor_serial_number', 'like', "%{$searchTerm}%")
-                  ->orWhere('outdoor_serial_number', 'like', "%{$searchTerm}%")
-                  ->orWhere('product_indoor_model', 'like', "%{$searchTerm}%")
-                  ->orWhere('product_outdoor_model', 'like', "%{$searchTerm}%")
-                  // Search in customer relationship
-                  ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
-                      $customerQuery->where('name', 'like', "%{$searchTerm}%")
-                                    ->orWhere('phone', 'like', "%{$searchTerm}%")
-                                    ->orWhere('whatsapp', 'like', "%{$searchTerm}%");
-                  });
+                    ->orWhere('brand_complaint_no', 'like', "%{$searchTerm}%")
+                    ->orWhere('indoor_serial_number', 'like', "%{$searchTerm}%")
+                    ->orWhere('outdoor_serial_number', 'like', "%{$searchTerm}%")
+                    ->orWhere('product_indoor_model', 'like', "%{$searchTerm}%")
+                    ->orWhere('product_outdoor_model', 'like', "%{$searchTerm}%")
+                    // Search in customer relationship
+                    ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
+                        $customerQuery->where('name', 'like', "%{$searchTerm}%")
+                            ->orWhere('phone', 'like', "%{$searchTerm}%")
+                            ->orWhere('whatsapp', 'like', "%{$searchTerm}%");
+                    });
             });
         }
 
@@ -128,7 +128,8 @@ class WorkOrderController extends Controller
     public function store(StoreWorkOrderRequest $request): JsonResponse
     {
         try {
-            $workOrder = $this->workOrderService->createWorkOrder($request->validated(), auth()->id());
+            $user = $request->user();
+            $workOrder = $this->workOrderService->createWorkOrder($request->validated(), $user->id);
 
             return response()->json([
                 'status' => "success",
@@ -156,7 +157,7 @@ class WorkOrderController extends Controller
             'category',
             'service',
             'parentService',
-            'product',  
+            'product',
             'status',
             'subStatus',
             'assignedTo',
@@ -181,7 +182,8 @@ class WorkOrderController extends Controller
 
         try {
             // Update work order using service (Prevent updates logic moved to service)
-            $this->workOrderService->updateWorkOrder($workOrder, $request->validated(), auth()->id());
+            $user = $request->user();
+            $this->workOrderService->updateWorkOrder($workOrder, $request->validated(), $user->id);
 
             return response()->json([
                 'status' => "success",
@@ -202,7 +204,8 @@ class WorkOrderController extends Controller
     {
         try {
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->scheduleWorkOrder($workOrder, $request->validated(), auth()->id());
+            $user = $request->user();
+            $result = $this->statusService->scheduleWorkOrder($workOrder, $request->validated(), $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -220,17 +223,18 @@ class WorkOrderController extends Controller
         try {
             $workOrder = WorkOrder::findOrFail($id);
             $staff = Staff::findOrFail($request->assigned_to_id);
-            if($staff->status_id !== 1){
+            if ($staff->status_id !== 1) {
                 return response()->json([
                     'status' => "error",
                     'message' => "Staff is not available",
                 ], 422);
             }
+            $user = $request->user();
             $result = $this->assignmentService->assignStaff(
                 $workOrder,
                 $request->assigned_to_id,
                 $request->notes,
-                auth()->id()
+                $user->id
             );
 
             return response()->json($result);
@@ -249,10 +253,11 @@ class WorkOrderController extends Controller
     {
         try {
             $workOrder = WorkOrder::findOrFail($id);
+            $user = $request->user();
             $result = $this->statusService->cancelWorkOrder(
                 $workOrder,
                 $request->cancellation_reason,
-                auth()->id()
+                $user->id
             );
 
             return response()->json($result);
@@ -293,7 +298,7 @@ class WorkOrderController extends Controller
     {
         try {
             $workOrder = WorkOrder::findOrFail($id);
-            
+
             $histories = $workOrder->histories()
                 ->with('user:id,name,email')
                 ->orderBy('id', 'desc')
@@ -346,11 +351,12 @@ class WorkOrderController extends Controller
         ]);
 
         try {
+            $user = $request->user();
             $uploadedFiles = $this->fileService->uploadFiles(
                 $workOrder,
                 $request->file('files'),
                 $request->file_type_id,
-                auth()->id()
+                $user->id
             );
 
             return response()->json([
@@ -397,8 +403,9 @@ class WorkOrderController extends Controller
                 'remark' => 'required|string|max:500',
             ]);
 
+            $user = $request->user();
             $workOrder = WorkOrder::with(['assignedTo'])->findOrFail($id);
-            $result = $this->workOrderService->sendReminder($workOrder, $data['remark'], auth()->id());
+            $result = $this->workOrderService->sendReminder($workOrder, $data['remark'], $user->id);
 
             return response()->json($result);
         } catch (Exception $e) {
@@ -416,12 +423,13 @@ class WorkOrderController extends Controller
     public function duplicate(DuplicateWorkOrderRequest $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $originalWorkOrder = WorkOrder::findOrFail($id);
-            $result = $this->workOrderService->duplicateWorkOrder($originalWorkOrder, $request->validated(), auth()->id());
+            $result = $this->workOrderService->duplicateWorkOrder($originalWorkOrder, $request->validated(), $user->id);
 
             return response()->json([
                 'status' => "success",
-                'message' => $result['quantity'] === 1 
+                'message' => $result['quantity'] === 1
                     ? "Work order duplicated successfully as #{$result['numbers'][0]}"
                     : "Successfully created {$result['quantity']} work orders",
                 'data' => $result,
@@ -440,8 +448,9 @@ class WorkOrderController extends Controller
     public function reopen(ReopenWorkOrderRequest $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $originalWorkOrder = WorkOrder::findOrFail($id);
-            $newWorkOrder = $this->workOrderService->reopenWorkOrder($originalWorkOrder, $request->validated(), auth()->id());
+            $newWorkOrder = $this->workOrderService->reopenWorkOrder($originalWorkOrder, $request->validated(), $user->id);
 
             return response()->json([
                 'status' => 'success',
@@ -462,8 +471,9 @@ class WorkOrderController extends Controller
     public function acceptWorkOrder(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->acceptWorkOrder($workOrder, auth()->id());
+            $result = $this->statusService->acceptWorkOrder($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -479,8 +489,9 @@ class WorkOrderController extends Controller
     public function startService(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->startService($workOrder, auth()->id());
+            $result = $this->statusService->startService($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -496,8 +507,9 @@ class WorkOrderController extends Controller
     public function startWork(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->startWork($workOrder, auth()->id());
+            $result = $this->statusService->startWork($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -513,8 +525,9 @@ class WorkOrderController extends Controller
     public function completeService(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->completeService($workOrder, auth()->id());
+            $result = $this->statusService->completeService($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -527,11 +540,12 @@ class WorkOrderController extends Controller
     /**
      * Mark work order as Part in Demand
      */
-    public function markAsPartInDemand(string $id): JsonResponse
+    public function markAsPartInDemand(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->markAsPartInDemand($workOrder, auth()->id());
+            $result = $this->statusService->markAsPartInDemand($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -547,8 +561,9 @@ class WorkOrderController extends Controller
     public function completeFromPartDemand(Request $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $result = $this->statusService->completeFromPartDemand($workOrder, auth()->id());
+            $result = $this->statusService->completeFromPartDemand($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
@@ -584,8 +599,9 @@ class WorkOrderController extends Controller
     public function addFeedback(AddFeedbackRequest $request, string $id): JsonResponse
     {
         try {
+            $user = $request->user();
             $workOrder = WorkOrder::findOrFail($id);
-            $feedback = $this->feedbackService->addFeedback($workOrder, $request->validated(), auth()->id());
+            $feedback = $this->feedbackService->addFeedback($workOrder, $request->validated(), $user->id);
             return response()->json([
                 'status' => 'success',
                 'message' => 'Feedback added successfully',
@@ -598,5 +614,4 @@ class WorkOrderController extends Controller
             ], 500);
         }
     }
-
 }

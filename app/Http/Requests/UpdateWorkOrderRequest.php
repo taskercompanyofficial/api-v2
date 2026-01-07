@@ -28,13 +28,13 @@ class UpdateWorkOrderRequest extends FormRequest
             'reject_reason' => 'nullable|string|max:1000',
             'satisfation_code' => 'nullable|string|max:50',
             'without_satisfaction_code_reason' => 'nullable|string|max:1000',
-            
+
             // Descriptions
             'customer_description' => 'nullable|string',
             'defect_description' => 'nullable|string',
             'technician_remarks' => 'nullable|string',
             'service_description' => 'nullable|string',
-            
+
             // Product Information
             'product_indoor_model' => 'nullable|string|max:100',
             'product_outdoor_model' => 'nullable|string|max:100',
@@ -44,13 +44,16 @@ class UpdateWorkOrderRequest extends FormRequest
             'warrenty_status' => 'nullable|string|max:50',
             'warrenty_end_date' => 'nullable|date',
             'purchase_date' => 'nullable|date',
-            
+
             // Foreign Keys
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'branch_id' => 'required|exists:our_branches,id',
             'category_id' => 'required|exists:categories,id',
             'service_id' => 'required|exists:services,id',
             'parent_service_id' => 'required|exists:parent_services,id',
+            'service_concern_id' => 'required|exists:service_concerns,id',
+            'service_sub_concern_id' => 'required|exists:service_sub_concerns,id',
+            'warranty_type_id' => 'required|exists:warranty_types,id',
             'product_id' => 'required|exists:products,id',
             'dealer_id' => 'nullable|exists:dealers,id',
             'dealer_branch_id' => 'nullable|exists:dealer_branches,id',
