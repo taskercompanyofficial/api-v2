@@ -2,6 +2,7 @@
 
 namespace App\Services\WorkOrder;
 
+use App\Models\Staff;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderStatus;
 use App\Models\WorkOrderHistory;
@@ -17,13 +18,13 @@ class WorkOrderService
     {
         try {
             DB::beginTransaction();
-            
+
             // Get the default status: Allocated - Just Launched
             $allocatedStatus = WorkOrderStatus::where('slug', 'allocated')->first();
             $justLaunchedSubStatus = WorkOrderStatus::where('slug', 'just-launched')
                 ->where('parent_id', $allocatedStatus?->id)
                 ->first();
-            
+
             // Create work order
             $workOrder = WorkOrder::create([
                 'work_order_number' => WorkOrder::generateNumber(),
@@ -46,7 +47,6 @@ class WorkOrderService
             DB::commit();
 
             return $workOrder;
-
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -127,7 +127,7 @@ class WorkOrderService
             );
         }
 
-        $duplicateDescription = $quantity > 1 
+        $duplicateDescription = $quantity > 1
             ? "Work order duplicated {$quantity} times: " . implode(', ', array_map(fn($num) => "#{$num}", $createdNumbers))
             : "Work order duplicated to #{$createdNumbers[0]}";
 
@@ -257,11 +257,11 @@ class WorkOrderService
         }
 
         $reminders = $workOrder->reminders ? json_decode($workOrder->reminders, true) : [];
-        
+
         $reminderData = [
             'sent_at' => now()->toDateTimeString(),
             'sent_by' => $userId,
-            'sent_by_name' => auth()->user()->name,
+            'sent_by_name' => Staff::find($userId)->first_name . ' ' . Staff::find($userId)->last_name,
             'remark' => $remark,
             'staff_id' => $workOrder->assignedTo->id,
             'staff_name' => $workOrder->assignedTo->first_name . ' ' . $workOrder->assignedTo->last_name,
