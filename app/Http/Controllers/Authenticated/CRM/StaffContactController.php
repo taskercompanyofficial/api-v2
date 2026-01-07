@@ -20,13 +20,18 @@ class StaffContactController extends Controller
         $page = $request->input('page') ?? 1;
         $perPage = $request->input('perPage') ?? 10;
 
-        $query = StaffContact::query()->with(['staff:id,full_name']);
+        $query = StaffContact::query()->with(['staff:id,first_name,middle_name,last_name']);
 
         $this->applyJsonFilters($query, $request);
         $this->applySorting($query, $request);
 
         $this->applyUrlFilters($query, $request, [
-            'staff_id', 'contact_type', 'name', 'phone', 'email', 'is_primary'
+            'staff_id',
+            'contact_type',
+            'name',
+            'phone',
+            'email',
+            'is_primary'
         ]);
 
         $contacts = $query->paginate($perPage, ['*'], 'page', $page);
@@ -70,7 +75,7 @@ class StaffContactController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Staff contact created successfully',
-            'data' => $contact->load(['staff:id,full_name'])
+            'data' => $contact->load(['staff:id,first_name,middle_name,last_name'])
         ], 201);
     }
 
@@ -81,7 +86,7 @@ class StaffContactController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $staffContact->load(['staff:id,full_name'])
+            'data' => $staffContact->load(['staff:id,first_name,middle_name,last_name'])
         ]);
     }
 
@@ -122,7 +127,7 @@ class StaffContactController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Staff contact updated successfully',
-            'data' => $staffContact->load(['staff:id,full_name'])
+            'data' => $staffContact->load(['staff:id,first_name,middle_name,last_name'])
         ]);
     }
 

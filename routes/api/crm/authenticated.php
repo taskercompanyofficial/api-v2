@@ -28,6 +28,11 @@ use App\Http\Controllers\Authenticated\CRM\AuditLogController;
 use App\Http\Controllers\Authenticated\CRM\SocialHandlersController;
 use App\Http\Controllers\Authenticated\CRM\ApplicationLogController;
 use App\Http\Controllers\Authenticated\CRM\TestBroadcastController;
+use App\Http\Controllers\Authenticated\CRM\ServiceConcernController;
+use App\Http\Controllers\Authenticated\CRM\ServiceSubConcernController;
+use App\Http\Controllers\Authenticated\CRM\FileRequirementController;
+use App\Http\Controllers\Authenticated\CRM\FileRequirementRuleController;
+use App\Http\Controllers\Authenticated\CRM\WarrantyTypeController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\CRM\NotificationController;
@@ -83,7 +88,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/vehicle-assignments', VehicleAssignmentController::class);
         Route::apiResource('/vehicle-usage-logs', VehicleUsageLogController::class);
         Route::apiResource('/audit-logs', AuditLogController::class);
-        
+
         // WhatsApp Routes
         Route::prefix('whatsapp')->group(function () {
             Route::get('/conversations', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'index']);
@@ -149,10 +154,10 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/complete-service', [WorkOrderController::class, 'completeService']);
         Route::post('/work-orders/{id}/mark-part-in-demand', [WorkOrderController::class, 'markAsPartInDemand']);
         Route::post('/work-orders/{id}/complete-from-part-demand', [WorkOrderController::class, 'completeFromPartDemand']);
-        
+
         // Parts Management
         Route::apiResource('/parts', \App\Http\Controllers\Authenticated\CRM\PartController::class);
-        
+
         // Work Order Files Management (nested routes)
         Route::prefix('work-orders/{workOrderId}')->group(function () {
             Route::get('/files', [WorkOrderFileController::class, 'index']);
@@ -161,13 +166,13 @@ Route::group(['prefix' => 'crm'], function () {
             Route::get('/files/{fileId}/download', [WorkOrderFileController::class, 'download']);
             Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
             Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
-            
+
             // Customer Feedbacks
             Route::get('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'index']);
             Route::post('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'store']);
             Route::put('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'update']);
             Route::delete('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'destroy']);
-            
+
             // Work Order Parts
             Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);
             Route::post('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'store']);
@@ -175,7 +180,7 @@ Route::group(['prefix' => 'crm'], function () {
             Route::patch('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'update']);
             Route::delete('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'destroy']);
         });
-        
+
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
 
         // File Types Management
@@ -183,5 +188,31 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/file-types/{id}/toggle-status', [FileTypeController::class, 'toggleStatus']);
         Route::post('/file-types/{id}/restore', [FileTypeController::class, 'restore']);
         Route::post('/file-types/{id}/validate-file', [FileTypeController::class, 'validateFile']);
+
+        // Service Concerns & Sub-Concerns
+        Route::apiResource('/service-concerns', ServiceConcernController::class);
+        Route::get('/parent-services/{id}/concerns', [ServiceConcernController::class, 'getByParentService']);
+
+        Route::apiResource('/service-sub-concerns', ServiceSubConcernController::class);
+        Route::get('/service-concerns/{id}/sub-concerns', [ServiceSubConcernController::class, 'getByConcern']);
+
+        // File Requirements (Dynamic API for fetching requirements)
+        Route::get('/file-requirements', [FileRequirementController::class, 'getRequirements']);
+        Route::post('/file-requirements/validate', [FileRequirementController::class, 'validateFiles']);
+
+        // File Requirement Rules (CRUD Admin)
+        Route::apiResource('file-requirement-rules', FileRequirementRuleController::class);
+
+        // Warranty Types
+        Route::apiResource('warranty-types', WarrantyTypeController::class);
+        Route::get('/warranty-types-raw', [WarrantyTypeController::class, 'warrantyTypesRaw']);
+
+        // Raw Data Endpoints for SearchSelect Components
+        Route::get('/parent-services-raw', [ParentServicesController::class, 'parentServicesRaw']);
+        Route::get('/service-concerns-raw', [ServiceConcernController::class, 'serviceConcernsRaw']);
+        Route::get('/service-sub-concerns-raw', [ServiceSubConcernController::class, 'serviceSubConcernsRaw']);
+        Route::get('/authorized-brands-raw', [AuthorizedBrandsController::class, 'authorizedBrandsRaw']);
+        Route::get('/categories-raw', [CategoriesController::class, 'categoriesRaw']);
+        Route::get('/file-types-raw', [FileTypeController::class, 'fileTypesRaw']);
     });
 });

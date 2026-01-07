@@ -96,7 +96,7 @@ class FileTypeController extends Controller
         }
 
         $data = $validator->validated();
-        
+
         // Auto-generate slug if not provided
         if (empty($data['slug'])) {
             $data['slug'] = Str::slug($data['name']);
@@ -159,7 +159,7 @@ class FileTypeController extends Controller
         }
 
         $data = $validator->validated();
-        
+
         // Auto-generate slug if not provided
         if (empty($data['slug'])) {
             $data['slug'] = Str::slug($data['name']);
@@ -273,5 +273,46 @@ class FileTypeController extends Controller
             'status' => 'success',
             'message' => 'File is valid',
         ]);
+    }
+
+    /**
+     * Get file types in raw format for SearchSelect component
+     */
+    public function fileTypesRaw(Request $request): JsonResponse
+    {
+        try {
+            $searchQuery = $request->input('name');
+
+            $query = FileType::query()->where('status', true);
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $fileTypes = $query->select('id', 'name', 'description', 'icon')
+                ->orderBy('sort_order', 'asc')
+                ->limit(50)
+                ->get()
+                ->map(function ($fileType) {
+                    return [
+                        'value' => $fileType->id,
+                        'label' => $fileType->name,
+                        'description' => $fileType->description,
+                        'badge' => $fileType->icon,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $fileTypes,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve file types.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
     }
 }

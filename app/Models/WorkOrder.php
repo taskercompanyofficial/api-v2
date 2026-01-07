@@ -17,15 +17,17 @@ class WorkOrder extends Model
         'customer_id',
         'customer_address_id',
         'extra_number',
-        
+
         // Foreign Keys
         'authorized_brand_id',
         'branch_id',
         'category_id',
         'service_id',
         'parent_service_id',
+        'service_concern_id',
+        'service_sub_concern_id',
         'product_id',
-        
+
         // Work Order Details
         'brand_complaint_no',
         'work_order_source',
@@ -34,7 +36,7 @@ class WorkOrder extends Model
         'satisfation_code',
         'customer_rating',
         'without_satisfaction_code_reason',
-        
+
         // Service Timing
         'appointment_date',
         'appointment_time',
@@ -42,13 +44,13 @@ class WorkOrder extends Model
         'service_start_time',
         'service_end_date',
         'service_end_time',
-        
+
         // Descriptions
         'customer_description',
         'defect_description',
         'technician_remarks',
         'service_description',
-        
+
         // Product Information
         'product_indoor_model',
         'product_outdoor_model',
@@ -61,16 +63,16 @@ class WorkOrder extends Model
         'product_model',
         'purchase_date',
 
-        
+
         // Warranty Information
-        'is_warranty_case',
+        'warranty_type_id',
         'warranty_verified',
         'warranty_expiry_date',
         'warrenty_start_date',
         'warrenty_end_date',
         'warrenty_status',
         'warranty_card_serial',
-        
+
         // Status & Assignment
         'status_id',
         'sub_status_id',
@@ -79,13 +81,13 @@ class WorkOrder extends Model
         'accepted_at',
         'rejected_at',
         'rejected_by',
-        
+
         // Financial
         'total_amount',
         'discount',
         'final_amount',
         'payment_status',
-        
+
         // Completion & Tracking
         'completed_at',
         'completed_by',
@@ -93,14 +95,14 @@ class WorkOrder extends Model
         'closed_by',
         'cancelled_at',
         'cancelled_by',
-        
+
         // Lock Fields
         'is_locked',
         'locked_reason',
-        
+
         // Reminders
         'reminders',
-        
+
         // Audit
         'created_by',
         'updated_by',
@@ -111,7 +113,7 @@ class WorkOrder extends Model
         'is_warranty_case' => 'boolean',
         'warranty_verified' => 'boolean',
         'is_locked' => 'boolean',
-        
+
         // Dates
         'warranty_expiry_date' => 'date',
         'warrenty_start_date' => 'date',
@@ -120,7 +122,7 @@ class WorkOrder extends Model
         'appointment_date' => 'date',
         'service_start_date' => 'date',
         'service_end_date' => 'date',
-        
+
         // DateTime
         'assigned_at' => 'datetime',
         'accepted_at' => 'datetime',
@@ -128,7 +130,7 @@ class WorkOrder extends Model
         'completed_at' => 'datetime',
         'closed_at' => 'datetime',
         'cancelled_at' => 'datetime',
-        
+
         // Decimal
         'total_amount' => 'decimal:2',
         'discount' => 'decimal:2',
@@ -144,14 +146,14 @@ class WorkOrder extends Model
             // If both status and sub_status are set, validate they match
             if ($workOrder->status_id && $workOrder->sub_status_id) {
                 $subStatus = WorkOrderStatus::find($workOrder->sub_status_id);
-                
+
                 // Sub-status must have a parent_id (be a child status)
                 if ($subStatus && is_null($subStatus->parent_id)) {
                     throw new \InvalidArgumentException(
                         "Sub-status must be a child status, not a parent status."
                     );
                 }
-                
+
                 // Sub-status parent must match the selected status
                 if ($subStatus && $subStatus->parent_id !== $workOrder->status_id) {
                     throw new \InvalidArgumentException(
@@ -159,7 +161,7 @@ class WorkOrder extends Model
                     );
                 }
             }
-            
+
             // If only sub_status is set without status, set the parent as status
             if (!$workOrder->status_id && $workOrder->sub_status_id) {
                 $subStatus = WorkOrderStatus::find($workOrder->sub_status_id);
@@ -204,6 +206,21 @@ class WorkOrder extends Model
     public function parentService(): BelongsTo
     {
         return $this->belongsTo(ParentServices::class, 'parent_service_id');
+    }
+
+    public function serviceConcern(): BelongsTo
+    {
+        return $this->belongsTo(ServiceConcern::class, 'service_concern_id');
+    }
+
+    public function serviceSubConcern(): BelongsTo
+    {
+        return $this->belongsTo(ServiceSubConcern::class, 'service_sub_concern_id');
+    }
+
+    public function warrantyType(): BelongsTo
+    {
+        return $this->belongsTo(WarrantyType::class, 'warranty_type_id');
     }
 
     public function product(): BelongsTo

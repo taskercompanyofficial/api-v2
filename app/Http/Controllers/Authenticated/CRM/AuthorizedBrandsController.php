@@ -25,7 +25,13 @@ class AuthorizedBrandsController extends Controller
         $this->applySorting($query, $request);
 
         $this->applyUrlFilters($query, $request, [
-            'name', 'slug', 'status', 'service_type', 'billing_date', 'created_at', 'updated_at'
+            'name',
+            'slug',
+            'status',
+            'service_type',
+            'billing_date',
+            'created_at',
+            'updated_at'
         ]);
 
         $brands = $query->paginate($perPage, ['*'], 'page', $page);
@@ -58,9 +64,11 @@ class AuthorizedBrandsController extends Controller
 
         // Generate unique slug
         $slug = Str::slug($validated['name']);
-        $originalSlug = $slug; $i = 1;
+        $originalSlug = $slug;
+        $i = 1;
         while (AuthorizedBrand::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $i; $i++;
+            $slug = $originalSlug . '-' . $i;
+            $i++;
         }
 
         // Use logo image URL directly, no file handling
@@ -144,9 +152,11 @@ class AuthorizedBrandsController extends Controller
         // Handle slug update if name changes
         if (isset($validated['name']) && $validated['name'] !== $brand->name) {
             $newSlug = Str::slug($validated['name']);
-            $original = $newSlug; $i = 1;
+            $original = $newSlug;
+            $i = 1;
             while (AuthorizedBrand::where('slug', $newSlug)->where('id', '!=', $brand->id)->exists()) {
-                $newSlug = $original . '-' . $i; $i++;
+                $newSlug = $original . '-' . $i;
+                $i++;
             }
             $validated['slug'] = $newSlug;
         }
@@ -194,7 +204,46 @@ class AuthorizedBrandsController extends Controller
     }
     public function getBrandsMeta()
     {
-        $brands = AuthorizedBrand::select('id', 'name', 'slug', 'logo_image', 'has_free_installation_service','is_available_for_warranty' )->where('is_authorized', true)->get();
+        $brands = AuthorizedBrand::select('id', 'name', 'slug', 'logo_image', 'has_free_installation_service', 'is_available_for_warranty')->where('is_authorized', true)->get();
         return response()->json(['status' => 'success', 'data' => $brands]);
+    }
+
+    /**
+     * Get authorized brands in raw format for SearchSelect component
+     */
+    public function authorizedBrandsRaw(Request $request)
+    {
+        try {
+            $searchQuery = $request->input('name');
+
+            $query = AuthorizedBrand::query()->where('status', 'active');
+
+            if ($searchQuery) {
+                $query->where('name', 'LIKE', "%{$searchQuery}%");
+            }
+
+            $brands = $query->select('id', 'name', 'logo_image')
+                ->limit(50)
+                ->get()
+                ->map(function ($brand) {
+                    return [
+                        'value' => $brand->id,
+                        'label' => $brand->name,
+                        'image' => $brand->logo_image,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $brands,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve brands.',
+                'error' => $e->getMessage(),
+                'data' => null,
+            ]);
+        }
     }
 }

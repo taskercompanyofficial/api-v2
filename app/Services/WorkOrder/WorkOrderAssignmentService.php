@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class WorkOrderAssignmentService
 {
+
     /**
      * Assign or reassign staff to a work order
      */
@@ -51,7 +52,7 @@ class WorkOrderAssignmentService
             $updateData['rejected_at'] = null;
             $updateData['rejected_by'] = null;
             $updateData['reject_reason'] = null;
-            
+
             // Reset service timing
             $updateData['appointment_date'] = null;
             $updateData['appointment_time'] = null;
@@ -66,9 +67,9 @@ class WorkOrderAssignmentService
 
         $previousStaff = $previousAssignedId ? Staff::find($previousAssignedId) : null;
         $action = $previousAssignedId ? 'reassigned' : 'assigned';
-        $description = $previousAssignedId 
+        $description = $previousAssignedId
             ? "Work order reassigned from {$previousStaff->first_name} {$previousStaff->last_name} to {$assignedStaff->first_name} {$assignedStaff->last_name}"
-            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}" . ($notes ? " with notes: {$notes}" : '');
+            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}" . ($notes ? " with notes: {$notes}" : 'no');
 
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
@@ -91,7 +92,7 @@ class WorkOrderAssignmentService
 
         return [
             'status' => 'success',
-            'message' => $previousAssignedId 
+            'message' => $previousAssignedId
                 ? "Work order reassigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully"
                 : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully",
         ];
@@ -118,9 +119,15 @@ class WorkOrderAssignmentService
             // WhatsApp Notification
             if ($staff->phone) {
                 $message = $this->formatWorkOrderForWhatsApp($workOrder->fresh([
-                    'customer', 'address', 'brand', 'category', 'service', 'parentService', 'product'
+                    'customer',
+                    'address',
+                    'brand',
+                    'category',
+                    'service',
+                    'parentService',
+                    'product'
                 ]));
-                
+
                 $notificationService->sendWhatsAppNotification($staff->phone, $message);
             }
         } catch (Exception $e) {
