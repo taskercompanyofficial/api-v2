@@ -215,5 +215,6 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/authorized-brands-raw', [AuthorizedBrandsController::class, 'authorizedBrandsRaw']);
         Route::get('/categories-raw', [CategoriesController::class, 'categoriesRaw']);
         Route::get('/file-types-raw', [FileTypeController::class, 'fileTypesRaw']);
+        Route::get('/cities-raw', [\App\Http\Controllers\Authenticated\CRM\CityController::class, 'citiesRaw']);
     });
 });

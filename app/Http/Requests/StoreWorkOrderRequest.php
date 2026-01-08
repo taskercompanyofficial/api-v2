@@ -24,9 +24,13 @@ class StoreWorkOrderRequest extends FormRequest
         return [
             'customer_id' => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
+            'city_id' => 'required|exists:cities,id',
             'category_id' => 'required|exists:categories,id',
             'service_id' => 'required|exists:services,id',
             'parent_service_id' => 'required|exists:parent_services,id',
+            'service_concern_id' => 'required|exists:service_concerns,id',
+            'service_sub_concern_id' => 'required|exists:service_sub_concerns,id',
+            'warranty_type_id' => 'required|exists:warranty_types,id',
             'customer_description' => 'required|string|min:10',
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'brand_complaint_no' => 'nullable|string|max:100',

@@ -16,6 +16,7 @@ class WorkOrder extends Model
         'work_order_number',
         'customer_id',
         'customer_address_id',
+        'city_id',
         'extra_number',
 
         // Foreign Keys
@@ -181,6 +182,11 @@ class WorkOrder extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(CustomerAddress::class, 'customer_address_id');
+    }
+
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(\Nnjeim\World\Models\City::class, 'city_id');
     }
 
     public function brand(): BelongsTo
