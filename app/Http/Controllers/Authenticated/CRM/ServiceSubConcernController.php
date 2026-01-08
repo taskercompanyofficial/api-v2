@@ -134,12 +134,18 @@ class ServiceSubConcernController extends Controller
 
     /**
      * Get service sub-concerns in raw format for SearchSelect component
+     * 
+     * Logic:
+     * - If no brand_id: show only generic sub-concerns (authorized_brand_id = NULL)
+     * - If brand_id provided: show brand-specific + generic sub-concerns
+     * - If brand_id provided but no brand-specific exist: show only generic
      */
     public function serviceSubConcernsRaw(Request $request): JsonResponse
     {
         try {
             $searchQuery = $request->input('name');
             $concernId = $request->input('service_concern_id');
+            $brandId = $request->input('authorized_brand_id');
 
             $query = ServiceSubConcern::query()->where('is_active', true);
 
@@ -148,12 +154,27 @@ class ServiceSubConcernController extends Controller
                 $query->where('service_concern_id', $concernId);
             }
 
-            if ($searchQuery) {
-                $query->where('name', 'LIKE', "%{$searchQuery}%")
-                    ->orWhere('code', 'LIKE', "%{$searchQuery}%");
+            // Filter by brand
+            if ($brandId) {
+                // Show brand-specific + generic (null brand_id)
+                $query->where(function ($q) use ($brandId) {
+                    $q->whereNull('authorized_brand_id')
+                        ->orWhere('authorized_brand_id', $brandId);
+                });
+            } else {
+                // No brand provided, show only generic
+                $query->whereNull('authorized_brand_id');
             }
 
-            $subConcerns = $query->select('id', 'name', 'code', 'description')
+            if ($searchQuery) {
+                $query->where(function ($q) use ($searchQuery) {
+                    $q->where('name', 'LIKE', "%{$searchQuery}%")
+                        ->orWhere('code', 'LIKE', "%{$searchQuery}%");
+                });
+            }
+
+            $subConcerns = $query->select('id', 'name', 'code', 'description', 'authorized_brand_id')
+                ->orderBy('authorized_brand_id', 'desc') // Brand-specific first, then generic
                 ->orderBy('display_order', 'asc')
                 ->limit(50)
                 ->get()
