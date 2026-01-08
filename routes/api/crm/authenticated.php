@@ -152,6 +152,9 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{id}/start-service', [WorkOrderController::class, 'startService']);
         Route::post('/work-orders/{id}/start-work', [WorkOrderController::class, 'startWork']);
         Route::post('/work-orders/{id}/complete-service', [WorkOrderController::class, 'completeService']);
+        Route::post('/work-orders/{id}/approve', [WorkOrderController::class, 'approveWorkOrder']);
+        Route::post('/work-orders/{id}/reject-completion', [WorkOrderController::class, 'rejectCompletion']);
+        Route::post('/work-orders/{id}/close', [WorkOrderController::class, 'closeWorkOrder']);
         Route::post('/work-orders/{id}/mark-part-in-demand', [WorkOrderController::class, 'markAsPartInDemand']);
         Route::post('/work-orders/{id}/complete-from-part-demand', [WorkOrderController::class, 'completeFromPartDemand']);
 

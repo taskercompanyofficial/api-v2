@@ -529,6 +529,12 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::findOrFail($id);
             $result = $this->statusService->completeService($workOrder, $user->id);
             return response()->json($result);
+        } catch (\App\Exceptions\MissingFilesException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'missing_files' => $e->getMissingFiles(),
+            ], 422);
         } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
@@ -612,6 +618,76 @@ class WorkOrderController extends Controller
                 'status' => 'error',
                 'message' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Approve work order (after completion)
+     */
+    public function approveWorkOrder(Request $request, string $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $workOrder = WorkOrder::with('status')->findOrFail($id);
+            $result = $this->statusService->approveWorkOrder($workOrder, $user->id);
+            return response()->json($result);
+        } catch (\App\Exceptions\MissingFilesException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'missing_files' => $e->getMissingFiles(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Reject completion and send back to rework
+     */
+    public function rejectCompletion(Request $request, string $id): JsonResponse
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        try {
+            $user = $request->user();
+            $workOrder = WorkOrder::with('status')->findOrFail($id);
+            $result = $this->statusService->rejectCompletion($workOrder, $request->reason, $user->id);
+            return response()->json($result);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Close work order (from Feedback Pending status)
+     */
+    public function closeWorkOrder(Request $request, string $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $workOrder = WorkOrder::with(['status', 'subStatus'])->findOrFail($id);
+            $result = $this->statusService->closeWorkOrder($workOrder, $user->id);
+            return response()->json($result);
+        } catch (\App\Exceptions\MissingFilesException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'missing_files' => $e->getMissingFiles(),
+            ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 }

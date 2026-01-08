@@ -6,6 +6,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderStatus;
 use App\Models\WorkOrderHistory;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class WorkOrderStatusService
 {
@@ -69,12 +70,12 @@ class WorkOrderStatusService
             throw new Exception('Status "In Progress" not found');
         }
 
-        $subStatus = WorkOrderStatus::where('slug', 'going-to-work')
+        $subStatus = WorkOrderStatus::where('slug', 'work-started')
             ->where('parent_id', $status->id)
             ->first();
 
         if (!$subStatus) {
-            throw new Exception('Sub-status "Going to work" not found');
+            throw new Exception('Sub-status "Work Started" not found');
         }
 
         $workOrder->status_id = $status->id;
@@ -173,9 +174,9 @@ class WorkOrderStatusService
             if ($missingFiles->isNotEmpty()) {
                 $missingNames = $missingFiles->map(function ($req) {
                     return $req->fileType->name ?? 'Unknown Type';
-                })->implode(', ');
+                })->values()->toArray();
 
-                throw new Exception("Required files missing: {$missingNames}. Please upload them before completing.");
+                throw new \App\Exceptions\MissingFilesException("Required files missing. Please upload them before completing.", $missingNames);
             }
         }
 
@@ -187,12 +188,16 @@ class WorkOrderStatusService
             throw new Exception('Status "Completed" not found');
         }
 
-        $subStatus = WorkOrderStatus::where('parent_id', $status->id)->first();
+        // Get sub-status that belongs to the completed status
+        $subStatus = WorkOrderStatus::where('slug', 'pending-service-centre-complete')
+            ->where('parent_id', $status->id)
+            ->first();
 
         $oldStatusId = $workOrder->status_id;
         $oldSubStatusId = $workOrder->sub_status_id;
 
         $workOrder->status_id = $status->id;
+        $workOrder->sub_status_id = $subStatus?->id;
         $workOrder->service_end_date = now()->toDateTimeString();
         $workOrder->service_end_time = now()->toTimeString();
         $workOrder->completed_at = now();
@@ -353,7 +358,7 @@ class WorkOrderStatusService
             $technicianAcceptedSubStatus = WorkOrderStatus::where('slug', 'technician-accepted')
                 ->where('parent_id', $dispatchedStatus?->id)
                 ->first();
-            
+
             if ($dispatchedStatus && $technicianAcceptedSubStatus) {
                 $workOrder->status_id = $dispatchedStatus->id;
                 $workOrder->sub_status_id = $technicianAcceptedSubStatus->id;
@@ -364,10 +369,10 @@ class WorkOrderStatusService
         // Add remarks if provided
         if (isset($data['remarks']) && $data['remarks']) {
             $currentRemarks = $workOrder->technician_remarks ?? '';
-            $newRemarks = $currentRemarks 
+            $newRemarks = $currentRemarks
                 ? $currentRemarks . "\n\n[Scheduled " . now()->format('Y-m-d H:i') . "]: " . $data['remarks']
                 : "[Scheduled " . now()->format('Y-m-d H:i') . "]: " . $data['remarks'];
-            
+
             $workOrder->update(['technician_remarks' => $newRemarks]);
         }
 
@@ -440,6 +445,253 @@ class WorkOrderStatusService
         return [
             'status' => 'success',
             'message' => 'Work order cancelled successfully',
+            'data' => $workOrder->fresh(['status', 'subStatus']),
+        ];
+    }
+
+    /**
+     * Approve work order (after completion)
+     * Checks if all files are approved before moving to closed status
+     */
+    public function approveWorkOrder(WorkOrder $workOrder, int $userId): array
+    {
+        $completeStatus = WorkOrderStatus::where('slug', 'completed')
+            ->whereNull('parent_id')
+            ->first();
+
+        // Check if work order is in completed status
+        if (!$completeStatus || $workOrder->status_id !== $completeStatus->id) {
+            throw new Exception('Work order must be in Completed status to approve');
+        }
+
+        // Query files directly (relationship was not loading properly)
+        $files = \App\Models\WorkOrderFile::where('work_order_id', $workOrder->id)->get();
+
+        // Check if any file has pending or rejected status
+        $pendingOrRejectedFiles = $files->filter(function ($file) {
+            return in_array($file->approval_status, ['pending', 'rejected']);
+        });
+
+        $completedStatus = WorkOrderStatus::where('slug', 'completed')
+            ->whereNull('parent_id')
+            ->first();
+
+        $feedbackPendingSubStatus = WorkOrderStatus::where('slug', 'feedback-pending')
+            ->where('parent_id', $completedStatus?->id)
+            ->first();
+
+        if (!$feedbackPendingSubStatus) {
+            throw new Exception('Sub-status "Feedback Pending" not found');
+        }
+        if ($pendingOrRejectedFiles->isNotEmpty()) {
+            // Get pending-feedback sub-status under completed
+
+            $oldSubStatusId = $workOrder->sub_status_id;
+            $workOrder->sub_status_id = $feedbackPendingSubStatus->id;
+            $workOrder->updated_by = $userId;
+            $workOrder->save();
+
+            // Get file names that need attention (use file type name or file name)
+            $fileNames = $pendingOrRejectedFiles->map(function ($file) {
+                return $file->fileType?->name ?? $file->file_name ?? 'Unknown';
+            })->values()->toArray();
+
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'status_updated',
+                description: "Work order set to Feedback Pending - Some files need approval",
+                metadata: [
+                    'old_sub_status_id' => $oldSubStatusId,
+                    'new_sub_status_id' => $feedbackPendingSubStatus->id,
+                    'pending_files' => $fileNames,
+                ]
+            );
+
+            throw new \App\Exceptions\MissingFilesException(
+                "Some files are pending approval or rejected. Please review them.",
+                $fileNames
+            );
+        }
+
+        $oldSubStatusId = $workOrder->sub_status_id;
+
+        $workOrder->sub_status_id = $feedbackPendingSubStatus->id;
+        $workOrder->updated_by = $userId;
+        $workOrder->save();
+
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: 'feedback_pending',
+            description: "Work order set to Feedback Pending",
+            metadata: [
+                'old_sub_status_id' => $oldSubStatusId,
+            ]
+        );
+
+        return [
+            'status' => 'success',
+            'message' => 'Work order set to Feedback Pending',
+            'data' => $workOrder->fresh(['status', 'subStatus']),
+        ];
+    }
+
+    /**
+     * Close work order (from Feedback Pending status)
+     * All files must be approved
+     */
+    public function closeWorkOrder(WorkOrder $workOrder, int $userId): array
+    {
+        // Check if work order is in completed status with feedback-pending sub-status
+        $completedStatus = WorkOrderStatus::where('slug', 'completed')
+            ->whereNull('parent_id')
+            ->first();
+
+        $feedbackPendingSubStatus = WorkOrderStatus::where('slug', 'feedback-pending')
+            ->where('parent_id', $completedStatus?->id)
+            ->first();
+
+        if (!$completedStatus || $workOrder->status_id !== $completedStatus->id) {
+            throw new Exception('Work order must be in Completed status to close');
+        }
+
+        if ($feedbackPendingSubStatus && $workOrder->sub_status_id !== $feedbackPendingSubStatus->id) {
+            throw new Exception('Work order must be in Feedback Pending status to close');
+        }
+
+        // Verify all files are approved
+        $files = \App\Models\WorkOrderFile::where('work_order_id', $workOrder->id)->get();
+        $pendingOrRejectedFiles = $files->filter(function ($file) {
+            return in_array($file->approval_status, ['pending', 'rejected']);
+        });
+
+        if ($pendingOrRejectedFiles->isNotEmpty()) {
+            $fileNames = $pendingOrRejectedFiles->map(function ($file) {
+                return $file->fileType?->name ?? $file->file_name ?? 'Unknown';
+            })->values()->toArray();
+
+            throw new \App\Exceptions\MissingFilesException(
+                "Some files are still pending approval or rejected.",
+                $fileNames
+            );
+        }
+
+        // Move to Closed status
+        $closedStatus = WorkOrderStatus::where('slug', 'closed')
+            ->whereNull('parent_id')
+            ->first();
+        $closedSubStatus = WorkOrderStatus::where('slug', 'closed-completed')->where('parent_id', $closedStatus?->id)
+            ->first();
+
+        if (!$closedStatus) {
+            throw new Exception('Status "Closed" not found');
+        }
+        if (!$closedSubStatus) {
+            throw new Exception('Sub-status "Closed Completed" not found');
+        }
+
+        $oldStatusId = $workOrder->status_id;
+        $oldSubStatusId = $workOrder->sub_status_id;
+
+        $workOrder->status_id = $closedStatus->id;
+        $workOrder->sub_status_id = $closedSubStatus->id;
+        $workOrder->closed_at = now();
+        $workOrder->closed_by = $userId;
+        $workOrder->updated_by = $userId;
+        $workOrder->save();
+
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: 'closed',
+            description: "Work order closed",
+            metadata: [
+                'old_status_id' => $oldStatusId,
+                'new_status_id' => $closedStatus->id,
+                'old_sub_status_id' => $oldSubStatusId,
+                'closed_by' => $userId,
+            ]
+        );
+
+        return [
+            'status' => 'success',
+            'message' => 'Work order closed successfully',
+            'data' => $workOrder->fresh(['status', 'subStatus']),
+        ];
+    }
+
+    /**
+     * Reject completion and send back to rework
+     * Moves work order from Completed back to In Progress / Rework Required
+     */
+    public function rejectCompletion(WorkOrder $workOrder, string $reason, int $userId): array
+    {
+        $completeStatus = WorkOrderStatus::where('slug', 'completed')
+            ->whereNull('parent_id')
+            ->first();
+
+        // Check if work order is in completed status
+        if (!$completeStatus || $workOrder->status_id !== $completeStatus->id) {
+            throw new Exception('Work order must be in Completed status to reject');
+        }
+
+        // Get In Progress status
+        $inProgressStatus = WorkOrderStatus::where('slug', 'in-progress')
+            ->whereNull('parent_id')
+            ->first();
+
+        if (!$inProgressStatus) {
+            throw new Exception('Status "In Progress" not found');
+        }
+
+        // Get Rework Required sub-status (or Work Started if rework doesn't exist)
+        $reworkSubStatus = WorkOrderStatus::where('slug', 'rework-required')
+            ->where('parent_id', $inProgressStatus->id)
+            ->first();
+
+        if (!$reworkSubStatus) {
+            // Fallback to work-started if rework-required doesn't exist
+            $reworkSubStatus = WorkOrderStatus::where('slug', 'work-started')
+                ->where('parent_id', $inProgressStatus->id)
+                ->first();
+        }
+
+        $oldStatusId = $workOrder->status_id;
+        $oldSubStatusId = $workOrder->sub_status_id;
+
+        // Update work order
+        $workOrder->status_id = $inProgressStatus->id;
+        $workOrder->sub_status_id = $reworkSubStatus?->id;
+        $workOrder->completed_at = null;
+        $workOrder->completed_by = null;
+        $workOrder->service_end_date = null;
+        $workOrder->service_end_time = null;
+        $workOrder->updated_by = $userId;
+        $workOrder->save();
+
+        // Add rejection reason to technician remarks
+        $currentRemarks = $workOrder->technician_remarks ?? '';
+        $newRemarks = $currentRemarks
+            ? $currentRemarks . "\n\n[Rework Required " . now()->format('Y-m-d H:i') . "]: " . $reason
+            : "[Rework Required " . now()->format('Y-m-d H:i') . "]: " . $reason;
+
+        $workOrder->update(['technician_remarks' => $newRemarks]);
+
+        WorkOrderHistory::log(
+            workOrderId: $workOrder->id,
+            actionType: 'rework_required',
+            description: "Completion rejected - Sent back to rework. Reason: {$reason}",
+            metadata: [
+                'old_status_id' => $oldStatusId,
+                'new_status_id' => $inProgressStatus->id,
+                'old_sub_status_id' => $oldSubStatusId,
+                'new_sub_status_id' => $reworkSubStatus?->id,
+                'rejection_reason' => $reason,
+                'rejected_by' => $userId,
+            ]
+        );
+
+        return [
+            'status' => 'success',
+            'message' => 'Work order sent back for rework',
             'data' => $workOrder->fresh(['status', 'subStatus']),
         ];
     }
