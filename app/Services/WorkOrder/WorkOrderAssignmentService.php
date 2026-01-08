@@ -21,7 +21,9 @@ class WorkOrderAssignmentService
         // if ($workOrder->completed_at || $workOrder->cancelled_at || $workOrder->rejected_at || $workOrder->closed_at) {
         //     throw new Exception('Cannot assign staff to completed, cancelled, or closed work order');
         // }
-
+        if (!$notes) {
+            $notes = 'No notes provided';
+        }
         $previousAssignedId = $workOrder->assigned_to_id;
 
         // Check if it's the same staff
