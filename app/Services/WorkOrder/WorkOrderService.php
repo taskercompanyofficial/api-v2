@@ -177,7 +177,10 @@ class WorkOrderService
         if ($existingReopened && preg_match('/-(\d+)$/', $existingReopened->work_order_number, $matches)) {
             $nextSuffix = (int)$matches[1] + 1;
         }
-
+        $allocatedStatus = WorkOrderStatus::where('slug', 'allocated')->first();
+        $justLaunchedSubStatus = WorkOrderStatus::where('slug', 'just-launched')
+            ->where('parent_id', $allocatedStatus?->id)
+            ->first();
         $newWorkOrderNumber = $baseWorkOrderNumber . '-' . $nextSuffix;
 
         $newWorkOrder = WorkOrder::create([
@@ -202,7 +205,8 @@ class WorkOrderService
             'warrenty_end_date' => $originalWorkOrder->warrenty_end_date,
             'customer_description' => $originalWorkOrder->customer_description,
             'defect_description' => $originalWorkOrder->defect_description,
-            'status_id' => WorkOrderStatus::where('name', 'Pending')->first()?->id,
+            'status_id' => $allocatedStatus->id,
+            'sub_status_id' => $justLaunchedSubStatus->id,
             'priority' => $data['priority'] ?? $originalWorkOrder->priority ?? 'medium',
             'created_by' => $userId,
             'updated_by' => $userId,
