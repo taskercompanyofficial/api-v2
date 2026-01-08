@@ -61,7 +61,11 @@ class WorkOrderService
         $quantity = $options['quantity'] ?? 1;
         $createdIds = [];
         $createdNumbers = [];
-
+        // Get the default status: Allocated - Just Launched
+        $allocatedStatus = WorkOrderStatus::where('slug', 'allocated')->first();
+        $justLaunchedSubStatus = WorkOrderStatus::where('slug', 'just-launched')
+            ->where('parent_id', $allocatedStatus?->id)
+            ->first();
         for ($i = 0; $i < $quantity; $i++) {
             $newWorkOrderData = [
                 'customer_id' => $originalWorkOrder->customer_id,
@@ -71,8 +75,8 @@ class WorkOrderService
                 'priority' => $originalWorkOrder->priority,
                 'customer_description' => $originalWorkOrder->customer_description,
                 'defect_description' => $originalWorkOrder->defect_description,
-                'status_id' => null,
-                'sub_status_id' => null,
+                'status_id' => $allocatedStatus?->id,
+                'sub_status_id' => $justLaunchedSubStatus?->id,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ];

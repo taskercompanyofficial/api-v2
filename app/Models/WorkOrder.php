@@ -208,10 +208,6 @@ class WorkOrder extends Model
         return $this->belongsTo(ParentServices::class, 'parent_service_id');
     }
 
-    public function serviceConcern(): BelongsTo
-    {
-        return $this->belongsTo(ServiceConcern::class, 'service_concern_id');
-    }
 
     public function serviceSubConcern(): BelongsTo
     {
@@ -256,6 +252,11 @@ class WorkOrder extends Model
     public function services(): HasMany
     {
         return $this->hasMany(WorkOrderService::class);
+    }
+
+    public function serviceConcern(): BelongsTo
+    {
+        return $this->belongsTo(ServiceConcern::class, 'service_concern_id');
     }
 
     public function workOrderParts(): HasMany

@@ -42,12 +42,12 @@ class WorkOrderController extends Controller
     {
         try {
             $staff = $request->user();
-            
+
             $baseQuery = WorkOrder::where('assigned_to_id', $staff->id);
-            
+
             // Total Work Orders
             $total = (clone $baseQuery)->count();
-            
+
             // Pending Acceptance
             $pendingAcceptance = (clone $baseQuery)
                 ->whereNull('accepted_at')
@@ -55,7 +55,7 @@ class WorkOrderController extends Controller
                 ->whereHas('status', function ($q) {
                     $q->where('slug', 'dispatched');
                 })->count();
-            
+
             // In Progress/Active
             $active = (clone $baseQuery)
                 ->whereNotNull('accepted_at')
@@ -64,12 +64,12 @@ class WorkOrderController extends Controller
                 ->whereHas('status', function ($q) {
                     $q->whereIn('slug', ['dispatched', 'in-progress']);
                 })->count();
-            
+
             // Completed (Total)
             $completed = (clone $baseQuery)
                 ->whereNotNull('completed_at')
                 ->count();
-            
+
             // Completed this month
             $completedThisMonth = (clone $baseQuery)
                 ->whereNotNull('completed_at')
@@ -102,7 +102,7 @@ class WorkOrderController extends Controller
     {
         try {
             $staff = $request->user();
-            
+
             $query = WorkOrder::with([
                 'customer:id,name,phone,email,whatsapp',
                 'address:id,address_line_1,address_line_2,city,state,zip_code',
@@ -111,6 +111,8 @@ class WorkOrderController extends Controller
                 'category:id,name',
                 'service:id,name',
                 'brand:id,name',
+                'serviceConcern:id,name',
+                'serviceSubConcern:id,name',
             ])->where('assigned_to_id', $staff->id);
 
             // Search by work order number or customer phone
@@ -118,31 +120,31 @@ class WorkOrderController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('work_order_number', 'LIKE', "%{$search}%")
-                      ->orWhereHas('customer', function ($q) use ($search) {
-                          $q->where('phone', 'LIKE', "%{$search}%");
-                      });
+                        ->orWhereHas('customer', function ($q) use ($search) {
+                            $q->where('phone', 'LIKE', "%{$search}%");
+                        });
                 });
             }
 
             // Filter by status
             if ($request->has('status')) {
                 $statusFilter = $request->status;
-                
+
                 if ($statusFilter === 'pending') {
                     // Accept Pending - Dispatched but not yet accepted
                     $query->whereNull('accepted_at')
-                          ->whereNull('rejected_at')
-                          ->whereHas('status', function ($q) {
-                              $q->where('slug', 'dispatched');
-                          });
+                        ->whereNull('rejected_at')
+                        ->whereHas('status', function ($q) {
+                            $q->where('slug', 'dispatched');
+                        });
                 } elseif ($statusFilter === 'active') {
                     // In Progress - Accepted work orders that are not completed
                     $query->whereNotNull('accepted_at')
-                          ->whereNull('completed_at')
-                          ->whereNull('cancelled_at')
-                          ->whereHas('status', function ($q) {
-                              $q->whereIn('slug', ['dispatched', 'in-progress']);
-                          });
+                        ->whereNull('completed_at')
+                        ->whereNull('cancelled_at')
+                        ->whereHas('status', function ($q) {
+                            $q->whereIn('slug', ['dispatched', 'in-progress']);
+                        });
                 } elseif ($statusFilter === 'completed') {
                     // Completed work orders
                     $query->whereHas('status', function ($q) {
@@ -172,7 +174,7 @@ class WorkOrderController extends Controller
     {
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::with([
                 'customer',
                 'address',
@@ -186,18 +188,20 @@ class WorkOrderController extends Controller
                 'branch',
                 'assignedTo',
                 'files.fileType',
+                'serviceConcern',
+                'serviceSubConcern',
             ])->where('assigned_to_id', $staff->id)
-              ->findOrFail($id);
+                ->findOrFail($id);
 
             // if ($workOrder->status?->slug === 'dispatched' && 
             //     $workOrder->subStatus?->slug === 'assigned-to-technician' &&
             //     is_null($workOrder->accepted_at) &&
             //     is_null($workOrder->rejected_at)) {
-                
+
             //     $technicianAcceptPendingStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accept-pending')
             //                                                                   ->where('parent_id', $workOrder->status_id)
             //                                                                   ->first();
-                
+
             //     if ($technicianAcceptPendingStatus) {
             //         $workOrder->sub_status_id = $technicianAcceptPendingStatus->id;
             //         $workOrder->updated_by = $staff->id;
@@ -234,6 +238,9 @@ class WorkOrderController extends Controller
                     'branch',
                     'assignedTo',
                     'files.fileType',
+                    'serviceConcern',
+                    'serviceSubConcern',
+                    'warrantyType',
                 ]),
             ]);
         } catch (Exception $e) {
@@ -251,9 +258,9 @@ class WorkOrderController extends Controller
     {
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::where('assigned_to_id', $staff->id)
-                                  ->findOrFail($id);
+                ->findOrFail($id);
 
             if ($workOrder->accepted_at) {
                 return response()->json([
@@ -265,8 +272,8 @@ class WorkOrderController extends Controller
             // Find "Technician Accepted" sub-status
             $dispatchedStatus = \App\Models\WorkOrderStatus::where('slug', 'dispatched')->first();
             $technicianAcceptedStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accepted')
-                                                                     ->where('parent_id', $dispatchedStatus?->id)
-                                                                     ->first();
+                ->where('parent_id', $dispatchedStatus?->id)
+                ->first();
 
             $workOrder->accepted_at = now();
             if ($technicianAcceptedStatus) {
@@ -319,16 +326,16 @@ class WorkOrderController extends Controller
 
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::where('assigned_to_id', $staff->id)
-                                  ->findOrFail($id);
+                ->findOrFail($id);
 
             // Find Cancelled status with "Technician Rejected" sub-status
             $cancelledStatus = \App\Models\WorkOrderStatus::where('slug', 'cancelled')->first();
             $technicianRejectedSubStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-rejected')
-                                                                       ->where('parent_id', $cancelledStatus?->id)
-                                                                       ->first();
-            
+                ->where('parent_id', $cancelledStatus?->id)
+                ->first();
+
             $workOrder->status_id = $cancelledStatus?->id;
             $workOrder->sub_status_id = $technicianRejectedSubStatus?->id;
             $workOrder->reject_reason = $request->reason;
@@ -388,9 +395,9 @@ class WorkOrderController extends Controller
 
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::where('assigned_to_id', $staff->id)
-                                  ->findOrFail($id);
+                ->findOrFail($id);
 
             $workOrder->fill($request->only([
                 'indoor_serial_number',
@@ -402,7 +409,7 @@ class WorkOrderController extends Controller
                 'customer_description',
                 'technician_remarks',
             ]));
-            
+
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
@@ -458,9 +465,9 @@ class WorkOrderController extends Controller
 
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::where('assigned_to_id', $staff->id)
-                                  ->findOrFail($id);
+                ->findOrFail($id);
 
             $oldStatus = $workOrder->status;
             $newStatus = \App\Models\WorkOrderStatus::findOrFail($request->status_id);
@@ -522,15 +529,15 @@ class WorkOrderController extends Controller
 
         try {
             $staff = $request->user();
-            
+
             $workOrder = WorkOrder::where('assigned_to_id', $staff->id)
-                                  ->findOrFail($id);
+                ->findOrFail($id);
 
             // Find status by slug
             $status = \App\Models\WorkOrderStatus::where('slug', $request->status_slug)
-                                                  ->whereNull('parent_id')
-                                                  ->first();
-            
+                ->whereNull('parent_id')
+                ->first();
+
             if (!$status) {
                 return response()->json([
                     'status' => 'error',
@@ -540,9 +547,9 @@ class WorkOrderController extends Controller
 
             // Find sub-status by slug
             $subStatus = \App\Models\WorkOrderStatus::where('slug', $request->sub_status_slug)
-                                                     ->where('parent_id', $status->id)
-                                                     ->first();
-            
+                ->where('parent_id', $status->id)
+                ->first();
+
             if (!$subStatus) {
                 return response()->json([
                     'status' => 'error',
@@ -555,13 +562,13 @@ class WorkOrderController extends Controller
 
             $workOrder->status_id = $status->id;
             $workOrder->sub_status_id = $subStatus->id;
-            
+
             // Update service start/end times based on status
             if ($request->status_slug === 'in-progress' && $request->sub_status_slug === 'going-to-work') {
                 $workOrder->service_start_date = now()->toDateString();
                 $workOrder->service_start_time = now()->toTimeString();
             }
-            
+
             if ($request->status_slug === 'completed') {
                 // Check for required files
                 $requiredFiles = \App\Models\ServiceRequiredFile::where('parent_service_id', $workOrder->parent_service_id)
@@ -592,15 +599,15 @@ class WorkOrderController extends Controller
                 $workOrder->completed_at = now();
                 $workOrder->completed_by = $staff->id;
             }
-            
+
             // Append remarks to technician_remarks if provided
             if ($request->remarks) {
                 $currentRemarks = $workOrder->technician_remarks ?? '';
-                
+
                 // Build the remark entry with timestamp and status info
                 $timestamp = now()->format('Y-m-d H:i');
                 $statusInfo = "{$subStatus->name}";
-                
+
                 // Add location if provided (prefer address over coordinates)
                 $locationInfo = '';
                 if ($request->address) {
@@ -608,16 +615,16 @@ class WorkOrderController extends Controller
                 } elseif ($request->latitude && $request->longitude) {
                     $locationInfo = " (Coordinates: {$request->latitude}, {$request->longitude})";
                 }
-                
+
                 $remarkEntry = "[{$timestamp}] Technician updated status to '{$statusInfo}'{$locationInfo}: {$request->remarks}";
-                
-                $newRemarks = $currentRemarks 
+
+                $newRemarks = $currentRemarks
                     ? $currentRemarks . "\n\n" . $remarkEntry
                     : $remarkEntry;
-                
+
                 $workOrder->technician_remarks = $newRemarks;
             }
-            
+
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
