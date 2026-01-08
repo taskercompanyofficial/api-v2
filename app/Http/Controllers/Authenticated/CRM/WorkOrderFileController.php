@@ -7,6 +7,7 @@ use App\Models\WorkOrderFile;
 use App\Models\WorkOrder;
 use App\Models\FileType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -185,7 +186,7 @@ class WorkOrderFileController extends Controller
                 $filePath = storage_path('app/' . $file->file_path);
 
                 if (!file_exists($filePath)) {
-                    \Log::error("File not found for download: {$file->file_path} (ID: {$file->id})");
+                    Log::error("File not found for download: {$file->file_path} (ID: {$file->id})");
                     return response()->json([
                         'status' => 'error',
                         'message' => 'File not found on server',
@@ -195,7 +196,7 @@ class WorkOrderFileController extends Controller
 
             return response()->download($filePath, $file->file_name);
         } catch (\Exception $err) {
-            \Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
+            Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'An error occurred while trying to download the file.',
