@@ -11,10 +11,11 @@ class Service extends Model
     protected $fillable = [
         'name',
         'category_id',
+        'product_id',
         'slug',
         'description',
         'image',
-        'images',   
+        'images',
         'tags',
         'notes',
         'status',
@@ -23,9 +24,10 @@ class Service extends Model
     ];
     protected $casts = [
         'images' => 'array',
-        'tags'=> 'array',
+        'tags' => 'array',
         'image' => 'string',
         'category_id' => 'integer',
+        'product_id' => 'integer',
     ];
     public function createdBy(): BelongsTo
     {
@@ -38,6 +40,10 @@ class Service extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Categories::class, 'category_id');
+    }
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
     }
     public function parentServices(): HasMany
     {
