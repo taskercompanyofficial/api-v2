@@ -19,7 +19,7 @@ class WorkOrderFileController extends Controller
     {
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
-            
+
             $files = WorkOrderFile::where('work_order_id', $workOrderId)
                 ->with('fileType')
                 ->orderBy('file_type_id')
@@ -58,7 +58,7 @@ class WorkOrderFileController extends Controller
             $user = $request->user();
             $workOrder = WorkOrder::findOrFail($workOrderId);
             $fileType = FileType::findOrFail($validated['file_type_id']);
-            
+
             // Get uploaded file
             $uploadedFile = $request->file('file');
 
@@ -183,7 +183,7 @@ class WorkOrderFileController extends Controller
             if (!file_exists($filePath)) {
                 // Fallback: check if it's stored in app/ directly
                 $filePath = storage_path('app/' . $file->file_path);
-                
+
                 if (!file_exists($filePath)) {
                     \Log::error("File not found for download: {$file->file_path} (ID: {$file->id})");
                     return response()->json([
@@ -199,6 +199,41 @@ class WorkOrderFileController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'An error occurred while trying to download the file.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update file approval status
+     */
+    public function updateApproval(Request $request, $workOrderId, $fileId)
+    {
+        $validated = $request->validate([
+            'approval_status' => 'required|in:pending,approved,rejected',
+            'approval_remark' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $file = WorkOrderFile::where('work_order_id', $workOrderId)
+                ->where('id', $fileId)
+                ->firstOrFail();
+
+            $file->update([
+                'approval_status' => $validated['approval_status'],
+                'approval_remark' => $validated['approval_remark'] ?? null,
+            ]);
+
+            $file->load('fileType', 'uploadedBy');
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'File approval status updated successfully',
+                'data' => $file,
+            ]);
+        } catch (\Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
             ], 500);
         }
     }

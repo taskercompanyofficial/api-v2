@@ -23,6 +23,8 @@ class WorkOrderFile extends Model
         'uploaded_by_id',
         'uploaded_at',
         'notes',
+        'approval_status',
+        'approval_remark',
     ];
 
     protected $casts = [

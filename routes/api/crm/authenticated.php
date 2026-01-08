@@ -166,6 +166,7 @@ Route::group(['prefix' => 'crm'], function () {
             Route::get('/files/{fileId}/download', [WorkOrderFileController::class, 'download']);
             Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
             Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
+            Route::post('/files/{fileId}/approval', [WorkOrderFileController::class, 'updateApproval']);
 
             // Customer Feedbacks
             Route::get('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'index']);
