@@ -100,7 +100,6 @@ class WorkOrderService
             }
 
             if ($options['copy_product_details'] ?? false) {
-                $newWorkOrderData['product_id'] = $originalWorkOrder->product_id;
                 $newWorkOrderData['product_indoor_model'] = $originalWorkOrder->product_indoor_model;
                 $newWorkOrderData['product_outdoor_model'] = $originalWorkOrder->product_outdoor_model;
                 $newWorkOrderData['indoor_serial_number'] = $originalWorkOrder->indoor_serial_number;
@@ -194,7 +193,6 @@ class WorkOrderService
             'service_concern_id' => $originalWorkOrder->service_concern_id,
             'service_sub_concern_id' => $originalWorkOrder->service_sub_concern_id,
             'warranty_type_id' => $originalWorkOrder->warranty_type_id,
-            'product_id' => $originalWorkOrder->product_id,
             'product_indoor_model' => $originalWorkOrder->product_indoor_model,
             'product_outdoor_model' => $originalWorkOrder->product_outdoor_model,
             'indoor_serial_number' => $originalWorkOrder->indoor_serial_number,
@@ -245,7 +243,7 @@ class WorkOrderService
             DB::beginTransaction();
 
             // Transform empty arrays/strings to null for foreign key fields
-            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id', 'service_concern_id', 'service_sub_concern_id', 'city_id'];
+            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'service_concern_id', 'service_sub_concern_id', 'city_id'];
             foreach ($foreignKeys as $key) {
                 if (isset($data[$key]) && (is_array($data[$key]) || $data[$key] === '' || $data[$key] === [])) {
                     $data[$key] = null;

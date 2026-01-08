@@ -54,7 +54,6 @@ class UpdateWorkOrderRequest extends FormRequest
             'service_concern_id' => 'nullable|exists:service_concerns,id',
             'service_sub_concern_id' => 'nullable|exists:service_sub_concerns,id',
             'warranty_type_id' => 'nullable|exists:warranty_types,id',
-            'product_id' => 'required|exists:products,id',
             'dealer_id' => 'nullable|exists:dealers,id',
             'dealer_branch_id' => 'nullable|exists:dealer_branches,id',
             'reference' => 'nullable|string|max:100',
