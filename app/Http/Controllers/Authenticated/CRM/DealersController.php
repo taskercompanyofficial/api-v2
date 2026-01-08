@@ -27,7 +27,7 @@ class DealersController extends Controller
             $query = Dealer::query()->with([
                 'createdBy:id,name',
                 'updatedBy:id,name',
-                'branches' => function($query) {
+                'branches' => function ($query) {
                     $query->where('status', 'active')->orderBy('is_main_branch', 'desc');
                 }
             ]);
@@ -144,7 +144,7 @@ class DealersController extends Controller
             $dealer = Dealer::with([
                 'createdBy:id,name',
                 'updatedBy:id,name',
-                'branches' => function($query) {
+                'branches' => function ($query) {
                     $query->orderBy('is_main_branch', 'desc')->orderBy('name');
                 }
             ])->where('slug', $slug)->firstOrFail();
@@ -276,7 +276,7 @@ class DealersController extends Controller
                 ->map(function ($dealer) {
                     return [
                         'value' => $dealer->id,
-                        'label' => $dealer->name . ($dealer->city ? " ({$dealer->city})" : ""),
+                        'label' => $dealer->name
                     ];
                 });
 
