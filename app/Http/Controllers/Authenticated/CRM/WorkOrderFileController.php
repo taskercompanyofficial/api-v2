@@ -53,6 +53,7 @@ class WorkOrderFileController extends Controller
         $validated = $request->validate([
             'file_type_id' => 'required|exists:file_types,id',
             'file' => 'required|file|max:51200', // 50MB max
+            'approval_status' => 'nullable|in:approved,rejected',
         ]);
 
         try {
@@ -89,6 +90,7 @@ class WorkOrderFileController extends Controller
                 'mime_type' => $uploadedFile->getMimeType(),
                 'uploaded_by_id' => $user->id,
                 'uploaded_at' => now(),
+                'approval_status' => $validated['approval_status'] ?? 'pending',
             ]);
 
             // Load relationships
