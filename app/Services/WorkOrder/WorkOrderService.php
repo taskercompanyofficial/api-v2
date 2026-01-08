@@ -29,6 +29,7 @@ class WorkOrderService
             $workOrder = WorkOrder::create([
                 'work_order_number' => WorkOrder::generateNumber(),
                 'customer_id' => $data['customer_id'],
+                'city_id' => $data['city_id'],
                 'customer_address_id' => $data['customer_address_id'],
                 'category_id' => $data['category_id'],
                 'service_id' => $data['service_id'],
@@ -75,6 +76,7 @@ class WorkOrderService
                 'customer_address_id' => $originalWorkOrder->customer_address_id,
                 'work_order_number' => WorkOrder::generateNumber(),
                 'work_order_source' => $originalWorkOrder->work_order_source,
+                'city_id' => $originalWorkOrder->city_id,
                 'priority' => $originalWorkOrder->priority,
                 'brand_complaint_no' => $originalWorkOrder->brand_complaint_no,
                 'extra_number' => $originalWorkOrder->extra_number,
@@ -186,6 +188,7 @@ class WorkOrderService
             'authorized_brand_id' => $originalWorkOrder->authorized_brand_id,
             'branch_id' => $originalWorkOrder->branch_id,
             'category_id' => $originalWorkOrder->category_id,
+            'city_id' => $originalWorkOrder->city_id,
             'service_id' => $originalWorkOrder->service_id,
             'parent_service_id' => $originalWorkOrder->parent_service_id,
             'service_concern_id' => $originalWorkOrder->service_concern_id,
@@ -242,7 +245,7 @@ class WorkOrderService
             DB::beginTransaction();
 
             // Transform empty arrays/strings to null for foreign key fields
-            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id', 'service_concern_id', 'service_sub_concern_id'];
+            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id', 'service_concern_id', 'service_sub_concern_id', 'city_id'];
             foreach ($foreignKeys as $key) {
                 if (isset($data[$key]) && (is_array($data[$key]) || $data[$key] === '' || $data[$key] === [])) {
                     $data[$key] = null;

@@ -49,32 +49,47 @@ class ServiceConcernSeeder extends Seeder
                 ]);
             }
 
-            // 2. Performance Issues
-            $performance = ServiceConcern::create([
+            // 2. Fault Issues
+            $fault = ServiceConcern::create([
                 'parent_service_id' => $repair->id,
-                'name' => 'Performance Issues',
-                'slug' => 'performance-issues',
-                'description' => 'AC not performing as expected',
+                'name' => 'Fault',
+                'slug' => 'fault',
+                'description' => 'AC fault and problems',
                 'display_order' => 2,
-                'icon' => '📉'
+                'icon' => '⚠️'
             ]);
 
-            $performanceIssues = [
-                'Low Cooling',
-                'Not Cooling',
-                'Water Leakage',
-                'Strange Noise',
-                'Foul Smell',
-                'High Power Consumption',
-                'Remote Not Working',
-                'Auto Restart Issues'
+            $faultIssues = [
+                ['Heating Problem', 'AC is producing hot air instead of cooling'],
+                ['Cooling Problem', 'AC not cooling properly or insufficient cooling'],
+                ['Voltage Problem', 'Voltage fluctuation or electrical supply issues'],
+                ['Water Problem Ind', 'Water leakage from indoor unit'],
+                ['Water Problem OD', 'Water leakage from outdoor unit'],
+                ['Noise Problem', 'Unusual noise coming from AC unit'],
+                ['Ampaire Problem', 'High ampere draw or electrical overload'],
+                ['Air Problem', 'Weak or no airflow from AC'],
+                ['Smell Issue', 'Bad odor or foul smell from AC'],
+                ['Service Issue', 'General service related problem'],
+                ['Display Issue', 'Display panel not working or showing errors'],
+                ['Sparking Issue', 'Electrical sparking in AC unit'],
+                ['Gas Leakage', 'Refrigerant gas leaking from system'],
+                ['Vibration', 'Excessive vibration during operation'],
+                ['Earth Problem', 'Earthing/grounding issue causing shock'],
+                ['Wifi Problem', 'WiFi connectivity or smart features not working'],
+                ['Remote Problem', 'Remote control not functioning properly'],
+                ['Installation Problem', 'Issues related to AC installation'],
+                ['Pipe Insulation Problem', 'Damaged or missing pipe insulation'],
+                ['Not On', 'AC unit not turning on or starting'],
+                ['Compressor Problem', 'Compressor malfunction or failure'],
+                ['Swing Problem', 'Louver/swing mechanism not working']
             ];
 
-            foreach ($performanceIssues as  $index => $issue) {
+            foreach ($faultIssues as $index => [$name, $desc]) {
                 ServiceSubConcern::create([
-                    'service_concern_id' => $performance->id,
-                    'name' => $issue,
-                    'slug' => Str::slug($issue),
+                    'service_concern_id' => $fault->id,
+                    'name' => $name,
+                    'slug' => Str::slug($name),
+                    'description' => $desc,
                     'display_order' => $index + 1
                 ]);
             }
