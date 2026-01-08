@@ -26,14 +26,14 @@ return new class extends Migration
         // Migrate existing data: 
         // is_warranty_case = true  → warranty_type_id = 1 (Warranty)
         // is_warranty_case = false → warranty_type_id = 2 (Paid Service)
-        DB::statement("
-            UPDATE work_orders 
-            SET warranty_type_id = CASE 
-                WHEN is_warranty_case = 1 THEN 1 
-                WHEN is_warranty_case = 0 THEN 2 
-                ELSE NULL 
-            END
-        ");
+        // DB::statement("
+        //     UPDATE work_orders 
+        //     SET warranty_type_id = CASE 
+        //         WHEN is_warranty_case = 1 THEN 1 
+        //         WHEN is_warranty_case = 0 THEN 2 
+        //         ELSE NULL 
+        //     END
+        // ");
 
         Schema::table('work_orders', function (Blueprint $table) {
             // Drop old column
