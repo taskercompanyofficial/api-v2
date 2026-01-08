@@ -33,6 +33,9 @@ class WorkOrderService
                 'category_id' => $data['category_id'],
                 'service_id' => $data['service_id'],
                 'parent_service_id' => $data['parent_service_id'] ?? null,
+                'service_concern_id' => $data['service_concern_id'],
+                'service_sub_concern_id' => $data['service_sub_concern_id'],
+                'warranty_type_id' => $data['warranty_type_id'],
                 'authorized_brand_id' => $data['authorized_brand_id'],
                 'brand_complaint_no' => $data['brand_complaint_no'] ?? null,
                 'extra_number' => $data['extra_number'] ?? null,
@@ -73,6 +76,8 @@ class WorkOrderService
                 'work_order_number' => WorkOrder::generateNumber(),
                 'work_order_source' => $originalWorkOrder->work_order_source,
                 'priority' => $originalWorkOrder->priority,
+                'brand_complaint_no' => $originalWorkOrder->brand_complaint_no,
+                'extra_number' => $originalWorkOrder->extra_number,
                 'customer_description' => $originalWorkOrder->customer_description,
                 'defect_description' => $originalWorkOrder->defect_description,
                 'status_id' => $allocatedStatus?->id,
@@ -87,6 +92,9 @@ class WorkOrderService
                 $newWorkOrderData['category_id'] = $originalWorkOrder->category_id;
                 $newWorkOrderData['service_id'] = $originalWorkOrder->service_id;
                 $newWorkOrderData['parent_service_id'] = $originalWorkOrder->parent_service_id;
+                $newWorkOrderData['service_concern_id'] = $originalWorkOrder->service_concern_id;
+                $newWorkOrderData['service_sub_concern_id'] = $originalWorkOrder->service_sub_concern_id;
+                $newWorkOrderData['warranty_type_id'] = $originalWorkOrder->warranty_type_id;
             }
 
             if ($options['copy_product_details'] ?? false) {
@@ -180,6 +188,9 @@ class WorkOrderService
             'category_id' => $originalWorkOrder->category_id,
             'service_id' => $originalWorkOrder->service_id,
             'parent_service_id' => $originalWorkOrder->parent_service_id,
+            'service_concern_id' => $originalWorkOrder->service_concern_id,
+            'service_sub_concern_id' => $originalWorkOrder->service_sub_concern_id,
+            'warranty_type_id' => $originalWorkOrder->warranty_type_id,
             'product_id' => $originalWorkOrder->product_id,
             'product_indoor_model' => $originalWorkOrder->product_indoor_model,
             'product_outdoor_model' => $originalWorkOrder->product_outdoor_model,
@@ -231,7 +242,7 @@ class WorkOrderService
             DB::beginTransaction();
 
             // Transform empty arrays/strings to null for foreign key fields
-            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id'];
+            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'product_id', 'service_concern_id', 'service_sub_concern_id'];
             foreach ($foreignKeys as $key) {
                 if (isset($data[$key]) && (is_array($data[$key]) || $data[$key] === '' || $data[$key] === [])) {
                     $data[$key] = null;
