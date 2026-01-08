@@ -10,6 +10,7 @@ class ServiceSubConcern extends Model
 {
     protected $fillable = [
         'service_concern_id',
+        'authorized_brand_id',
         'name',
         'slug',
         'code',
@@ -21,6 +22,7 @@ class ServiceSubConcern extends Model
 
     protected $casts = [
         'service_concern_id' => 'integer',
+        'authorized_brand_id' => 'integer',
         'display_order' => 'integer',
         'is_active' => 'boolean'
     ];
@@ -31,6 +33,14 @@ class ServiceSubConcern extends Model
     public function concern(): BelongsTo
     {
         return $this->belongsTo(ServiceConcern::class, 'service_concern_id');
+    }
+
+    /**
+     * Get the brand this sub-concern is specific to (null = all brands)
+     */
+    public function authorizedBrand(): BelongsTo
+    {
+        return $this->belongsTo(AuthorizedBrand::class, 'authorized_brand_id');
     }
 
     /**
@@ -79,5 +89,19 @@ class ServiceSubConcern extends Model
     public function scopeOrdered($query)
     {
         return $query->orderBy('display_order')->orderBy('name');
+    }
+
+    /**
+     * Scope: Filter by brand (includes generic sub-concerns with null brand_id)
+     */
+    public function scopeForBrand($query, $brandId = null)
+    {
+        if ($brandId) {
+            return $query->where(function ($q) use ($brandId) {
+                $q->whereNull('authorized_brand_id')
+                    ->orWhere('authorized_brand_id', $brandId);
+            });
+        }
+        return $query->whereNull('authorized_brand_id');
     }
 }
