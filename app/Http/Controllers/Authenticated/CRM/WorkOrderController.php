@@ -70,8 +70,10 @@ class WorkOrderController extends Controller
             'branch:id,name',
             'dealer:id,name',
             'dealerBranch:id,name',
+            'city:id,name',
             'createdBy:id,first_name,last_name',
             'updatedBy:id,first_name,last_name',
+
         ]);
 
         // Global search across multiple fields
@@ -164,7 +166,7 @@ class WorkOrderController extends Controller
             'services.parentService',
             'dealer',
             'dealerBranch',
-            'files',
+            'city',
         ])->findOrFail($id);
 
         return response()->json([
