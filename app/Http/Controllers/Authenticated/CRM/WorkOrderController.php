@@ -167,6 +167,7 @@ class WorkOrderController extends Controller
             'dealer',
             'dealerBranch',
             'city',
+            'files',
         ])->findOrFail($id);
 
         return response()->json([
