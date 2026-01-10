@@ -386,4 +386,60 @@ class WorkOrderNotificationService
             $reopenedBy
         );
     }
+
+    // ==========================================
+    // Attendance Notifications
+    // ==========================================
+
+    public function staffCheckedIn(int $staffId): void
+    {
+        $staffName = $this->getStaffName($staffId);
+        $time = now()->format('h:i A');
+
+        $this->notifyAllStaffGeneric(
+            "Staff Checked In",
+            "{$staffName} checked in at {$time}.",
+            'attendance',
+            $staffId
+        );
+    }
+
+    public function staffCheckedOut(int $staffId, float $workingHours): void
+    {
+        $staffName = $this->getStaffName($staffId);
+        $time = now()->format('h:i A');
+        $hours = round($workingHours, 1);
+
+        $this->notifyAllStaffGeneric(
+            "Staff Checked Out",
+            "{$staffName} checked out at {$time}. Worked {$hours} hours.",
+            'attendance',
+            $staffId
+        );
+    }
+
+    /**
+     * Send notification to all active staff (generic, no work order link)
+     */
+    public function notifyAllStaffGeneric(string $title, string $message, string $type, ?int $excludeUserId = null): void
+    {
+        $query = \App\Models\Staff::where('status_id', 1);
+
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        $staffMembers = $query->get();
+
+        foreach ($staffMembers as $staff) {
+            \App\Models\Notification::createNotification(
+                $staff->id,
+                'App\Models\Staff',
+                $title,
+                $message,
+                $type,
+                ['link' => '/crm/attendance']
+            );
+        }
+    }
 }

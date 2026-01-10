@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\StaffApp;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Services\WorkOrder\WorkOrderNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,13 @@ use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Get today's attendance for authenticated staff
      */
@@ -110,6 +118,10 @@ class AttendanceController extends Controller
                 'notes' => $request->notes,
             ]
         );
+
+        // Send notification to all staff
+        $this->notificationService->staffCheckedIn($staff->id);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Checked in successfully',
@@ -172,6 +184,9 @@ class AttendanceController extends Controller
 
         $attendance->calculateWorkingHours();
         $attendance->determineStatus();
+
+        // Send notification to all staff
+        $this->notificationService->staffCheckedOut($staff->id, $attendance->working_hours ?? 0);
 
         return response()->json([
             'status' => 'success',
@@ -243,7 +258,7 @@ class AttendanceController extends Controller
     public function show($id)
     {
         $staff = Auth::user();
-        
+
         $attendance = Attendance::where('staff_id', $staff->id)
             ->where('id', $id)
             ->first();
@@ -438,11 +453,11 @@ class AttendanceController extends Controller
         // Generate CSV
         $filename = "attendance_{$staff->name}_{$month}_{$year}.csv";
         $handle = fopen('php://temp', 'r+');
-        
+
         foreach ($data as $row) {
             fputcsv($handle, $row);
         }
-        
+
         rewind($handle);
         $csv = stream_get_contents($handle);
         fclose($handle);

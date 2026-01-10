@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderHistory;
 use App\Models\WorkOrderFile;
+use App\Services\WorkOrder\WorkOrderNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -13,6 +14,13 @@ use Exception;
 
 class WorkOrderController extends Controller
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Get all file types
      */
@@ -193,36 +201,6 @@ class WorkOrderController extends Controller
             ])->where('assigned_to_id', $staff->id)
                 ->findOrFail($id);
 
-            // if ($workOrder->status?->slug === 'dispatched' && 
-            //     $workOrder->subStatus?->slug === 'assigned-to-technician' &&
-            //     is_null($workOrder->accepted_at) &&
-            //     is_null($workOrder->rejected_at)) {
-
-            //     $technicianAcceptPendingStatus = \App\Models\WorkOrderStatus::where('slug', 'technician-accept-pending')
-            //                                                                   ->where('parent_id', $workOrder->status_id)
-            //                                                                   ->first();
-
-            //     if ($technicianAcceptPendingStatus) {
-            //         $workOrder->sub_status_id = $technicianAcceptPendingStatus->id;
-            //         $workOrder->updated_by = $staff->id;
-            //         $workOrder->save();
-
-            //         // Log status change
-            //         WorkOrderHistory::log(
-            //             workOrderId: $workOrder->id,
-            //             actionType: 'status_updated',
-            //             description: "Status auto-updated to Technician Accept Pending when {$staff->first_name} {$staff->last_name} viewed the work order",
-            //             fieldName: 'sub_status',
-            //             oldValue: 'Assigned to Technician',
-            //             newValue: 'Technician Accept Pending',
-            //             metadata: [
-            //                 'auto_updated' => true,
-            //                 'viewed_by_staff_id' => $staff->id,
-            //             ]
-            //         );
-            //     }
-            // }
-
             return response()->json([
                 'status' => 'success',
                 'data' => $workOrder->fresh([
@@ -282,17 +260,8 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // // Log acceptance
-            // WorkOrderHistory::log(
-            //     workOrderId: $workOrder->id,
-            //     actionType: 'accepted',
-            //     description: "Work order accepted by {$staff->first_name} {$staff->last_name}",
-            //     metadata: [
-            //         'accepted_by_staff_id' => $staff->id,
-            //         'accepted_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
-            //         'notes' => $request->notes,
-            //     ]
-            // );
+            // Send notification
+            $this->notificationService->workOrderAccepted($workOrder, $staff->id);
 
             return response()->json([
                 'status' => 'success',
@@ -344,17 +313,8 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // Log rejection
-            // WorkOrderHistory::log(
-            //     workOrderId: $workOrder->id,
-            //     actionType: 'rejected',
-            //     description: "Work order rejected by {$staff->first_name} {$staff->last_name}. Reason: {$request->reason}",
-            //     metadata: [
-            //         'rejected_by_staff_id' => $staff->id,
-            //         'rejected_by_staff_name' => "{$staff->first_name} {$staff->last_name}",
-            //         'rejection_reason' => $request->reason,
-            //     ]
-            // );
+            // Send notification
+            $this->notificationService->workOrderRejected($workOrder, $staff->id, $request->reason);
 
             return response()->json([
                 'status' => 'success',
@@ -413,22 +373,8 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // Log update
-            // WorkOrderHistory::log(
-            //     workOrderId: $workOrder->id,
-            //     actionType: 'details_updated',
-            //     description: "Product details updated by {$staff->first_name} {$staff->last_name}",
-            //     metadata: [
-            //         'updated_fields' => array_keys($request->only([
-            //             'indoor_serial_number',
-            //             'outdoor_serial_number',
-            //             'product_indoor_model',
-            //             'product_outdoor_model',
-            //             'purchase_date',
-            //             'warranty_serial_number',
-            //         ])),
-            //     ]
-            // );
+            // Send notification
+            $this->notificationService->workOrderUpdated($workOrder, $staff->id);
 
             return response()->json([
                 'status' => 'success',
@@ -628,15 +574,19 @@ class WorkOrderController extends Controller
             $workOrder->updated_by = $staff->id;
             $workOrder->save();
 
-            // // Log status change
-            // WorkOrderHistory::log(
-            //     workOrderId: $workOrder->id,
-            //     actionType: 'status_updated',
-            //     description: "Status changed from {$oldStatus?->name} → {$oldSubStatus?->name} to {$status->name} → {$subStatus->name} by {$staff->first_name} {$staff->last_name}",
-            //     fieldName: 'status',
-            //     oldValue: "{$oldStatus?->name} → {$oldSubStatus?->name}",
-            //     newValue: "{$status->name} → {$subStatus->name}",
-            // );
+            // Send notification based on status
+            if ($request->status_slug === 'completed') {
+                $this->notificationService->workOrderCompleted($workOrder, $staff->id);
+            } elseif ($request->status_slug === 'in-progress' && $request->sub_status_slug === 'going-to-work') {
+                $this->notificationService->serviceStarted($workOrder, $staff->id);
+            } elseif ($request->status_slug === 'in-progress' && $request->sub_status_slug === 'work-started') {
+                $this->notificationService->workStarted($workOrder, $staff->id);
+            } elseif ($request->status_slug === 'in-progress' && $request->sub_status_slug === 'part-in-demand') {
+                $this->notificationService->partInDemand($workOrder, $staff->id);
+            } else {
+                // Generic status update notification
+                $this->notificationService->workOrderUpdated($workOrder, $staff->id);
+            }
 
             return response()->json([
                 'status' => 'success',
