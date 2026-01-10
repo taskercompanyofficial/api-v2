@@ -20,40 +20,38 @@ class CustomerController extends Controller
     {
         try {
             $page = $request->input('page') ?? 1;
-            $perPage = $request->input('perPage') ?? 10;
+            $perPage = $request->input('perPage') ?? 50;
 
             $query = Customer::query()->with([
                 'createdBy:id,name',
                 'updatedBy:id,name',
                 'address'
             ]);
-            if ($request->has('name')) {
-                $query->where('name', 'like', '%' . $request->input('name') . '%');
-                $query->where('phone', 'like', '%' . $request->input('name') . '%');
-                $query->where('whatsapp', 'like', '%' . $request->input('name') . '%');
-                $query->where('email', 'like', '%' . $request->input('name') . '%');
+            if ($request->has('name') && $request->name) {
+                $search = $request->input('name');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('phone', 'like', '%' . $search . '%')
+                        ->orWhere('whatsapp', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                });
             }
             $this->applyJsonFilters($query, $request);
             $this->applySorting($query, $request);
 
-            $this->applyUrlFilters($query, $request, [
-                'name',
-                'email',
-                'phone',
-                'whatsapp',
-                'customer_id',
-                'is_care_of_customer',
-                'status',
-                'description',
-                'kind_of_issue',
-                'created_at',
-                'updated_at',
-            ]);
             $customer =  $query->paginate($perPage, ['*'], 'page', $page);
 
             return response()->json([
                 'status' => 'success',
-                'data' => $customer,
+                'data' => $customer->items(),
+                'pagination' => [
+                    'total' => $customer->total(),
+                    'per_page' => $customer->perPage(),
+                    'current_page' => $customer->currentPage(),
+                    'last_page' => $customer->lastPage(),
+                    'from' => $customer->firstItem(),
+                    'to' => $customer->lastItem(),
+                ],
             ]);
         } catch (Throwable $e) {
             return response()->json([
@@ -149,7 +147,7 @@ class CustomerController extends Controller
 
             $validatedData = $request->validate([
                 'name' => 'sometimes|required|string|max:255',
-                'avatar' => 'nullable|string|max:255', // Added avatar validation
+                'avatar' => 'nullable|string|max:255',
                 'email' => ['nullable', 'email', 'max:255', Rule::unique('customers', 'email')->ignore($customer->id)],
                 'phone' => 'nullable|string|max:20',
                 'whatsapp' => 'nullable|string|max:20',
