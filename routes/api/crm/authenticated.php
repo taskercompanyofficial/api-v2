@@ -36,6 +36,7 @@ use App\Http\Controllers\Authenticated\CRM\WarrantyTypeController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\CRM\NotificationController;
+use App\Http\Controllers\Authenticated\CRM\TestNotificationController;
 use App\Http\Controllers\Authenticated\CRM\DashboardController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
@@ -126,6 +127,8 @@ Route::group(['prefix' => 'crm'], function () {
 
         // Test Broadcast (for development)
         Route::post('/test-broadcast', [TestBroadcastController::class, 'testMessageBroadcast']);
+        Route::post('/test-notification', [TestNotificationController::class, 'sendTestNotification']);
+        Route::post('/test-workorder-notification', [TestNotificationController::class, 'sendWorkOrderNotification']);
 
         // Notifications Management
         Route::get('/notifications', [NotificationController::class, 'index']);

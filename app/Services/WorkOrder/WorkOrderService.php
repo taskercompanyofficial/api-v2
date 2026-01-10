@@ -6,6 +6,7 @@ use App\Models\Staff;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderStatus;
 use App\Models\WorkOrderHistory;
+use App\Events\WorkOrderUpdated;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
@@ -49,6 +50,8 @@ class WorkOrderService
             ]);
 
             DB::commit();
+
+            broadcast(new WorkOrderUpdated($workOrder));
 
             return $workOrder;
         } catch (Exception $e) {
@@ -138,6 +141,8 @@ class WorkOrderService
                     'total_copies' => $quantity,
                 ]
             );
+
+            broadcast(new WorkOrderUpdated($newWorkOrder));
         }
 
         $duplicateDescription = $quantity > 1
@@ -235,6 +240,9 @@ class WorkOrderService
             ]
         );
 
+        broadcast(new WorkOrderUpdated($newWorkOrder));
+        broadcast(new WorkOrderUpdated($originalWorkOrder));
+
         return $newWorkOrder;
     }
 
@@ -259,6 +267,8 @@ class WorkOrderService
             $workOrder->save();
 
             DB::commit();
+
+            broadcast(new WorkOrderUpdated($workOrder));
 
             return $workOrder->fresh();
         } catch (Exception $e) {

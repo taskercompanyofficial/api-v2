@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Exception;
+use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
 {
@@ -16,11 +18,10 @@ class NotificationController extends Controller
     {
         try {
             $perPage = $request->get('perPage', 20);
-            $type = $request->get('type'); // Filter by type if provided
+            $type = $request->get('type');
 
-            $query = DB::table('notifications')
-                ->where('notifiable_id', auth()->id())
-                ->where('notifiable_type', 'App\\Models\\Staff')
+            $query = Notification::where('user_id', Auth::user()->id)
+                ->where('user_type', 'App\Models\Staff')
                 ->orderBy('created_at', 'desc');
 
             if ($type) {
@@ -31,17 +32,15 @@ class NotificationController extends Controller
 
             // Transform notifications
             $transformedNotifications = collect($notifications->items())->map(function ($notification) {
-                $data = json_decode($notification->data, true);
-                
                 return [
                     'id' => $notification->id,
                     'type' => $this->extractNotificationType($notification->type),
-                    'title' => $data['title'] ?? 'Notification',
-                    'message' => $data['message'] ?? '',
-                    'data' => $data,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'data' => $notification->data,
                     'read_at' => $notification->read_at,
                     'created_at' => $notification->created_at,
-                    'link' => $data['link'] ?? null,
+                    'link' => $notification->data['link'] ?? null,
                 ];
             });
 
@@ -55,7 +54,7 @@ class NotificationController extends Controller
                     'last_page' => $notifications->lastPage(),
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch notifications: ' . $e->getMessage(),
@@ -68,25 +67,27 @@ class NotificationController extends Controller
      */
     public function markAsRead(string $id): JsonResponse
     {
+        $user = Auth::user();
         try {
-            $updated = DB::table('notifications')
-                ->where('id', $id)
-                ->where('notifiable_id', auth()->id())
+            $notification = Notification::where('id', $id)
+                ->where('user_id', $user->id)
                 ->whereNull('read_at')
-                ->update(['read_at' => now()]);
+                ->first();
 
-            if (!$updated) {
+            if (!$notification) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Notification not found or already read',
                 ], 404);
             }
 
+            $notification->markAsRead();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Notification marked as read',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to mark notification as read: ' . $e->getMessage(),
@@ -99,18 +100,21 @@ class NotificationController extends Controller
      */
     public function markAllAsRead(): JsonResponse
     {
+        $user = Auth::user();
         try {
-            DB::table('notifications')
-                ->where('notifiable_id', auth()->id())
-                ->where('notifiable_type', 'App\\Models\\Staff')
+            Notification::where('user_id', $user->id)
+                ->where('user_type', 'App\Models\Staff')
                 ->whereNull('read_at')
-                ->update(['read_at' => now()]);
+                ->update([
+                    'read' => true,
+                    'read_at' => now()
+                ]);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'All notifications marked as read',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to mark all notifications as read: ' . $e->getMessage(),
@@ -124,9 +128,8 @@ class NotificationController extends Controller
     public function destroy(string $id): JsonResponse
     {
         try {
-            $deleted = DB::table('notifications')
-                ->where('id', $id)
-                ->where('notifiable_id', auth()->id())
+            $deleted = Notification::where('id', $id)
+                ->where('user_id', Auth::user()->id)
                 ->delete();
 
             if (!$deleted) {
@@ -140,7 +143,7 @@ class NotificationController extends Controller
                 'status' => 'success',
                 'message' => 'Notification deleted',
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to delete notification: ' . $e->getMessage(),
@@ -153,10 +156,10 @@ class NotificationController extends Controller
      */
     public function unreadCount(): JsonResponse
     {
+        $user = Auth::user();
         try {
-            $count = DB::table('notifications')
-                ->where('notifiable_id', auth()->id())
-                ->where('notifiable_type', 'App\\Models\\Staff')
+            $count = Notification::where('user_id', $user->id)
+                ->where('user_type', 'App\Models\Staff')
                 ->whereNull('read_at')
                 ->count();
 
@@ -164,7 +167,7 @@ class NotificationController extends Controller
                 'status' => 'success',
                 'count' => $count,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to get unread count: ' . $e->getMessage(),
@@ -177,14 +180,19 @@ class NotificationController extends Controller
      */
     private function extractNotificationType(string $className): string
     {
+        // If it's already a simple type string, return it
+        if (!str_contains($className, '\\')) {
+            return $className;
+        }
+
         // Extract the last part of the class name
         $parts = explode('\\', $className);
         $type = end($parts);
-        
+
         // Convert from PascalCase to kebab-case
         $type = preg_replace('/([a-z])([A-Z])/', '$1-$2', $type);
         $type = strtolower($type);
-        
+
         // Map to our notification types
         if (str_contains($type, 'work-order') || str_contains($type, 'workorder')) {
             return 'work-order';
@@ -197,7 +205,7 @@ class NotificationController extends Controller
         } elseif (str_contains($type, 'document') || str_contains($type, 'file')) {
             return 'document';
         }
-        
+
         return 'system';
     }
 }

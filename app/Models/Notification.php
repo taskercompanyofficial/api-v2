@@ -9,6 +9,10 @@ class Notification extends Model
 {
     use HasFactory;
 
+    protected $dispatchesEvents = [
+        'created' => \App\Events\NotificationCreated::class,
+    ];
+
     protected $fillable = [
         'user_id',
         'user_type',

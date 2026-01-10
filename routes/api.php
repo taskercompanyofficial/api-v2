@@ -1,9 +1,12 @@
 <?php
 
+use App\Events\TestEvent;
 use App\Http\Controllers\AppearanceController;
 use App\Http\Controllers\Authenticated\CRM\JobSheetController;
 use App\Http\Controllers\FilesController;
+use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
@@ -18,7 +21,21 @@ Route::group(['middleware' => ['guest']], function () {
     Route::get('/test-pdf', [JobSheetController::class, 'test']);
 });
 
+Route::post('/test/notification', function () {
+    $notification = Notification::create([
+        'user_id' => 1,
+        'title' => 'Test Notification',
+        'body' => 'This is a test notification',
+        'user_type' => 'customer',
+        'message' => 'This is a test notification',
+    ]);
+    TestEvent::dispatch($notification);
+    return response()->json([
+        'message' => 'Notification sent successfully',
+    ]);
+});
 
+Broadcast::routes(["middleware" => "auth:sanctum"]);
 
 include_once __DIR__ . '/api/crm/all-routes.php';
 include_once __DIR__ . '/api/website/all-routes.php';
