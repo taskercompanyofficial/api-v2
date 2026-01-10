@@ -178,8 +178,18 @@ Route::group(['prefix' => 'crm'], function () {
             // Customer Feedbacks
             Route::get('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'index']);
             Route::post('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'store']);
-            Route::put('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'update']);
-            Route::delete('/feedbacks/{id}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'destroy']);
+            Route::put('/feedbacks/{feedbackId}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'update']);
+            Route::delete('/feedbacks/{feedbackId}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'destroy']);
+
+            // Service Center Units
+            Route::get('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'show']);
+            Route::post('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'sendToServiceCenter']);
+            Route::put('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'update']);
+            Route::post('/service-center-unit/status', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'updateStatus']);
+            Route::post('/service-center-unit/pickup', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsPickedUp']);
+            Route::post('/service-center-unit/receive', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsReceived']);
+            Route::post('/service-center-unit/deliver', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsDelivered']);
+            Route::get('/service-center-unit/history', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'history']);
 
             // Work Order Parts
             Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);

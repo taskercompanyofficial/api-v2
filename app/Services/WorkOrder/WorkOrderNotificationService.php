@@ -60,7 +60,7 @@ class WorkOrderNotificationService
     /**
      * Get staff full name
      */
-    protected function getStaffName(?int $staffId): string
+    public function getStaffName(?int $staffId): string
     {
         if (!$staffId) {
             return 'System';

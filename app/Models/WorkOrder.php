@@ -300,6 +300,11 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderBill::class)->orderBy('created_at', 'desc');
     }
 
+    public function serviceCenterUnit(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ServiceCenterUnit::class);
+    }
+
     // Helper Methods
     public static function generateNumber(): string
     {
