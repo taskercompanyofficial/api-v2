@@ -7,11 +7,19 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderStatus;
 use App\Models\WorkOrderHistory;
 use App\Events\WorkOrderUpdated;
+use App\Services\WorkOrder\WorkOrderNotificationService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
 class WorkOrderService
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Create a new work order
      */
@@ -53,6 +61,9 @@ class WorkOrderService
 
             broadcast(new WorkOrderUpdated($workOrder));
 
+            // Send notification
+            $this->notificationService->workOrderCreated($workOrder, $userId);
+
             return $workOrder;
         } catch (Exception $e) {
             DB::rollBack();
@@ -89,6 +100,7 @@ class WorkOrderService
                 'sub_status_id' => $justLaunchedSubStatus?->id,
                 'created_by' => $userId,
                 'updated_by' => $userId,
+                'duplicated_from' => $originalWorkOrder->id,
             ];
 
             if ($options['copy_service_details'] ?? false) {
@@ -143,6 +155,8 @@ class WorkOrderService
             );
 
             broadcast(new WorkOrderUpdated($newWorkOrder));
+            // Send notification
+            $this->notificationService->workOrderDuplicated($originalWorkOrder, $newWorkOrder, $userId);
         }
 
         $duplicateDescription = $quantity > 1
@@ -215,6 +229,7 @@ class WorkOrderService
             'priority' => $data['priority'] ?? $originalWorkOrder->priority ?? 'medium',
             'created_by' => $userId,
             'updated_by' => $userId,
+            'reopened_from' => $originalWorkOrder->id,
         ]);
 
         WorkOrderHistory::log(
@@ -243,6 +258,9 @@ class WorkOrderService
         broadcast(new WorkOrderUpdated($newWorkOrder));
         broadcast(new WorkOrderUpdated($originalWorkOrder));
 
+        // Send notification
+        $this->notificationService->workOrderReopened($originalWorkOrder, $newWorkOrder, $userId);
+
         return $newWorkOrder;
     }
 
@@ -269,6 +287,9 @@ class WorkOrderService
             DB::commit();
 
             broadcast(new WorkOrderUpdated($workOrder));
+
+            // Send notification
+            $this->notificationService->workOrderUpdated($workOrder, $userId);
 
             return $workOrder->fresh();
         } catch (Exception $e) {
@@ -326,6 +347,9 @@ class WorkOrderService
             description: "Reminder sent: {$remark}",
             metadata: $reminderData
         );
+
+        // Send real-time notification
+        $this->notificationService->reminderSent($workOrder, $userId, $remark);
 
         return [
             'status' => 'success',

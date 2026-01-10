@@ -102,8 +102,9 @@ class TestNotificationController extends Controller
                 ], 404);
             }
 
-            $title = "Work Order #{$workOrder->code} Updated";
-            $message = "{$updaterName} updated work order #{$workOrder->code}. Click to view details.";
+            $workOrderCode = $workOrder->code ?? "WO-{$workOrder->id}";
+            $title = "Work Order #{$workOrderCode} Updated";
+            $message = "{$updaterName} updated work order #{$workOrderCode}. Click to view details.";
             $link = "/crm/work-orders/{$workOrder->id}";
 
             Notification::createNotification(
@@ -111,6 +112,7 @@ class TestNotificationController extends Controller
                 'App\Models\Staff',
                 $title,
                 $message,
+                'info',
                 'work-order',
                 [
                     'link' => $link,

@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Log;
 
 class WorkOrderAssignmentService
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
 
     /**
      * Assign or reassign staff to a work order
@@ -89,8 +95,15 @@ class WorkOrderAssignmentService
             ]
         );
 
-        // Send Notifications
+        // Send Push and WhatsApp notifications
         $this->sendNotifications($workOrder, $assignedStaff, $notes);
+
+        // Send real-time notification to all staff
+        if ($previousAssignedId) {
+            $this->notificationService->staffReassigned($workOrder, $previousAssignedId, $staffId, $currentUserId);
+        } else {
+            $this->notificationService->staffAssigned($workOrder, $staffId, $currentUserId);
+        }
 
         return [
             'status' => 'success',

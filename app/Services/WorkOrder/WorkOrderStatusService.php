@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Log;
 
 class WorkOrderStatusService
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Accept work order
      */
@@ -48,6 +55,12 @@ class WorkOrderStatusService
                 'accepted_by' => $userId,
                 'accepted_at' => $workOrder->accepted_at,
             ]
+        );
+
+        // Send notification
+        $this->notificationService->workOrderAccepted(
+            $workOrder,
+            $userId
         );
 
         return [
@@ -99,6 +112,9 @@ class WorkOrderStatusService
             ]
         );
 
+        // Send notification
+        $this->notificationService->serviceStarted($workOrder, $userId);
+
         return [
             'status' => 'success',
             'message' => 'Service started successfully',
@@ -146,6 +162,9 @@ class WorkOrderStatusService
                 'new_sub_status_id' => $subStatus->id,
             ]
         );
+
+        // Send notification
+        $this->notificationService->workStarted($workOrder, $userId);
 
         return [
             'status' => 'success',
@@ -220,6 +239,9 @@ class WorkOrderStatusService
             ]
         );
 
+        // Send notification
+        $this->notificationService->workOrderCompleted($workOrder, $userId);
+
         return [
             'status' => 'success',
             'message' => 'Service completed successfully',
@@ -266,6 +288,9 @@ class WorkOrderStatusService
                 'parts_count' => $workOrder->parts->count(),
             ]
         );
+
+        // Send notification
+        $this->notificationService->partInDemand($workOrder, $userId);
 
         return [
             'status' => 'success',
@@ -388,6 +413,10 @@ class WorkOrderStatusService
             ]
         );
 
+        // Send notification
+        $scheduledDate = $workOrder->appointment_date . ' at ' . $workOrder->appointment_time;
+        $this->notificationService->workOrderScheduled($workOrder, $userId, $scheduledDate);
+
         return [
             'status' => 'success',
             'message' => 'Work order scheduled successfully',
@@ -441,6 +470,9 @@ class WorkOrderStatusService
                 'sub_status_changed_to' => $customerCancelledSubStatus?->name,
             ]
         );
+
+        // Send notification
+        $this->notificationService->workOrderCancelled($workOrder, $userId, $reason);
 
         return [
             'status' => 'success',
@@ -528,6 +560,9 @@ class WorkOrderStatusService
             ]
         );
 
+        // Send notification
+        $this->notificationService->workOrderApproved($workOrder, $userId);
+
         return [
             'status' => 'success',
             'message' => 'Work order set to Feedback Pending',
@@ -611,6 +646,9 @@ class WorkOrderStatusService
             ]
         );
 
+        // Send notification
+        $this->notificationService->workOrderClosed($workOrder, $userId);
+
         return [
             'status' => 'success',
             'message' => 'Work order closed successfully',
@@ -688,6 +726,9 @@ class WorkOrderStatusService
                 'rejected_by' => $userId,
             ]
         );
+
+        // Send notification to assigned staff
+        $this->notificationService->workOrderSentBackForRework($workOrder, $userId, $reason);
 
         return [
             'status' => 'success',

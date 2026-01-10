@@ -8,6 +8,13 @@ use Exception;
 
 class WorkOrderFeedbackService
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Get all feedback for a work order
      */
@@ -21,11 +28,16 @@ class WorkOrderFeedbackService
      */
     public function addFeedback(WorkOrder $workOrder, array $data, int $userId): CustomerFeedback
     {
-        return $workOrder->customerFeedbacks()->create([
+        $feedback = $workOrder->customerFeedbacks()->create([
             'rating' => $data['rating'],
             'comment' => $data['comment'] ?? null,
             'staff_id' => $userId,
         ]);
+
+        // Send notification
+        $this->notificationService->feedbackAdded($workOrder, $userId, $data['rating']);
+
+        return $feedback;
     }
 
     /**

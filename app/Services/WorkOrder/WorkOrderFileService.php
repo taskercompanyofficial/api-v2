@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Storage;
 
 class WorkOrderFileService
 {
+    protected WorkOrderNotificationService $notificationService;
+
+    public function __construct(WorkOrderNotificationService $notificationService)
+    {
+        $this->notificationService = $notificationService;
+    }
+
     /**
      * Upload files for a work order
      */
@@ -20,7 +27,7 @@ class WorkOrderFileService
         foreach ($files as $file) {
             if ($file instanceof UploadedFile) {
                 $path = $file->store('work-orders/' . $workOrder->id, 'public');
-                
+
                 $workOrderFile = WorkOrderFile::create([
                     'work_order_id' => $workOrder->id,
                     'file_type_id' => $fileTypeId,
@@ -33,6 +40,11 @@ class WorkOrderFileService
 
                 $uploadedFiles[] = $workOrderFile;
             }
+        }
+
+        // Send notification if files were uploaded
+        if (count($uploadedFiles) > 0) {
+            $this->notificationService->fileUploaded($workOrder, $userId, count($uploadedFiles));
         }
 
         return $uploadedFiles;
