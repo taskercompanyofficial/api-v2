@@ -190,7 +190,7 @@ class WorkOrderStatusController extends Controller
             return response()->json([
                 'status' => "error",
                 'message' => 'Cannot delete status with child statuses. Please delete or reassign child statuses first.',
-            ], );
+            ],);
         }
 
         $status->delete();
@@ -211,16 +211,77 @@ class WorkOrderStatusController extends Controller
         foreach ($statuses as $status) {
             if ($status->parent_id == $parentId) {
                 $children = $this->buildTree($statuses, $status->id);
-                
+
                 $node = $status->toArray();
                 if (!empty($children)) {
                     $node['children'] = $children;
                 }
-                
+
                 $tree[] = $node;
             }
         }
 
         return $tree;
+    }
+
+    /**
+     * Get raw parent statuses (no parent_id) for SearchSelect
+     */
+    public function statusesRaw(Request $request): JsonResponse
+    {
+        $query = WorkOrderStatus::whereNull('parent_id')
+            ->where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('name');
+
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $statuses = $query->get()->map(function ($status) {
+            return [
+                'value' => $status->id,
+                'label' => $status->name,
+                'description' => $status->description,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $statuses,
+        ]);
+    }
+
+    /**
+     * Get raw sub-statuses (have parent_id) for SearchSelect
+     */
+    public function subStatusesRaw(Request $request): JsonResponse
+    {
+        $query = WorkOrderStatus::whereNotNull('parent_id')
+            ->where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('name');
+
+        // Filter by parent status if provided
+        if ($request->has('parent_id') && $request->parent_id) {
+            $query->where('parent_id', $request->parent_id);
+        }
+
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $statuses = $query->get()->map(function ($status) {
+            return [
+                'value' => $status->id,
+                'label' => $status->name,
+                'description' => $status->description,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $statuses,
+        ]);
     }
 }

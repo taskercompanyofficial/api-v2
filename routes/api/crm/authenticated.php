@@ -53,6 +53,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/categories', CategoriesController::class);
         Route::apiResource('/parent-services', ParentServicesController::class);
         Route::apiResource('/our-branches', OurBranchesController::class);
+        Route::get('/our-branches-raw', [OurBranchesController::class, 'branchesRaw']);
         Route::apiResource('/authorized-brands', AuthorizedBrandsController::class);
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
@@ -194,6 +195,8 @@ Route::group(['prefix' => 'crm'], function () {
         });
 
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
+        Route::get('/work-order-statuses-raw', [\App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class, 'statusesRaw']);
+        Route::get('/work-order-sub-statuses-raw', [\App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class, 'subStatusesRaw']);
 
         // File Types Management
         Route::apiResource('/file-types', FileTypeController::class);

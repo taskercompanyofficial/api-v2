@@ -24,7 +24,14 @@ class OurBranchesController extends Controller
         $this->applySorting($query, $request);
 
         $this->applyUrlFilters($query, $request, [
-            'name', 'slug', 'city', 'state', 'status', 'branch_designation', 'created_at', 'updated_at'
+            'name',
+            'slug',
+            'city',
+            'state',
+            'status',
+            'branch_designation',
+            'created_at',
+            'updated_at'
         ]);
 
         $branches = $query->paginate($perPage, ['*'], 'page', $page);
@@ -56,8 +63,12 @@ class OurBranchesController extends Controller
         ]);
 
         $slug = Str::slug($validated['name']);
-        $originalSlug = $slug; $i = 1;
-        while (OurBranch::where('slug', $slug)->exists()) { $slug = $originalSlug.'-'.$i; $i++; }
+        $originalSlug = $slug;
+        $i = 1;
+        while (OurBranch::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $i;
+            $i++;
+        }
 
         $images = [];
         if ($request->hasFile('images')) {
@@ -125,9 +136,11 @@ class OurBranchesController extends Controller
 
         if (isset($validated['name']) && $validated['name'] !== $branch->name) {
             $newSlug = Str::slug($validated['name']);
-            $original = $newSlug; $i = 1;
+            $original = $newSlug;
+            $i = 1;
             while (OurBranch::where('slug', $newSlug)->where('id', '!=', $branch->id)->exists()) {
-                $newSlug = $original.'-'.$i; $i++;
+                $newSlug = $original . '-' . $i;
+                $i++;
             }
             $validated['slug'] = $newSlug;
         }
@@ -162,5 +175,36 @@ class OurBranchesController extends Controller
         }
         $branch->delete();
         return response()->json(['status' => 'success', 'message' => 'Branch deleted successfully']);
+    }
+
+    /**
+     * Get raw branches for SearchSelect, optionally filtered by city_id
+     */
+    public function branchesRaw(Request $request)
+    {
+        $query = OurBranch::where('status', 'active')
+            ->orderBy('name');
+
+        // Filter by city_id if provided
+        if ($request->has('city_id') && $request->city_id) {
+            $query->where('city', $request->city_id);
+        }
+
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $branches = $query->get()->map(function ($branch) {
+            return [
+                'value' => $branch->id,
+                'label' => $branch->name,
+                'description' => $branch->address,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $branches,
+        ]);
     }
 }

@@ -50,6 +50,7 @@ class UpdateWorkOrderRequest extends FormRequest
             'branch_id' => 'required|exists:our_branches,id',
             'category_id' => 'required|exists:categories,id',
             'service_id' => 'required|exists:services,id',
+            'city_id' => 'required|exists:cities,id',
             'parent_service_id' => 'required|exists:parent_services,id',
             'service_concern_id' => 'nullable|exists:service_concerns,id',
             'service_sub_concern_id' => 'nullable|exists:service_sub_concerns,id',
