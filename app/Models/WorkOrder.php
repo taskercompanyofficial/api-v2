@@ -295,6 +295,11 @@ class WorkOrder extends Model
         return $this->belongsTo(DealerBranch::class, 'dealer_branch_id');
     }
 
+    public function bills(): HasMany
+    {
+        return $this->hasMany(WorkOrderBill::class)->orderBy('created_at', 'desc');
+    }
+
     // Helper Methods
     public static function generateNumber(): string
     {

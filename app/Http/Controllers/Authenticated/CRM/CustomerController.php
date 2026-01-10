@@ -27,7 +27,12 @@ class CustomerController extends Controller
                 'updatedBy:id,name',
                 'address'
             ]);
-
+            if ($request->has('name')) {
+                $query->where('name', 'like', '%' . $request->input('name') . '%');
+                $query->where('phone', 'like', '%' . $request->input('name') . '%');
+                $query->where('whatsapp', 'like', '%' . $request->input('name') . '%');
+                $query->where('email', 'like', '%' . $request->input('name') . '%');
+            }
             $this->applyJsonFilters($query, $request);
             $this->applySorting($query, $request);
 
@@ -154,7 +159,7 @@ class CustomerController extends Controller
                 'description' => 'nullable|string',
                 'kind_of_issue' => 'nullable|string|max:255',
             ]);
-            
+
             $user = $request->user();
             $validatedData['created_by'] = $user->id;
             $validatedData['updated_by'] = $user->id;
@@ -228,7 +233,7 @@ class CustomerController extends Controller
                 ->map(function ($customer) {
                     return [
                         'value' => $customer->id,
-                        'label' => $customer->name ,
+                        'label' => $customer->name,
                         'description' => $customer->phone,
                         'image' => $customer->avatar_url,
                     ];

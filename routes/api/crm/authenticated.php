@@ -183,6 +183,14 @@ Route::group(['prefix' => 'crm'], function () {
             Route::patch('/parts/bulk-status', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'bulkUpdateStatus']);
             Route::patch('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'update']);
             Route::delete('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'destroy']);
+
+            // Work Order Bills
+            Route::get('/bills', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'index']);
+            Route::post('/bills', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'store']);
+            Route::get('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'show']);
+            Route::put('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'update']);
+            Route::delete('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'destroy']);
+            Route::patch('/bills/{id}/status', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'updateStatus']);
         });
 
         Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
