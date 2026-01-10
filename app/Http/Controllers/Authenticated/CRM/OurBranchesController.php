@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OurBranch;
 use App\QueryFilterTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -185,9 +186,9 @@ class OurBranchesController extends Controller
         $query = OurBranch::where('status', 'active')
             ->orderBy('name');
 
-        // Filter by city_id if provided
+        // Filter by city_id if provided (city field contains comma-separated IDs)
         if ($request->has('city_id') && $request->city_id) {
-            $query->where('city', $request->city_id);
+            $query->whereRaw('FIND_IN_SET(?, city)', [$request->city_id]);
         }
 
         if ($request->has('search') && $request->search) {
