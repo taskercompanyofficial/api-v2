@@ -103,9 +103,14 @@ class WorkOrderController extends Controller
         // Apply sorting
         $this->applySorting($query, $request);
 
-        // Fallback to latest if no sorting specified
+        // Fallback to order by status.order, then sub_status.order if no sorting specified
         if (!$request->has('sort')) {
-            $query->latest();
+            $query->select('work_orders.*')
+                ->leftJoin('work_order_statuses as status_table', 'work_orders.status_id', '=', 'status_table.id')
+                ->leftJoin('work_order_statuses as sub_status_table', 'work_orders.sub_status_id', '=', 'sub_status_table.id')
+                ->orderBy('status_table.order', 'asc')
+                ->orderBy('sub_status_table.order', 'asc')
+                ->orderBy('work_orders.created_at', 'desc');
         }
 
         $workOrders = $query->paginate($perPage, ['*'], 'page', $page);
