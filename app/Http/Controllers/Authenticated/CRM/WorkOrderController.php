@@ -76,6 +76,18 @@ class WorkOrderController extends Controller
 
         ]);
 
+        if ($request->has('status_id') && $request->status_id) {
+            $statusIds = is_array($request->status_id)
+                ? $request->status_id
+                : explode(',', $request->status_id);
+            $query->whereIn('status_id', $statusIds);
+        }
+        if ($request->has('sub_status_id') && $request->sub_status_id) {
+            $subStatusIds = is_array($request->sub_status_id)
+                ? $request->sub_status_id
+                : explode(',', $request->sub_status_id);
+            $query->whereIn('sub_status_id', $subStatusIds);
+        }
         // Global search across multiple fields
         if ($request->has('work_order_number') && $request->work_order_number) {
             $searchTerm = $request->work_order_number;
