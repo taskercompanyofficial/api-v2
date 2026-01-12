@@ -40,12 +40,12 @@ class CustomerFeedbackController extends Controller
     public function store(Request $request, string $workOrderId): JsonResponse
     {
         $validator = $request->validate([
-            'rating' => 'required|integer|min:1|max:5',
+            'rating' => 'required|integer|min:1|max:10',
             'feedback_type' => 'required|in:service_quality,technician_behavior,timeliness,overall',
             'remarks' => 'required|string|max:1000',
         ]);
 
-    $user =$request->user();
+        $user = $request->user();
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
 
@@ -85,7 +85,7 @@ class CustomerFeedbackController extends Controller
             'remarks' => 'nullable|string|max:1000',
         ]);
 
-        $user =$request->user();
+        $user = $request->user();
         try {
             $feedback = CustomerFeedback::where('work_order_id', $workOrderId)
                 ->findOrFail($id);
