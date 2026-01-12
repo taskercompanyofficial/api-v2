@@ -593,6 +593,11 @@ class WorkOrderStatusService
             throw new Exception('Work order must be in Feedback Pending status to close');
         }
 
+        // Check if customer feedback exists
+        if (!$workOrder->feedback()->exists()) {
+            throw new Exception('Customer feedback is required before closing the work order');
+        }
+
         // Verify all files are approved
         $files = \App\Models\WorkOrderFile::where('work_order_id', $workOrder->id)->get();
         $pendingOrRejectedFiles = $files->filter(function ($file) {

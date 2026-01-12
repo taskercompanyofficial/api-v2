@@ -305,6 +305,11 @@ class WorkOrder extends Model
         return $this->hasOne(ServiceCenterUnit::class);
     }
 
+    public function feedback(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CustomerFeedback::class);
+    }
+
     // Helper Methods
     public static function generateNumber(): string
     {
