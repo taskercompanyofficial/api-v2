@@ -80,7 +80,7 @@ class CustomerFeedbackController extends Controller
     public function update(Request $request, string $workOrderId, string $id): JsonResponse
     {
         $validator = $request->validate([
-            'rating' => 'sometimes|required|integer|min:1|max:5',
+            'rating' => 'sometimes|required|integer|min:1|max:10',
             'feedback_type' => 'sometimes|required|in:service_quality,technician_behavior,timeliness,overall',
             'remarks' => 'nullable|string|max:1000',
         ]);
