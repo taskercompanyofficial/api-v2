@@ -156,7 +156,7 @@ class WorkOrderController extends Controller
                 } elseif ($statusFilter === 'completed') {
                     // Completed work orders
                     $query->whereHas('status', function ($q) {
-                        $q->whereIn('slug', ['completed', 'closed']);
+                        $q->whereIn('slug', ['completed']);
                     });
                 }
             }

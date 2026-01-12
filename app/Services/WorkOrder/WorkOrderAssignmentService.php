@@ -57,6 +57,11 @@ class WorkOrderAssignmentService
         // If reassigning (not first assignment), reset all action timestamps
         if ($previousAssignedId) {
             $updateData['accepted_at'] = null;
+            $updateData['accepted_by'] = null;
+            $updateData['cancelled_at'] = null;
+            $updateData['cancelled_by'] = null;
+            $updateData['completed_at'] = null;
+            $updateData['completed_by'] = null;
             $updateData['rejected_at'] = null;
             $updateData['rejected_by'] = null;
             $updateData['reject_reason'] = null;
