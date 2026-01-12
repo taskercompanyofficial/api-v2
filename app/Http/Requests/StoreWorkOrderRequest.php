@@ -31,7 +31,7 @@ class StoreWorkOrderRequest extends FormRequest
             'service_concern_id' => 'required|exists:service_concerns,id',
             'service_sub_concern_id' => 'required|exists:service_sub_concerns,id',
             'warranty_type_id' => 'required|exists:warranty_types,id',
-            'customer_description' => 'required|string|min:10',
+            'customer_description' => 'nullable',
             'authorized_brand_id' => 'required|exists:authorized_brands,id',
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority' => 'required|in:low,medium,high',
