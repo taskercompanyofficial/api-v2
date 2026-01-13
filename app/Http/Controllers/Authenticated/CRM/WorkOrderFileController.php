@@ -241,7 +241,7 @@ class WorkOrderFileController extends Controller
         }
     }
     /**
-     * Download multiple files as a zip, or a single file directly
+     * Download multiple files as a zip, or a single file directly.
      */
     public function downloadAll(Request $request, $workOrderId)
     {
