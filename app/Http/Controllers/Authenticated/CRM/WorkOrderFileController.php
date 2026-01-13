@@ -276,43 +276,25 @@ class WorkOrderFileController extends Controller
                     ], 404);
                 }
 
-                return response()->download($filePath, $file->file_name);
+                return response()->download($filePath, basename($file->file_path));
             }
 
-            // Create temp directory if it doesn't exist
-            $tempPath = storage_path('app/temp');
-            if (!file_exists($tempPath)) {
-                mkdir($tempPath, 0777, true);
-            }
-
-            // Create zip file
-            $zip = new \ZipArchive();
-            $zipFileName = 'WO_' . $workOrder->work_order_number . '_files_' . time() . '.zip';
-            $zipPath = $tempPath . '/' . $zipFileName;
-
-            if ($zip->open($zipPath, \ZipArchive::CREATE) === TRUE) {
-                foreach ($files as $file) {
-                    $filePath = storage_path('app/public/' . $file->file_path);
-                    if (file_exists($filePath)) {
-                        // Use the actual filename as stored on disk (unique generated name)
-                        $actualFileName = basename($file->file_path);
-
-                        // Add file to zip at the root
-                        $zip->addFile($filePath, $actualFileName);
-                    }
-                }
-                $zip->close();
-
-                // Download zip file and then delete it
-                return response()->download($zipPath, $zipFileName, [
-                    'Content-Type' => 'application/zip'
-                ])->deleteFileAfterSend(true);
-            }
+            // Return file list for frontend to zip since ZipArchive is not available
+            $fileData = $files->map(function ($file) {
+                return [
+                    'id' => $file->id,
+                    'name' => basename($file->file_path),
+                    'original_name' => $file->file_name,
+                    'url' => route('crm.work-order-files.download', [$file->work_order_id, $file->id]),
+                    'type' => $file->fileType ? $file->fileType->name : 'Other',
+                ];
+            });
 
             return response()->json([
-                'status' => 'error',
-                'message' => 'Error creating zip file'
-            ], 500);
+                'status' => 'success',
+                'is_bulk' => true,
+                'files' => $fileData
+            ]);
         } catch (\Exception $err) {
             Log::error("Zip download error: " . $err->getMessage());
             return response()->json([
