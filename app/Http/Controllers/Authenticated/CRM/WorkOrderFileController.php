@@ -196,7 +196,16 @@ class WorkOrderFileController extends Controller
                 }
             }
 
-            return response()->download($filePath, basename($file->file_path));
+            // Get actual filename from path
+            $actualFileName = basename($file->file_path);
+
+            // Log the download attempt for debugging extension issues
+            Log::info("Downloading file: {$actualFileName} (Mime: {$file->mime_type})");
+
+            return response()->download($filePath, $actualFileName, [
+                'Content-Type' => $file->mime_type,
+                'Content-Disposition' => 'attachment; filename="' . $actualFileName . '"'
+            ]);
         } catch (\Exception $err) {
             Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
             return response()->json([
