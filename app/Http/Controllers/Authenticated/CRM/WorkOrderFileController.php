@@ -69,9 +69,9 @@ class WorkOrderFileController extends Controller
             $randomString = Str::random(8);
             $fileName = $fileType->slug . '_' . $randomString . '.' . $extension;
 
-            // Store file in: work-orders/{work_order_number}/files/
+            // Store file in: work-orders/{work_order_number}
             $filePath = $uploadedFile->storeAs(
-                'work-orders/' . $workOrder->work_order_number . '/files',
+                'work-orders/' . $workOrder->work_order_number,
                 $fileName,
                 'public'
             );
@@ -196,7 +196,7 @@ class WorkOrderFileController extends Controller
                 }
             }
 
-            return response()->download($filePath, $file->file_name);
+            return response()->download($filePath, basename($file->file_path));
         } catch (\Exception $err) {
             Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
             return response()->json([
@@ -234,6 +234,87 @@ class WorkOrderFileController extends Controller
                 'data' => $file,
             ]);
         } catch (\Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
+    }
+    /**
+     * Download multiple files as a zip, or a single file directly
+     */
+    public function downloadAll(Request $request, $workOrderId)
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($workOrderId);
+
+            $query = WorkOrderFile::where('work_order_id', $workOrderId);
+
+            if ($request->has('file_ids')) {
+                $fileIds = is_array($request->file_ids) ? $request->file_ids : explode(',', $request->file_ids);
+                $query->whereIn('id', $fileIds);
+            }
+
+            $files = $query->with('fileType')->get();
+
+            if ($files->isEmpty()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No files found to download'
+                ], 404);
+            }
+
+            if ($files->count() === 1) {
+                $file = $files->first();
+                $filePath = storage_path('app/public/' . $file->file_path);
+
+                if (!file_exists($filePath)) {
+                    Log::error("File not found for download: {$file->file_path} (ID: {$file->id})");
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'File not found on server'
+                    ], 404);
+                }
+
+                return response()->download($filePath, $file->file_name);
+            }
+
+            // Create temp directory if it doesn't exist
+            $tempPath = storage_path('app/temp');
+            if (!file_exists($tempPath)) {
+                mkdir($tempPath, 0777, true);
+            }
+
+            // Create zip file
+            $zip = new \ZipArchive();
+            $zipFileName = 'WO_' . $workOrder->work_order_number . '_files_' . time() . '.zip';
+            $zipPath = $tempPath . '/' . $zipFileName;
+
+            if ($zip->open($zipPath, \ZipArchive::CREATE) === TRUE) {
+                foreach ($files as $file) {
+                    $filePath = storage_path('app/public/' . $file->file_path);
+                    if (file_exists($filePath)) {
+                        // Use the actual filename as stored on disk (unique generated name)
+                        $actualFileName = basename($file->file_path);
+
+                        // Add file to zip at the root
+                        $zip->addFile($filePath, $actualFileName);
+                    }
+                }
+                $zip->close();
+
+                // Download zip file and then delete it
+                return response()->download($zipPath, $zipFileName, [
+                    'Content-Type' => 'application/zip'
+                ])->deleteFileAfterSend(true);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error creating zip file'
+            ], 500);
+        } catch (\Exception $err) {
+            Log::error("Zip download error: " . $err->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => $err->getMessage(),
