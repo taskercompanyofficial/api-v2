@@ -206,7 +206,26 @@ class WorkOrderStatusService
         if (!$status) {
             throw new Exception('Status "Completed" not found');
         }
+        if ($workOrder->warranty_type_id == 1) {
+            $missingFields = [];
+            if (!$workOrder->indoor_serial_number) {
+                $missingFields[] = 'Indoor Serial Number';
+            }
+            if (!$workOrder->outdoor_serial_number) {
+                $missingFields[] = 'Outdoor Serial Number';
+            }
+            if (!$workOrder->product_model) {
+                $missingFields[] = 'Product Model';
+            }
+            if (!$workOrder->purchase_date) {
+                $missingFields[] = 'Purchase Date';
+            }
 
+            if (!empty($missingFields)) {
+                $fieldsList = implode(', ', $missingFields);
+                throw new Exception("Warranty information is incomplete. Missing: {$fieldsList}. Please update the work order before completing.");
+            }
+        }
         // Get sub-status that belongs to the completed status
         $subStatus = WorkOrderStatus::where('slug', 'pending-service-centre-complete')
             ->where('parent_id', $status->id)
@@ -642,6 +661,7 @@ class WorkOrderStatusService
         $workOrder->sub_status_id = $closedSubStatus->id;
         $workOrder->closed_at = now();
         $workOrder->closed_by = $userId;
+        $workOrder->is_locked = true;
         $workOrder->updated_by = $userId;
         $workOrder->save();
 

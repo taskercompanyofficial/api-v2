@@ -545,6 +545,29 @@ class WorkOrderController extends Controller
                 $workOrder->completed_at = now();
                 $workOrder->completed_by = $staff->id;
             }
+            if ($workOrder->warranty_type_id == 1) {
+                $missingFields = [];
+                if (!$workOrder->indoor_serial_number) {
+                    $missingFields[] = 'Indoor Serial Number';
+                }
+                if (!$workOrder->outdoor_serial_number) {
+                    $missingFields[] = 'Outdoor Serial Number';
+                }
+                if (!$workOrder->product_model) {
+                    $missingFields[] = 'Product Model';
+                }
+                if (!$workOrder->purchase_date) {
+                    $missingFields[] = 'Purchase Date';
+                }
+
+                if (!empty($missingFields)) {
+                    $fieldsList = implode(', ', $missingFields);
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Warranty information is incomplete. Missing: {$fieldsList}. Please update the work order before completing.",
+                    ], 422);
+                }
+            }
 
             // Append remarks to technician_remarks if provided
             if ($request->remarks) {

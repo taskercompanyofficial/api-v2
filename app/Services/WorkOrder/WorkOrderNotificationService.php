@@ -30,11 +30,18 @@ class WorkOrderNotificationService
     }
 
     /**
-     * Send notification to all active staff members
+     * Send notification to all active staff members with CRM access in the same branch
      */
     public function notifyAllStaff(string $title, string $message, string $type, WorkOrder $workOrder, ?int $excludeUserId = null): void
     {
-        $query = Staff::where('status_id', 1);
+        // Suppress notification if the actor is a CRM user
+        if ($excludeUserId && $this->isCrmUser($excludeUserId)) {
+            return;
+        }
+
+        $query = Staff::where('status_id', 1)
+            ->where('has_access_in_crm', 1)
+            ->where('branch_id', $workOrder->branch_id);
 
         if ($excludeUserId) {
             $query->where('id', '!=', $excludeUserId);
@@ -76,6 +83,15 @@ class WorkOrderNotificationService
     protected function getWorkOrderCode(WorkOrder $workOrder): string
     {
         return $workOrder->code ?? "WO-{$workOrder->id}";
+    }
+
+    /**
+     * Check if a staff member is a CRM user
+     */
+    protected function isCrmUser(int $staffId): bool
+    {
+        $staff = Staff::find($staffId);
+        return $staff && $staff->has_access_in_crm == 1;
     }
 
     // ==========================================
@@ -420,13 +436,26 @@ class WorkOrderNotificationService
 
     /**
      * Send notification to all active staff (generic, no work order link)
+     * Filtered by branch if staff checking in/out has a branch
      */
     public function notifyAllStaffGeneric(string $title, string $message, string $type, ?int $excludeUserId = null): void
     {
-        $query = \App\Models\Staff::where('status_id', 1);
+        // Suppress notification if the actor is a CRM user (unlikely for attendance, but for consistency)
+        if ($excludeUserId && $this->isCrmUser($excludeUserId)) {
+            return;
+        }
+
+        $query = \App\Models\Staff::where('status_id', 1)
+            ->where('has_access_in_crm', 1);
 
         if ($excludeUserId) {
             $query->where('id', '!=', $excludeUserId);
+
+            // Filter by branch of the staff member if possible
+            $actor = \App\Models\Staff::find($excludeUserId);
+            if ($actor && $actor->branch_id) {
+                $query->where('branch_id', $actor->branch_id);
+            }
         }
 
         $staffMembers = $query->get();
