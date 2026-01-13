@@ -196,15 +196,20 @@ class WorkOrderFileController extends Controller
                 }
             }
 
-            // Get actual filename from path
+            // Get actual filename from path (preserves original extension)
             $actualFileName = basename($file->file_path);
 
-            // Log the download attempt for debugging extension issues
-            Log::info("Downloading file: {$actualFileName} (Mime: {$file->mime_type})");
+            // Detect MIME type from actual file if not stored or if stored one seems wrong
+            $detectedMimeType = mime_content_type($filePath);
+            $mimeType = $detectedMimeType ?: ($file->mime_type ?: 'application/octet-stream');
+
+            // Log for debugging
+            Log::info("Downloading file: {$actualFileName} (Stored MIME: {$file->mime_type}, Detected MIME: {$detectedMimeType})");
 
             return response()->download($filePath, $actualFileName, [
-                'Content-Type' => $file->mime_type,
-                'Content-Disposition' => 'attachment; filename="' . $actualFileName . '"'
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'attachment; filename="' . $actualFileName . '"',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
             ]);
         } catch (\Exception $err) {
             Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
