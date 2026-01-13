@@ -576,6 +576,7 @@ class WorkOrderStatusService
      */
     public function closeWorkOrder(WorkOrder $workOrder, int $userId): array
     {
+        $warrenty_type = $workOrder->warranty_type_id;
         // Check if work order is in completed status with feedback-pending sub-status
         $completedStatus = WorkOrderStatus::where('slug', 'completed')
             ->whereNull('parent_id')
@@ -596,6 +597,9 @@ class WorkOrderStatusService
         // Check if customer feedback exists
         if (!$workOrder->feedback()->exists()) {
             throw new Exception('Customer feedback is required before closing the work order');
+        }
+        if ($warrenty_type == 1) {
+            throw new Exception('Brand Complain number required before closing the work order');
         }
 
         // Verify all files are approved
