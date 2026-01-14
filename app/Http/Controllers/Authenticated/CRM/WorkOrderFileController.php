@@ -307,7 +307,7 @@ class WorkOrderFileController extends Controller
             $phar = new \PharData($tarPath);
 
             $addedFiles = 0;
-            $fileIndex = 1;
+            $usedFileNames = [];
             foreach ($files as $file) {
                 // Get the full path to the file
                 $filePath = storage_path('app/public/' . $file->file_path);
@@ -325,12 +325,26 @@ class WorkOrderFileController extends Controller
                     $extension = $this->getExtensionFromMimeType($detectedMimeType)
                         ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
 
-                    // Use short sequential filename: {work_order_number}_{index}.{ext}
-                    $fileName = $workOrder->work_order_number . '_' . $fileIndex . '.' . $extension;
+                    // Get original filename without extension
+                    $originalName = $file->file_name
+                        ? pathinfo($file->file_name, PATHINFO_FILENAME)
+                        : pathinfo($file->file_path, PATHINFO_FILENAME);
+
+                    // Create filename with correct extension
+                    $fileName = $originalName . '.' . $extension;
+
+                    // Ensure unique filenames by appending counter if duplicate
+                    if (in_array($fileName, $usedFileNames)) {
+                        $counter = 1;
+                        do {
+                            $fileName = $originalName . '_' . $counter . '.' . $extension;
+                            $counter++;
+                        } while (in_array($fileName, $usedFileNames));
+                    }
+                    $usedFileNames[] = $fileName;
 
                     $phar->addFile($filePath, $fileName);
                     $addedFiles++;
-                    $fileIndex++;
                 } else {
                     Log::warning("File not found for archive: {$file->file_path} (ID: {$file->id})");
                 }
