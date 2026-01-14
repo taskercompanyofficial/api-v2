@@ -267,6 +267,10 @@ class WorkOrderFileController extends Controller
         ]);
 
         try {
+            // Remove limits for large file handling
+            set_time_limit(0); // No time limit
+            ini_set('memory_limit', '-1'); // No memory limit
+
             $workOrder = WorkOrder::findOrFail($workOrderId);
 
             // Get file IDs from request (optional - if not provided, get all files)
@@ -280,7 +284,7 @@ class WorkOrderFileController extends Controller
                 $query->whereIn('id', $fileIds);
             }
 
-            $files = $query->get();
+            $files = $query->with('fileType')->get();
 
             if ($files->isEmpty()) {
                 return response()->json([
@@ -330,19 +334,17 @@ class WorkOrderFileController extends Controller
                     $extension = $this->getExtensionFromMimeType($detectedMimeType)
                         ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
 
-                    // Get original filename without extension
-                    $originalName = $file->file_name
-                        ? pathinfo($file->file_name, PATHINFO_FILENAME)
-                        : pathinfo($file->file_path, PATHINFO_FILENAME);
+                    // Use file type name as the filename
+                    $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
 
                     // Create filename with correct extension
-                    $fileName = $originalName . '.' . $extension;
+                    $fileName = $fileTypeName . '.' . $extension;
 
                     // Ensure unique filenames by appending counter if duplicate
                     if (in_array($fileName, $usedFileNames)) {
                         $counter = 1;
                         do {
-                            $fileName = $originalName . '_' . $counter . '.' . $extension;
+                            $fileName = $fileTypeName . '_' . $counter . '.' . $extension;
                             $counter++;
                         } while (in_array($fileName, $usedFileNames));
                     }
