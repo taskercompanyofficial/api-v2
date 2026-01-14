@@ -621,7 +621,7 @@ class WorkOrderStatusService
             throw new Exception('Customer feedback is required before closing the work order');
         }
         if ($warrenty_type == 1) {
-            if (!$workOrder->brand_complain_number) {
+            if (!$workOrder->brand_complaint_no) {
                 throw new Exception('Brand Complain number required before closing the work order.');
             }
         }
