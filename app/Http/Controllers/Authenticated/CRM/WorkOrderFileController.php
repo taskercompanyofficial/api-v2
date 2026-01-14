@@ -318,8 +318,12 @@ class WorkOrderFileController extends Controller
                 }
 
                 if (file_exists($filePath)) {
-                    // Get extension from stored file path
-                    $extension = pathinfo($file->file_path, PATHINFO_EXTENSION);
+                    // Detect actual MIME type from the file content
+                    $detectedMimeType = mime_content_type($filePath);
+
+                    // Get extension from MIME type (more accurate)
+                    $extension = $this->getExtensionFromMimeType($detectedMimeType)
+                        ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
 
                     // Use short sequential filename: {work_order_number}_{index}.{ext}
                     $fileName = $workOrder->work_order_number . '_' . $fileIndex . '.' . $extension;
@@ -379,5 +383,72 @@ class WorkOrderFileController extends Controller
                 'message' => 'An error occurred while creating the archive: ' . $err->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get file extension from MIME type
+     */
+    private function getExtensionFromMimeType(?string $mimeType): ?string
+    {
+        if (!$mimeType) {
+            return null;
+        }
+
+        $mimeToExtension = [
+            // Videos
+            'video/mp4' => 'mp4',
+            'video/mpeg' => 'mpeg',
+            'video/quicktime' => 'mov',
+            'video/x-msvideo' => 'avi',
+            'video/x-ms-wmv' => 'wmv',
+            'video/webm' => 'webm',
+            'video/3gpp' => '3gp',
+            'video/x-flv' => 'flv',
+            'video/x-matroska' => 'mkv',
+
+            // Images
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'image/bmp' => 'bmp',
+            'image/svg+xml' => 'svg',
+            'image/tiff' => 'tiff',
+            'image/x-icon' => 'ico',
+            'image/heic' => 'heic',
+            'image/heif' => 'heif',
+
+            // Audio
+            'audio/mpeg' => 'mp3',
+            'audio/wav' => 'wav',
+            'audio/ogg' => 'ogg',
+            'audio/aac' => 'aac',
+            'audio/flac' => 'flac',
+            'audio/x-m4a' => 'm4a',
+            'audio/mp4' => 'm4a',
+
+            // Documents
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'text/plain' => 'txt',
+            'text/csv' => 'csv',
+            'application/json' => 'json',
+            'application/xml' => 'xml',
+            'text/html' => 'html',
+
+            // Archives
+            'application/zip' => 'zip',
+            'application/x-rar-compressed' => 'rar',
+            'application/x-7z-compressed' => '7z',
+            'application/gzip' => 'gz',
+            'application/x-tar' => 'tar',
+        ];
+
+        return $mimeToExtension[$mimeType] ?? null;
     }
 }
