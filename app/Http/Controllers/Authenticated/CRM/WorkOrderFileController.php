@@ -284,6 +284,7 @@ class WorkOrderFileController extends Controller
                 $query->whereIn('id', $fileIds);
             }
 
+
             $files = $query->with('fileType')->get();
 
             if ($files->isEmpty()) {
