@@ -254,4 +254,130 @@ class WorkOrderFileController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Download files for a work order as a .tar.gz archive
+     * Optionally accepts file_ids array to download only selected files
+     */
+    public function downloadAllAsArchive(Request $request, $workOrderId)
+    {
+        try {
+            $workOrder = WorkOrder::findOrFail($workOrderId);
+
+            // Get file IDs from request (optional - if not provided, get all files)
+            $fileIds = $request->input('file_ids');
+
+            // Build query
+            $query = WorkOrderFile::where('work_order_id', $workOrderId);
+
+            // If specific file IDs are provided, filter by them
+            if (!empty($fileIds) && is_array($fileIds)) {
+                $query->whereIn('id', $fileIds);
+            }
+
+            $files = $query->get();
+
+            if ($files->isEmpty()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No files found for this work order',
+                ], 404);
+            }
+
+            // Create temporary directory for archive
+            $tempDir = storage_path('app/temp');
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            // Archive filenames
+            $archiveName = 'work_order_' . $workOrder->work_order_number . '_files';
+            $tarPath = $tempDir . '/' . $archiveName . '.tar';
+            $gzPath = $tarPath . '.gz';
+
+            // Remove existing archives if they exist
+            if (file_exists($gzPath)) {
+                unlink($gzPath);
+            }
+            if (file_exists($tarPath)) {
+                unlink($tarPath);
+            }
+
+            // Create TAR archive
+            $phar = new \PharData($tarPath);
+
+            $addedFiles = 0;
+            $fileIndex = 1;
+            foreach ($files as $file) {
+                // Get the full path to the file
+                $filePath = storage_path('app/public/' . $file->file_path);
+
+                // Fallback: check if it's stored in app/ directly
+                if (!file_exists($filePath)) {
+                    $filePath = storage_path('app/' . $file->file_path);
+                }
+
+                if (file_exists($filePath)) {
+                    // Get extension from stored file path
+                    $extension = pathinfo($file->file_path, PATHINFO_EXTENSION);
+
+                    // Use short sequential filename: {work_order_number}_{index}.{ext}
+                    $fileName = $workOrder->work_order_number . '_' . $fileIndex . '.' . $extension;
+
+                    $phar->addFile($filePath, $fileName);
+                    $addedFiles++;
+                    $fileIndex++;
+                } else {
+                    Log::warning("File not found for archive: {$file->file_path} (ID: {$file->id})");
+                }
+            }
+
+            if ($addedFiles === 0) {
+                // Clean up
+                if (file_exists($tarPath)) {
+                    unlink($tarPath);
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No files could be found on the server',
+                ], 404);
+            }
+
+            // Compress to .tar.gz
+            $phar->compress(\Phar::GZ);
+
+            // Remove the uncompressed .tar file
+            if (file_exists($tarPath)) {
+                unlink($tarPath);
+            }
+
+            // Return the .tar.gz file for download
+            $downloadName = $archiveName . '.tar.gz';
+
+            return response()->download($gzPath, $downloadName, [
+                'Content-Type' => 'application/gzip',
+            ])->deleteFileAfterSend(true);
+        } catch (\Exception $err) {
+            Log::error("Archive creation error for work order {$workOrderId}: " . $err->getMessage());
+
+            // Clean up any partial files
+            $tempDir = storage_path('app/temp');
+            $archiveName = 'work_order_' . ($workOrder->work_order_number ?? $workOrderId) . '_files';
+            $tarPath = $tempDir . '/' . $archiveName . '.tar';
+            $gzPath = $tarPath . '.gz';
+
+            if (file_exists($gzPath)) {
+                unlink($gzPath);
+            }
+            if (file_exists($tarPath)) {
+                unlink($tarPath);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while creating the archive: ' . $err->getMessage(),
+            ], 500);
+        }
+    }
 }
