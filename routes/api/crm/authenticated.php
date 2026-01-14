@@ -38,6 +38,7 @@ use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
 use App\Http\Controllers\Authenticated\CRM\NotificationController;
 use App\Http\Controllers\Authenticated\CRM\TestNotificationController;
 use App\Http\Controllers\Authenticated\CRM\DashboardController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderStoreItemController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -49,6 +50,13 @@ Route::group(['prefix' => 'crm'], function () {
     Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::apiResource('/store-items', StoreItemController::class);
         Route::apiResource('/store-item-instances', StoreItemInstanceController::class);
+
+        // Store Item Instance custom routes
+        Route::get('/store-items/{storeItemId}/instances', [StoreItemInstanceController::class, 'index']);
+        Route::post('/store-item-instances/bulk-status', [StoreItemInstanceController::class, 'bulkUpdateStatus']);
+        Route::post('/store-item-instances/bulk-assign', [StoreItemInstanceController::class, 'bulkAssign']);
+        Route::post('/store-item-instances/bulk-delete', [StoreItemInstanceController::class, 'bulkDelete']);
+
         Route::apiResource('/products', ProductsController::class);
         Route::apiResource('/services', ServicesController::class);
         Route::apiResource('/categories', CategoriesController::class);
@@ -59,6 +67,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
         Route::get('/rawData/staff', [StaffController::class, 'staffRaw']);
+        Route::get('/rawData/store-item-instances', [WorkOrderStoreItemController::class, 'searchAvailable']);
         Route::apiResource('/roles', RoleController::class);
         Route::apiResource('/permissions', PermissionController::class);
         Route::post('/role-permissions/sync', [RolePermissionController::class, 'syncPermissions']);
@@ -190,6 +199,11 @@ Route::group(['prefix' => 'crm'], function () {
             Route::post('/service-center-unit/receive', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsReceived']);
             Route::post('/service-center-unit/deliver', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsDelivered']);
             Route::get('/service-center-unit/history', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'history']);
+
+            // Work Order Store Items
+            Route::get('/store-items', [WorkOrderStoreItemController::class, 'index']);
+            Route::post('/store-items', [WorkOrderStoreItemController::class, 'store']);
+            Route::delete('/store-items/{id}', [WorkOrderStoreItemController::class, 'destroy']);
 
             // Work Order Parts
             Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);
