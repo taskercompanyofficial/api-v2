@@ -261,6 +261,11 @@ class WorkOrderFileController extends Controller
      */
     public function downloadAllAsArchive(Request $request, $workOrderId)
     {
+        $validated = $request->validate([
+            'file_ids' => 'nullable|array',
+            'file_ids.*' => 'required|exists:work_order_files,id',
+        ]);
+
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
 
