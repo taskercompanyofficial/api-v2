@@ -283,7 +283,6 @@ class WorkOrderStatusService
         }
 
         $status = WorkOrderStatus::where('slug', 'part-in-demand')
-            ->whereNull('parent_id')
             ->first();
 
         if (!$status) {
@@ -293,8 +292,7 @@ class WorkOrderStatusService
         $oldStatusId = $workOrder->status_id;
         $oldSubStatusId = $workOrder->sub_status_id;
 
-        $workOrder->status_id = $status->id;
-        $workOrder->sub_status_id = null;
+        $workOrder->sub_status_id = $status->id;
         $workOrder->updated_by = $userId;
         $workOrder->save();
 
