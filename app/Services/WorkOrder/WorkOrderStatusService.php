@@ -282,17 +282,26 @@ class WorkOrderStatusService
             throw new Exception('Cannot mark as part in demand. No parts have been demanded for this work order.');
         }
 
-        $status = WorkOrderStatus::where('slug', 'part-in-demand')
+        $status = WorkOrderStatus::where('slug', 'in-progress')
+            ->whereNull('parent_id')
             ->first();
 
         if (!$status) {
-            throw new Exception('Status "Part in Demand" not found');
+            throw new Exception('Status "In Progress" not found');
+        }
+        $subStatus = WorkOrderStatus::where('slug', 'part-in-demand')
+            ->where('parent_id', $status->id)
+            ->first();
+
+        if (!$subStatus) {
+            throw new Exception('Sub-status "Part in Demand" not found');
         }
 
         $oldStatusId = $workOrder->status_id;
         $oldSubStatusId = $workOrder->sub_status_id;
 
-        $workOrder->sub_status_id = $status->id;
+        $workOrder->status_id = $status->id;
+        $workOrder->sub_status_id = $subStatus->id;
         $workOrder->updated_by = $userId;
         $workOrder->save();
 
@@ -304,7 +313,7 @@ class WorkOrderStatusService
                 'old_status_id' => $oldStatusId,
                 'new_status_id' => $status->id,
                 'old_sub_status_id' => $oldSubStatusId,
-                'new_sub_status_id' => null,
+                'new_sub_status_id' => $subStatus->id,
                 'parts_count' => $workOrder->workOrderParts->count(),
             ]
         );
