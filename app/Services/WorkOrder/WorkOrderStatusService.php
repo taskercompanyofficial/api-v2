@@ -276,9 +276,9 @@ class WorkOrderStatusService
      */
     public function markAsPartInDemand(WorkOrder $workOrder, int $userId): array
     {
-        $workOrder->load('parts');
+        $workOrder->load('workOrderParts');
 
-        if ($workOrder->parts->isEmpty()) {
+        if ($workOrder->workOrderParts->isEmpty()) {
             throw new Exception('Cannot mark as part in demand. No parts have been demanded for this work order.');
         }
 
@@ -307,7 +307,7 @@ class WorkOrderStatusService
                 'new_status_id' => $status->id,
                 'old_sub_status_id' => $oldSubStatusId,
                 'new_sub_status_id' => null,
-                'parts_count' => $workOrder->parts->count(),
+                'parts_count' => $workOrder->workOrderParts->count(),
             ]
         );
 
