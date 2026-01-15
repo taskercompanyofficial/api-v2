@@ -553,8 +553,11 @@ class WorkOrderController extends Controller
                 if (!$workOrder->outdoor_serial_number) {
                     $missingFields[] = 'Outdoor Serial Number';
                 }
-                if (!$workOrder->product_model) {
-                    $missingFields[] = 'Product Model';
+                if (!$workOrder->product_indoor_model) {
+                    $missingFields[] = 'Product Indoor Model';
+                }
+                if (!$workOrder->product_outdoor_model) {
+                    $missingFields[] = 'Product Outdoor Model';
                 }
                 if (!$workOrder->purchase_date) {
                     $missingFields[] = 'Purchase Date';
