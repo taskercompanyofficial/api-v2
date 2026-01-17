@@ -20,7 +20,7 @@ return new class extends Migration
                 ->constrained('whatsapp_conversations')
                 ->onDelete('cascade');
             $table->foreignId('user_id')
-                ->constrained('users')
+                ->constrained('staff')
                 ->onDelete('cascade');
             $table->enum('role', ['viewer', 'assigned', 'owner'])->default('viewer');
             $table->boolean('notifications_enabled')->default(true);
