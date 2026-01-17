@@ -516,6 +516,32 @@ class WorkOrderController extends Controller
             }
 
             if ($request->status_slug === 'completed') {
+                if ($workOrder->warranty_type_id == 1) {
+                    $missingFields = [];
+                    if (!$workOrder->indoor_serial_number) {
+                        $missingFields[] = 'Indoor Serial Number';
+                    }
+                    if (!$workOrder->outdoor_serial_number) {
+                        $missingFields[] = 'Outdoor Serial Number';
+                    }
+                    if (!$workOrder->product_indoor_model) {
+                        $missingFields[] = 'Product Indoor Model';
+                    }
+                    if (!$workOrder->product_outdoor_model) {
+                        $missingFields[] = 'Product Outdoor Model';
+                    }
+                    if (!$workOrder->purchase_date) {
+                        $missingFields[] = 'Purchase Date';
+                    }
+
+                    if (!empty($missingFields)) {
+                        $fieldsList = implode(', ', $missingFields);
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => "Warranty information is incomplete. Missing: {$fieldsList}. Please update the work order before completing.",
+                        ], 422);
+                    }
+                }
                 // Check for required files
                 $requiredFiles = \App\Models\ServiceRequiredFile::where('parent_service_id', $workOrder->parent_service_id)
                     ->where('is_required', true)
@@ -545,32 +571,7 @@ class WorkOrderController extends Controller
                 $workOrder->completed_at = now();
                 $workOrder->completed_by = $staff->id;
             }
-            if ($workOrder->warranty_type_id == 1) {
-                $missingFields = [];
-                if (!$workOrder->indoor_serial_number) {
-                    $missingFields[] = 'Indoor Serial Number';
-                }
-                if (!$workOrder->outdoor_serial_number) {
-                    $missingFields[] = 'Outdoor Serial Number';
-                }
-                if (!$workOrder->product_indoor_model) {
-                    $missingFields[] = 'Product Indoor Model';
-                }
-                if (!$workOrder->product_outdoor_model) {
-                    $missingFields[] = 'Product Outdoor Model';
-                }
-                if (!$workOrder->purchase_date) {
-                    $missingFields[] = 'Purchase Date';
-                }
 
-                if (!empty($missingFields)) {
-                    $fieldsList = implode(', ', $missingFields);
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => "Warranty information is incomplete. Missing: {$fieldsList}. Please update the work order before completing.",
-                    ], 422);
-                }
-            }
 
             // Append remarks to technician_remarks if provided
             if ($request->remarks) {
