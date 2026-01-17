@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,11 +60,33 @@ class WhatsAppConversation extends Model
     }
 
     /**
-     * Get the staff member assigned to the conversation.
+     * Get the staff member assigned to the conversation (single assignment).
      */
     public function assignedStaff(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'assigned_to');
+    }
+
+    /**
+     * Get all staff members who can view/manage this conversation.
+     * Uses the pivot table for many-to-many relationship.
+     */
+    public function staff(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'whatsapp_conversation_staff')
+            ->withPivot(['role', 'notifications_enabled', 'last_viewed_at'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get staff IDs who should receive notifications for this conversation.
+     */
+    public function getNotifiableStaffIds(): array
+    {
+        return $this->staff()
+            ->wherePivot('notifications_enabled', true)
+            ->pluck('users.id')
+            ->toArray();
     }
 
     /**

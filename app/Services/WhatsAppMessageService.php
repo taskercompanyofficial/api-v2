@@ -21,12 +21,30 @@ class WhatsAppMessageService
     }
 
     /**
-     * Get all CRM staff user IDs for broadcasting.
+     * Get staff user IDs for broadcasting.
+     * Prioritizes conversation-specific staff, falls back to all CRM staff.
      * 
+     * @param WhatsAppConversation|null $conversation
      * @return array
      */
-    protected function getCrmStaffIds(): array
+    protected function getStaffIdsForBroadcast(?WhatsAppConversation $conversation = null): array
     {
+        // If conversation has assigned staff, use them
+        if ($conversation) {
+            $staffIds = $conversation->getNotifiableStaffIds();
+
+            // Also include the primary assigned_to user if set
+            if ($conversation->assigned_to && !in_array($conversation->assigned_to, $staffIds)) {
+                $staffIds[] = $conversation->assigned_to;
+            }
+
+            // If conversation has assigned staff, use only them
+            if (!empty($staffIds)) {
+                return $staffIds;
+            }
+        }
+
+        // Fallback: broadcast to all active CRM staff
         return User::where('is_active', true)
             ->whereIn('role', ['admin', 'manager', 'staff'])
             ->pluck('id')
@@ -77,8 +95,8 @@ class WhatsAppMessageService
             $conversation->updateLastMessageTime();
             $conversation->contact->updateLastInteraction();
 
-            // Broadcast event to all CRM staff
-            $staffIds = $this->getCrmStaffIds();
+            // Broadcast event to conversation staff (or all CRM staff if none assigned)
+            $staffIds = $this->getStaffIdsForBroadcast($conversation);
             broadcast(new WhatsAppMessageSent($whatsappMessage->fresh(), $staffIds));
         } else {
             $whatsappMessage->markAsFailed('Failed to send message via WhatsApp API');
@@ -389,8 +407,8 @@ class WhatsAppMessageService
 
             DB::commit();
 
-            // Broadcast event to all CRM staff
-            $staffIds = $this->getCrmStaffIds();
+            // Broadcast event to conversation staff (or all CRM staff if none assigned)
+            $staffIds = $this->getStaffIdsForBroadcast($conversation);
             broadcast(new WhatsAppMessageReceived($message, $staffIds));
 
             Log::info('Incoming WhatsApp message processed', [
