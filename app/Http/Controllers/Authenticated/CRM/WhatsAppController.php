@@ -52,7 +52,7 @@ class WhatsAppController extends Controller
             $search = $request->search;
             $query->whereHas('contact', function ($q) use ($search) {
                 $q->where('phone_number', 'like', "%{$search}%")
-                  ->orWhere('whatsapp_name', 'like', "%{$search}%");
+                    ->orWhere('whatsapp_name', 'like', "%{$search}%");
             })->orWhereHas('customer', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%");
             });
@@ -307,7 +307,7 @@ class WhatsAppController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('phone_number', 'like', "%{$search}%")
-                  ->orWhere('whatsapp_name', 'like', "%{$search}%");
+                    ->orWhere('whatsapp_name', 'like', "%{$search}%");
             });
         }
 
@@ -408,5 +408,40 @@ class WhatsAppController extends Controller
             'message' => 'Conversation assigned successfully',
             'data' => $conversation->fresh()->load('assignedStaff'),
         ]);
+    }
+
+    /**
+     * Get media file URL for WhatsApp media.
+     * This acts as a proxy to retrieve media from WhatsApp CDN.
+     */
+    public function getMedia(string $mediaId): JsonResponse
+    {
+        try {
+            // Download/cache the media file
+            $localPath = $this->whatsappService->downloadMedia($mediaId);
+
+            if (!$localPath) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to retrieve media',
+                ], 404);
+            }
+
+            // Return the local URL
+            $url = asset('storage/' . $localPath);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'url' => $url,
+                    'path' => $localPath,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving media: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

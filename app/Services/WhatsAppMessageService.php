@@ -30,7 +30,7 @@ class WhatsAppMessageService
     public function sendTextMessage(int $conversationId, string $message, ?int $sentBy = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
-        
+
         if (!$conversation) {
             Log::error('Conversation not found', ['conversation_id' => $conversationId]);
             return null;
@@ -84,7 +84,7 @@ class WhatsAppMessageService
     public function sendImageMessage(int $conversationId, string $imageUrl, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
-        
+
         if (!$conversation) {
             Log::error('Conversation not found', ['conversation_id' => $conversationId]);
             return null;
@@ -137,7 +137,7 @@ class WhatsAppMessageService
     public function sendDocumentMessage(int $conversationId, string $documentUrl, ?string $filename = null, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
-        
+
         if (!$conversation) {
             Log::error('Conversation not found', ['conversation_id' => $conversationId]);
             return null;
@@ -191,7 +191,7 @@ class WhatsAppMessageService
     public function sendTemplateMessage(int $conversationId, string $templateName, string $languageCode, array $parameters = [], ?int $sentBy = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
-        
+
         if (!$conversation) {
             Log::error('Conversation not found', ['conversation_id' => $conversationId]);
             return null;
@@ -294,39 +294,55 @@ class WhatsAppMessageService
                     break;
                 case 'image':
                     $content = $messageData['image']['caption'] ?? null;
+                    $mediaId = $messageData['image']['id'] ?? null;
+                    $localPath = $mediaId ? $this->whatsappService->downloadMedia($mediaId) : null;
                     $media = [
-                        'id' => $messageData['image']['id'] ?? null,
+                        'id' => $mediaId,
                         'mime_type' => $messageData['image']['mime_type'] ?? null,
                         'sha256' => $messageData['image']['sha256'] ?? null,
                         'type' => 'image',
+                        'url' => $localPath ? asset('storage/' . $localPath) : null,
+                        'path' => $localPath,
                     ];
                     break;
                 case 'document':
                     $content = $messageData['document']['caption'] ?? null;
+                    $mediaId = $messageData['document']['id'] ?? null;
+                    $localPath = $mediaId ? $this->whatsappService->downloadMedia($mediaId) : null;
                     $media = [
-                        'id' => $messageData['document']['id'] ?? null,
+                        'id' => $mediaId,
                         'filename' => $messageData['document']['filename'] ?? null,
                         'mime_type' => $messageData['document']['mime_type'] ?? null,
                         'sha256' => $messageData['document']['sha256'] ?? null,
                         'type' => 'document',
+                        'url' => $localPath ? asset('storage/' . $localPath) : null,
+                        'path' => $localPath,
                     ];
                     break;
                 case 'video':
                     $content = $messageData['video']['caption'] ?? null;
+                    $mediaId = $messageData['video']['id'] ?? null;
+                    $localPath = $mediaId ? $this->whatsappService->downloadMedia($mediaId) : null;
                     $media = [
-                        'id' => $messageData['video']['id'] ?? null,
+                        'id' => $mediaId,
                         'mime_type' => $messageData['video']['mime_type'] ?? null,
                         'sha256' => $messageData['video']['sha256'] ?? null,
                         'type' => 'video',
+                        'url' => $localPath ? asset('storage/' . $localPath) : null,
+                        'path' => $localPath,
                     ];
                     break;
                 case 'audio':
+                    $mediaId = $messageData['audio']['id'] ?? null;
+                    $localPath = $mediaId ? $this->whatsappService->downloadMedia($mediaId) : null;
                     $media = [
-                        'id' => $messageData['audio']['id'] ?? null,
+                        'id' => $mediaId,
                         'mime_type' => $messageData['audio']['mime_type'] ?? null,
                         'sha256' => $messageData['audio']['sha256'] ?? null,
                         'voice' => $messageData['audio']['voice'] ?? false,
                         'type' => 'audio',
+                        'url' => $localPath ? asset('storage/' . $localPath) : null,
+                        'path' => $localPath,
                     ];
                     break;
                 case 'location':

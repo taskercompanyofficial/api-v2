@@ -114,6 +114,7 @@ Route::group(['prefix' => 'crm'], function () {
             Route::put('/contacts/{id}/opt-in', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateContactOptIn']);
             Route::put('/conversations/{id}/status', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateConversationStatus']);
             Route::put('/conversations/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'assignConversation']);
+            Route::get('/media/{mediaId}', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'getMedia']);
         });
 
         // API Tokens Management
