@@ -8,6 +8,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppMessageSent implements ShouldBroadcastNow
 {
@@ -15,25 +16,49 @@ class WhatsAppMessageSent implements ShouldBroadcastNow
 
     public $message;
     public $conversationId;
+    public array $staffIds;
 
     /**
      * Create a new event instance.
+     * 
+     * @param WhatsAppMessage $message The WhatsApp message
+     * @param array $staffIds Array of staff user IDs to broadcast to
      */
-    public function __construct(WhatsAppMessage $message)
+    public function __construct(WhatsAppMessage $message, array $staffIds = [])
     {
         $this->message = $message->load(['conversation.contact']);
         $this->conversationId = $message->whatsapp_conversation_id;
+        $this->staffIds = $staffIds;
+
+        Log::info('WhatsAppMessageSent event created', [
+            'message_id' => $message->id,
+            'staff_ids' => $staffIds,
+        ]);
     }
 
     /**
      * Get the channels the event should broadcast on.
+     * Broadcasts to each staff member's private channel (same as notifications)
      */
     public function broadcastOn(): array
     {
-        // Broadcast to all authenticated users
-        return [
-            new PrivateChannel('whatsapp-messages'),
-        ];
+        $channels = [];
+
+        // Broadcast to each staff member's private channel
+        foreach ($this->staffIds as $staffId) {
+            $channels[] = new PrivateChannel('App.Models.User.' . $staffId);
+        }
+
+        // Fallback to global channel if no staff specified
+        if (empty($channels)) {
+            $channels[] = new PrivateChannel('whatsapp-messages');
+        }
+
+        Log::info('WhatsAppMessageSent broadcasting', [
+            'channels' => count($channels),
+        ]);
+
+        return $channels;
     }
 
     /**
@@ -41,7 +66,7 @@ class WhatsAppMessageSent implements ShouldBroadcastNow
      */
     public function broadcastAs(): string
     {
-        return 'MessageSent';
+        return 'whatsapp.message.sent';
     }
 
     /**

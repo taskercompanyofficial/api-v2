@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\WhatsAppMessageReceived;
 use App\Events\WhatsAppMessageSent;
+use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
@@ -17,6 +18,19 @@ class WhatsAppMessageService
     public function __construct(WhatsAppService $whatsappService)
     {
         $this->whatsappService = $whatsappService;
+    }
+
+    /**
+     * Get all CRM staff user IDs for broadcasting.
+     * 
+     * @return array
+     */
+    protected function getCrmStaffIds(): array
+    {
+        return User::where('is_active', true)
+            ->whereIn('role', ['admin', 'manager', 'staff'])
+            ->pluck('id')
+            ->toArray();
     }
 
     /**
@@ -63,8 +77,9 @@ class WhatsAppMessageService
             $conversation->updateLastMessageTime();
             $conversation->contact->updateLastInteraction();
 
-            // Broadcast event to all users
-            broadcast(new WhatsAppMessageSent($whatsappMessage->fresh()));
+            // Broadcast event to all CRM staff
+            $staffIds = $this->getCrmStaffIds();
+            broadcast(new WhatsAppMessageSent($whatsappMessage->fresh(), $staffIds));
         } else {
             $whatsappMessage->markAsFailed('Failed to send message via WhatsApp API');
         }
@@ -374,8 +389,9 @@ class WhatsAppMessageService
 
             DB::commit();
 
-            // Broadcast event to all users
-            broadcast(new WhatsAppMessageReceived($message));
+            // Broadcast event to all CRM staff
+            $staffIds = $this->getCrmStaffIds();
+            broadcast(new WhatsAppMessageReceived($message, $staffIds));
 
             Log::info('Incoming WhatsApp message processed', [
                 'message_id' => $messageId,
