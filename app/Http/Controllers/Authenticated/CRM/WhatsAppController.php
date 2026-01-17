@@ -420,6 +420,7 @@ class WhatsAppController extends Controller
             // Download/cache the media file
             $localPath = $this->whatsappService->downloadMedia($mediaId);
 
+
             if (!$localPath) {
                 return response()->json([
                     'success' => false,
