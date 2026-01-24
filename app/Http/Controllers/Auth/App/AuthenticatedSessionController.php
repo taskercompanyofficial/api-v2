@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\OTP;
 use App\Models\Staff;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -25,7 +26,7 @@ class AuthenticatedSessionController extends Controller
                 'message' => 'Account not found.',
             ]);
         }
-        
+
         // Check if staff status is active
         if (!$user->status || $user->status->slug !== 'active') {
             $statusMessage = $user->status ? $user->status->name : 'Unknown';
@@ -76,7 +77,7 @@ class AuthenticatedSessionController extends Controller
         }
         $otpRecord->update(['status' => 'expired']);
         $user = Staff::with('status')->where('phone', $phone)->first();
-        
+
         // Check if staff status is active
         if (!$user->status || $user->status->slug !== 'active') {
             $statusMessage = $user->status ? $user->status->name : 'Unknown';
@@ -85,7 +86,7 @@ class AuthenticatedSessionController extends Controller
                 'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
             ], 403);
         }
-        
+
         $token = $user->createToken('auth_token')->plainTextToken;
         // Send new-login WhatsApp message
         return response()->json([
@@ -98,8 +99,7 @@ class AuthenticatedSessionController extends Controller
 
     private function setOtp($phone, $source)
     {
-        // $otp = random_int(100000, 999999);
-        $otp = 123456;
+        $otp = random_int(100000, 999999);
 
         OTP::where('phone_number', $phone)
             ->where('status', '=', 'active')
@@ -113,8 +113,8 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         try {
-             $curlURL = env('WHATS_APP_GRAPHAPI_URL').'/'.env('WHATSAPP_API_VERSION').'/'.env('WHATS_APP_PHONE_NUMBER_ID').'/messages'; 
-             $contactUsPhoneNumber = '+923041112717';
+            $curlURL = env('WHATSAPP_GRAPH_API_URL') . '/' . env('WHATSAPP_API_VERSION') . '/' . env('WHATSAPP_PHONE_NUMBER_ID') . '/messages';
+            $contactUsPhoneNumber = '+923041112717';
             $curlData = [
                 'messaging_product' => 'whatsapp',
                 'to' => $phone,
@@ -143,6 +143,7 @@ class AuthenticatedSessionController extends Controller
                     ],
                 ],
             ];
+            Log::info('OTP send to ' . $phone . ' with OTP ' . $otp);
             $curl = curl_init();
             curl_setopt($curl, CURLOPT_URL, $curlURL);
             curl_setopt($curl, CURLOPT_POST, 1);
@@ -150,12 +151,12 @@ class AuthenticatedSessionController extends Controller
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($curl, CURLOPT_HTTPHEADER, [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . env('WHATS_APP_ACCESS_TOKEN'),
+                'Authorization: Bearer ' . env('WHATSAPP_ACCESS_TOKEN'),
             ]);
             $response = curl_exec($curl);
             curl_close($curl);
         } catch (\Exception $e) {
-            \Log::error('OTP send failed: ' . $e->getMessage());
+            Log::error('OTP send failed: ' . $e->getMessage());
 
             return response()->json([
                 'status' => 'error',
@@ -168,7 +169,7 @@ class AuthenticatedSessionController extends Controller
     {
         $user = $request->user();
         $user = Staff::with(['staffRole:id,name', 'status'])->find($user->id);
-        
+
         // Check if staff status is active
         if (!$user->status || $user->status->slug !== 'active') {
             $user->tokens()->delete();
@@ -178,7 +179,7 @@ class AuthenticatedSessionController extends Controller
                 'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
             ], 403);
         }
-        
+
         // Check if profile is complete
         $requiredFields = [
             'cnic',

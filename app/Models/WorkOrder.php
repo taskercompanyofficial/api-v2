@@ -104,6 +104,9 @@ class WorkOrder extends Model
         // Reminders
         'reminders',
 
+        // Charges/Billing
+        'charges',
+
         // Audit
         'created_by',
         'updated_by',
@@ -136,6 +139,9 @@ class WorkOrder extends Model
         'total_amount' => 'decimal:2',
         'discount' => 'decimal:2',
         'final_amount' => 'decimal:2',
+
+        // JSON
+        'charges' => 'array',
     ];
 
     protected static function boot()

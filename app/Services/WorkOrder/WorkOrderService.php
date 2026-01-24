@@ -280,6 +280,17 @@ class WorkOrderService
                 }
             }
 
+            // Handle used_part_ids - mark parts as used
+            if (isset($data['used_part_ids']) && is_array($data['used_part_ids'])) {
+                $usedPartIds = $data['used_part_ids'];
+                unset($data['used_part_ids']); // Remove from fillable data
+
+                // Update work order parts status to 'used'
+                $workOrder->workOrderParts()
+                    ->whereIn('id', $usedPartIds)
+                    ->update(['status' => 'used']);
+            }
+
             $workOrder->fill($data);
             $workOrder->updated_by = $userId;
             $workOrder->save();
