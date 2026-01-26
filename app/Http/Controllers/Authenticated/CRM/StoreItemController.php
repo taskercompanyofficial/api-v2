@@ -8,6 +8,8 @@ use App\QueryFilterTrait;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
 class StoreItemController extends Controller
 {
     use QueryFilterTrait;
@@ -38,7 +40,7 @@ class StoreItemController extends Controller
         ]);
 
         // Stock filters (your custom logic)
-       
+
         $query->withCount([
             'itemInstances as available_count' => function ($query) {
                 $query->where('status', 'active');
@@ -197,16 +199,97 @@ class StoreItemController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $slug)
     {
-        //
+        $storeItem = StoreItems::where('slug', $slug)->first();
+        if (!$storeItem) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Store item not found',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
+            'price' => 'sometimes|required|numeric|min:0',
+            'images' => 'nullable|array',
+            'low_stock_threshold' => 'nullable|numeric|min:0',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'status' => 'sometimes|required|string|in:active,inactive,draft,archived',
+        ]);
+
+        // Handle name/slug change
+        if (isset($validated['name']) && $validated['name'] !== $storeItem->name) {
+            $newSlug = Str::slug($validated['name']);
+            $originalSlug = $newSlug;
+            $counter = 1;
+            while (StoreItems::where('slug', $newSlug)->where('id', '!=', $storeItem->id)->exists()) {
+                $newSlug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
+            $validated['slug'] = $newSlug;
+        }
+
+        // Handle image upload
+        if ($request->hasFile('images')) {
+            $imagePaths = $storeItem->images ?? [];
+            foreach ($request->file('images') as $image) {
+                $path = Storage::disk('public')->putFile('store-items', $image);
+                $imagePaths[] = $path;
+            }
+            $validated['images'] = $imagePaths;
+        }
+
+        $user = $request->user();
+        $validated['updated_by'] = $user->id;
+
+        try {
+            $storeItem->update($validated);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Store item updated successfully',
+                'slug' => $storeItem->slug,
+            ]);
+        } catch (Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(string $slug)
     {
-        //
+        $storeItem = StoreItems::where('slug', $slug)->first();
+        if (!$storeItem) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Store item not found',
+            ], 404);
+        }
+
+        try {
+            // Delete images from storage
+            if ($storeItem->images && is_array($storeItem->images)) {
+                foreach ($storeItem->images as $imagePath) {
+                    Storage::disk('public')->delete($imagePath);
+                }
+            }
+
+            $storeItem->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Store item deleted successfully',
+            ]);
+        } catch (Exception $err) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $err->getMessage(),
+            ], 500);
+        }
     }
 }
