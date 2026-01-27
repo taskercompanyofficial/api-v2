@@ -195,6 +195,9 @@ class WorkOrderController extends Controller
                 'brand',
                 'branch',
                 'assignedTo',
+                'files' => function ($query) use ($staff) {
+                    $query->where('uploaded_by_id', $staff->id);
+                },
                 'files.fileType',
                 'serviceConcern',
                 'serviceSubConcern',
@@ -215,6 +218,9 @@ class WorkOrderController extends Controller
                     'brand',
                     'branch',
                     'assignedTo',
+                    'files' => function ($query) use ($staff) {
+                        $query->where('uploaded_by_id', $staff->id);
+                    },
                     'files.fileType',
                     'serviceConcern',
                     'serviceSubConcern',
@@ -335,6 +341,9 @@ class WorkOrderController extends Controller
     public function updateDetails(string $id, Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
+            'service_concern_id' => 'nullable|exists:service_concerns,id',
+            'service_sub_concern_id' => 'nullable|exists:service_sub_concerns,id',
+            'warranty_type_id' => 'nullable|exists:warranty_types,id',
             'indoor_serial_number' => 'nullable|string|max:255',
             'outdoor_serial_number' => 'nullable|string|max:255',
             'product_indoor_model' => 'nullable|string|max:255',
@@ -360,6 +369,9 @@ class WorkOrderController extends Controller
                 ->findOrFail($id);
 
             $workOrder->fill($request->only([
+                'service_concern_id',
+                'service_sub_concern_id',
+                'warranty_type_id',
                 'indoor_serial_number',
                 'outdoor_serial_number',
                 'product_indoor_model',
