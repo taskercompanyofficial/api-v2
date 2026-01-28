@@ -36,7 +36,7 @@ class StoreWorkOrderRequest extends FormRequest
             'brand_complaint_no' => 'nullable|string|max:100',
             'priority' => 'required|in:low,medium,high',
             'dealer_id' => 'required|exists:dealers,id',
-            'dealer_branch_id' => 'required|exists:dealer_branches,id',
+            'dealer_branch_id' => 'nullable|exists:dealer_branches,id',
             'reference' => 'required|string|max:100',
             'extra_number' => 'nullable|string|max:100',
         ];
