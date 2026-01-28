@@ -40,6 +40,8 @@ class WorkOrderService
                 'customer_id' => $data['customer_id'],
                 'city_id' => $data['city_id'],
                 'customer_address_id' => $data['customer_address_id'],
+                'dealer_id' => $data['dealer_id'],
+                'dealer_address_id' => $data['dealer_address_id'],
                 'category_id' => $data['category_id'],
                 'service_id' => $data['service_id'],
                 'parent_service_id' => $data['parent_service_id'] ?? null,
@@ -273,7 +275,7 @@ class WorkOrderService
             DB::beginTransaction();
 
             // Transform empty arrays/strings to null for foreign key fields
-            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'service_concern_id', 'service_sub_concern_id', 'city_id'];
+            $foreignKeys = ['authorized_brand_id', 'branch_id', 'category_id', 'service_id', 'parent_service_id', 'service_concern_id', 'service_sub_concern_id', 'city_id', 'dealer_id', 'dealer_branch_id'];
             foreach ($foreignKeys as $key) {
                 if (isset($data[$key]) && (is_array($data[$key]) || $data[$key] === '' || $data[$key] === [])) {
                     $data[$key] = null;
