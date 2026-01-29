@@ -438,7 +438,7 @@ class WhatsAppMessageService
     }
 
     /**
-     * Update message status from webhook.
+     * Update message status from webhook
      *
      * @param string $messageId
      * @param string $status
