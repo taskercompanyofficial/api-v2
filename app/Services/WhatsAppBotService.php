@@ -7,13 +7,15 @@ use App\Models\WorkOrder;
 use App\Models\WhatsAppConversation;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class WhatsAppBotService
 {
     protected WhatsAppService $whatsappService;
     protected ?Customer $customer = null;
     protected ?string $phoneNumber = null;
-    protected string $state = 'main_menu';
+    protected ?string $contactName = null;
+    protected string $state = 'new';
 
     // Cache TTL for session state (30 minutes)
     protected int $sessionTtl = 1800;
@@ -24,38 +26,55 @@ class WhatsAppBotService
     protected string $companyEmail = 'info@taskercompany.com';
     protected string $companyWebsite = 'taskercompany.com';
 
+    // Business hours (Pakistan time)
+    protected int $businessStartHour = 8;  // 8 AM
+    protected int $businessEndHour = 20;   // 8 PM
+
     public function __construct(WhatsAppService $whatsappService)
     {
         $this->whatsappService = $whatsappService;
     }
 
     /**
-     * Process incoming message and return response type.
-     * Returns array with 'type' and message data.
+     * Process incoming message and return response.
      */
-    public function processMessage(string $message, WhatsAppConversation $conversation): array
+    public function processMessage(string $message, WhatsAppConversation $conversation): ?array
     {
         $this->phoneNumber = $conversation->contact->phone_number ?? null;
+        $this->contactName = $conversation->contact->whatsapp_name ?? 'Customer';
         $this->customer = $this->findCustomerByPhone($this->phoneNumber);
         $this->state = $this->getSessionState();
 
         $message = trim($message);
-        $messageLower = strtolower($message);
 
         Log::info('WhatsApp Bot processing', [
             'phone' => $this->phoneNumber,
+            'contact_name' => $this->contactName,
             'customer' => $this->customer?->name,
             'state' => $this->state,
             'message' => $message,
         ]);
 
+        // Check if bot is disabled for this conversation (staff takeover)
+        if ($this->isBotDisabledForConversation($conversation)) {
+            Log::info('Bot disabled for conversation - staff takeover active');
+            return null;
+        }
+
+        // First-time greeting for new conversations
+        if ($this->state === 'new') {
+            $this->setState('main_menu');
+            return $this->getWelcomeGreeting();
+        }
+
         // Check for menu reset commands
-        if (in_array($messageLower, ['menu', 'start', 'hi', 'hello', 'main', '0', 'salam', 'assalam', 'aoa'])) {
+        $messageLower = strtolower($message);
+        if (in_array($messageLower, ['menu', 'start', 'hi', 'hello', 'main', '0', 'salam', 'assalam', 'aoa', 'helo', 'hey'])) {
             $this->setState('main_menu');
             return $this->getMainMenuResponse();
         }
 
-        // Handle interactive button/list replies
+        // Handle interactive button/list selections (button IDs)
         if (str_starts_with($message, 'menu_')) {
             return $this->handleMenuSelection($message);
         }
@@ -71,72 +90,146 @@ class WhatsAppBotService
     }
 
     /**
-     * Get the main menu as interactive list.
+     * Check if bot should be disabled for this conversation (staff takeover).
+     */
+    protected function isBotDisabledForConversation(WhatsAppConversation $conversation): bool
+    {
+        // Check if conversation has staff assigned and bot is disabled
+        return (bool) ($conversation->bot_disabled ?? false);
+    }
+
+    /**
+     * Check if currently within business hours.
+     */
+    protected function isBusinessHours(): bool
+    {
+        $now = Carbon::now('Asia/Karachi');
+        $hour = $now->hour;
+        $dayOfWeek = $now->dayOfWeek; // 0 = Sunday
+
+        // Sunday is off
+        if ($dayOfWeek === 0) {
+            return false;
+        }
+
+        return $hour >= $this->businessStartHour && $hour < $this->businessEndHour;
+    }
+
+    /**
+     * Get next business hours opening time.
+     */
+    protected function getNextOpeningTime(): string
+    {
+        $now = Carbon::now('Asia/Karachi');
+
+        if ($now->hour >= $this->businessEndHour) {
+            // After closing - opens tomorrow
+            return 'tomorrow at 08:00 AM';
+        } elseif ($now->dayOfWeek === 0) {
+            // Sunday - opens Monday
+            return 'Monday at 08:00 AM';
+        } else {
+            return 'at 08:00 AM';
+        }
+    }
+
+    /**
+     * Get the welcome greeting for first-time contact.
+     */
+    protected function getWelcomeGreeting(): array
+    {
+        $customerName = $this->customer?->name ?? $this->contactName;
+
+        $greeting = "Assalam-o-Alaikum! 🙏\n\n" .
+            "Thank You *{$customerName}* for contacting *{$this->companyName}*! 🏠\n\n";
+
+        // Add business hours message if outside hours
+        if (!$this->isBusinessHours()) {
+            $nextOpen = $this->getNextOpeningTime();
+            $greeting .= "⏰ We are currently unavailable, but our team will respond {$nextOpen}.\n\n";
+        }
+
+        $greeting .= "How can we help you today?\n\n" .
+            "📞 Helpline: {$this->helplineUAN}\n" .
+            "📧 Email: {$this->companyEmail}";
+
+        return [
+            'type' => 'interactive_list',
+            'header' => '🏠 Welcome to Tasker Company',
+            'body' => $greeting,
+            'footer' => 'Select an option to continue',
+            'button' => 'Choose Service',
+            'sections' => $this->getMainMenuSections(),
+        ];
+    }
+
+    /**
+     * Get main menu sections for list.
+     */
+    protected function getMainMenuSections(): array
+    {
+        return [
+            [
+                'title' => 'Our Services',
+                'rows' => [
+                    [
+                        'id' => 'menu_track',
+                        'title' => '🔍 Track Order',
+                        'description' => 'Check your work order status',
+                    ],
+                    [
+                        'id' => 'menu_bookings',
+                        'title' => '📋 My Bookings',
+                        'description' => 'View all your active orders',
+                    ],
+                    [
+                        'id' => 'menu_book',
+                        'title' => '📱 Book Service',
+                        'description' => 'Book a new home service',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Support',
+                'rows' => [
+                    [
+                        'id' => 'menu_agent',
+                        'title' => '👤 Talk to Agent',
+                        'description' => 'Chat with our team',
+                    ],
+                    [
+                        'id' => 'menu_contact',
+                        'title' => '📞 Contact Info',
+                        'description' => 'Get our contact details',
+                    ],
+                    [
+                        'id' => 'menu_other',
+                        'title' => '💬 Other Inquiry',
+                        'description' => 'General questions',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Get the main menu response.
      */
     protected function getMainMenuResponse(): array
     {
-        $greeting = $this->customer
-            ? "Assalam o Alaikum {$this->customer->name}! 👋"
-            : "Assalam o Alaikum! 👋";
+        $customerName = $this->customer?->name ?? $this->contactName;
 
-        $body = "{$greeting}
-
-Welcome to *{$this->companyName}* 🏠
-Your trusted home services partner.
-
-How can we help you today?
-
-📞 Helpline: {$this->helplineUAN}
-📧 Email: {$this->companyEmail}";
+        $body = "Hi *{$customerName}*! 👋\n\n" .
+            "What would you like to do?\n\n" .
+            "📞 Helpline: {$this->helplineUAN}";
 
         return [
             'type' => 'interactive_list',
             'header' => '🏠 Tasker Company',
             'body' => $body,
             'footer' => 'Select an option below',
-            'button' => 'Choose Option',
-            'sections' => [
-                [
-                    'title' => 'Services',
-                    'rows' => [
-                        [
-                            'id' => 'menu_track',
-                            'title' => '🔍 Track Order',
-                            'description' => 'Check status of your work order',
-                        ],
-                        [
-                            'id' => 'menu_bookings',
-                            'title' => '📋 My Bookings',
-                            'description' => 'View all your active bookings',
-                        ],
-                        [
-                            'id' => 'menu_book',
-                            'title' => '📱 Book Service',
-                            'description' => 'Book a new home service',
-                        ],
-                    ],
-                ],
-                [
-                    'title' => 'Support',
-                    'rows' => [
-                        [
-                            'id' => 'menu_agent',
-                            'title' => '👤 Talk to Agent',
-                            'description' => 'Connect with our support team',
-                        ],
-                        [
-                            'id' => 'menu_contact',
-                            'title' => '📞 Contact Info',
-                            'description' => 'Get our contact details',
-                        ],
-                        [
-                            'id' => 'menu_other',
-                            'title' => '💬 Other Inquiry',
-                            'description' => 'Send us a message',
-                        ],
-                    ],
-                ],
-            ],
+            'button' => 'Options',
+            'sections' => $this->getMainMenuSections(),
         ];
     }
 
@@ -152,6 +245,7 @@ How can we help you today?
             'menu_agent' => $this->promptTalkAgent(),
             'menu_contact' => $this->showContactInfo(),
             'menu_other' => $this->promptOtherMessage(),
+            'menu_main' => $this->getMainMenuResponse(),
             default => $this->getMainMenuResponse(),
         };
     }
@@ -173,7 +267,7 @@ How can we help you today?
     }
 
     /**
-     * Prompt for work order number with buttons.
+     * Prompt for work order number.
      */
     protected function promptCheckStatus(): array
     {
@@ -182,10 +276,10 @@ How can we help you today?
         return [
             'type' => 'interactive_buttons',
             'header' => '🔍 Track Order Status',
-            'body' => "Please type your work order number.\n\nExample: *WO-2025-00123* or just the number like *123*",
-            'footer' => "📞 Need help? Call {$this->helplineUAN}",
+            'body' => "Please type your work order number.\n\n*Example:* WO-2025-00123\n\nOr type the last few digits like *123*",
+            'footer' => "📞 Need help? {$this->helplineUAN}",
             'buttons' => [
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Back to Menu'],
             ],
         ];
     }
@@ -200,10 +294,8 @@ How can we help you today?
             return $this->getMainMenuResponse();
         }
 
-        // Clean the input
         $woNumber = strtoupper(trim($input));
 
-        // Query work order
         $query = WorkOrder::with(['customer', 'status', 'subStatus', 'assignedTo', 'service'])
             ->where(function ($q) use ($woNumber) {
                 $q->where('work_order_number', $woNumber)
@@ -211,7 +303,6 @@ How can we help you today?
                     ->orWhere('id', is_numeric($woNumber) ? $woNumber : 0);
             });
 
-        // Scope to customer if known
         if ($this->customer) {
             $query->where('customer_id', $this->customer->id);
         }
@@ -222,38 +313,29 @@ How can we help you today?
             return [
                 'type' => 'interactive_buttons',
                 'header' => '❌ Order Not Found',
-                'body' => "We couldn't find work order: *{$woNumber}*" .
-                    ($this->customer ? " in your account." : ".") .
-                    "\n\nPlease check the number and try again.",
-                'footer' => "📞 Need help? Call {$this->helplineUAN}",
+                'body' => "We couldn't find order *{$woNumber}*.\n\nPlease check the number and try again.",
+                'footer' => "📞 Help: {$this->helplineUAN}",
                 'buttons' => [
                     ['id' => 'menu_track', 'title' => '🔄 Try Again'],
-                    ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                    ['id' => 'menu_main', 'title' => '↩️ Menu'],
                 ],
             ];
         }
 
-        // Reset state
         $this->setState('main_menu');
-
         $statusEmoji = $this->getStatusEmoji($workOrder->status?->slug);
-        $scheduled = $workOrder->scheduled_date?->format('d M Y') ?? 'To be scheduled';
-        $assignee = $workOrder->assignedTo?->first_name ?? 'Not yet assigned';
 
         return [
             'type' => 'interactive_buttons',
             'header' => "📋 {$workOrder->work_order_number}",
-            'body' => "{$statusEmoji} *Status:* {$workOrder->status?->name}" .
-                ($workOrder->subStatus ? "\n📍 {$workOrder->subStatus->name}" : "") .
-                "\n\n🔧 *Service:* {$workOrder->service?->name}" .
-                "\n👤 *Customer:* {$workOrder->customer?->name}" .
-                "\n👷 *Technician:* {$assignee}" .
-                "\n📅 *Scheduled:* {$scheduled}" .
-                "\n\n_Order created: {$workOrder->created_at->format('d M Y')}_",
-            'footer' => "📞 Questions? Call {$this->helplineUAN}",
+            'body' => "{$statusEmoji} *Status:* {$workOrder->status?->name}\n" .
+                "🔧 *Service:* {$workOrder->service?->name}\n" .
+                "👷 *Technician:* " . ($workOrder->assignedTo?->first_name ?? 'Pending') . "\n" .
+                "📅 *Date:* " . ($workOrder->scheduled_date?->format('d M Y') ?? 'TBD'),
+            'footer' => "📞 {$this->helplineUAN}",
             'buttons' => [
-                ['id' => 'menu_track', 'title' => '🔍 Check Another'],
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_track', 'title' => '🔍 Another Order'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -269,10 +351,10 @@ How can we help you today?
             return [
                 'type' => 'interactive_buttons',
                 'header' => '🔐 Verification Needed',
-                'body' => "We couldn't find an account linked to this phone number.\n\nTo view your bookings, please provide your work order number instead.",
-                'footer' => "📞 Need help? Call {$this->helplineUAN}",
+                'body' => "We couldn't link this number to an account.\n\nTry tracking by order number instead.",
+                'footer' => "📞 {$this->helplineUAN}",
                 'buttons' => [
-                    ['id' => 'menu_track', 'title' => '🔍 Track by Order #'],
+                    ['id' => 'menu_track', 'title' => '🔍 Track Order'],
                     ['id' => 'menu_agent', 'title' => '👤 Talk to Agent'],
                 ],
             ];
@@ -280,39 +362,37 @@ How can we help you today?
 
         $workOrders = WorkOrder::with(['status', 'service'])
             ->where('customer_id', $this->customer->id)
-            ->whereHas('status', function ($q) {
-                $q->whereNotIn('slug', ['closed', 'cancelled', 'completed']);
-            })
+            ->whereHas('status', fn($q) => $q->whereNotIn('slug', ['closed', 'cancelled', 'completed']))
             ->orderBy('created_at', 'desc')
-            ->limit(8)
+            ->limit(5)
             ->get();
 
         if ($workOrders->isEmpty()) {
             return [
                 'type' => 'interactive_buttons',
-                'header' => '📭 No Active Bookings',
-                'body' => "Hi {$this->customer->name}!\n\nYou don't have any active service requests at the moment.\n\nWould you like to book a new service?",
-                'footer' => "📞 Call us: {$this->helplineUAN}",
+                'header' => '📭 No Active Orders',
+                'body' => "You have no active service requests.",
+                'footer' => "📞 {$this->helplineUAN}",
                 'buttons' => [
                     ['id' => 'menu_book', 'title' => '📱 Book Service'],
-                    ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                    ['id' => 'menu_main', 'title' => '↩️ Menu'],
                 ],
             ];
         }
 
-        $list = $workOrders->map(function ($wo) {
-            $emoji = $this->getStatusEmoji($wo->status?->slug);
-            return "{$emoji} *{$wo->work_order_number}*\n     {$wo->status?->name} • {$wo->service?->name}";
-        })->join("\n\n");
+        $list = $workOrders->map(
+            fn($wo) =>
+            $this->getStatusEmoji($wo->status?->slug) . " *{$wo->work_order_number}*\n    {$wo->status?->name}"
+        )->join("\n\n");
 
         return [
             'type' => 'interactive_buttons',
-            'header' => "📋 Your Active Bookings",
-            'body' => "Hi {$this->customer->name}! Here are your active orders:\n\n{$list}",
-            'footer' => "Reply with order # for details",
+            'header' => '📋 Your Active Orders',
+            'body' => $list,
+            'footer' => 'Reply with order # for details',
             'buttons' => [
                 ['id' => 'menu_track', 'title' => '🔍 Get Details'],
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -327,15 +407,14 @@ How can we help you today?
         return [
             'type' => 'interactive_buttons',
             'header' => '📱 Book a Service',
-            'body' => "To book a new home service, you can:\n\n" .
-                "🌐 *Website:* {$this->companyWebsite}\n" .
-                "📲 *App:* Download from Play Store\n" .
-                "📞 *Call:* {$this->helplineUAN}\n\n" .
-                "_WhatsApp booking coming soon!_ 🚀",
-            'footer' => "We offer AC, Plumbing, Electric & more!",
+            'body' => "To book a service:\n\n" .
+                "🌐 Web: {$this->companyWebsite}\n" .
+                "📞 Call: {$this->helplineUAN}\n\n" .
+                "_WhatsApp booking coming soon!_",
+            'footer' => 'AC, Plumbing, Electric & more!',
             'buttons' => [
                 ['id' => 'menu_contact', 'title' => '📞 Contact Us'],
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -350,20 +429,15 @@ How can we help you today?
         return [
             'type' => 'interactive_buttons',
             'header' => '📞 Contact Us',
-            'body' => "*{$this->companyName}*\n" .
-                "Your Trusted Home Services Partner\n\n" .
-                "━━━━━━━━━━━━━━━━━━━━\n\n" .
-                "📞 *UAN:* {$this->helplineUAN}\n" .
-                "📧 *Email:* {$this->companyEmail}\n" .
-                "🌐 *Web:* {$this->companyWebsite}\n\n" .
-                "━━━━━━━━━━━━━━━━━━━━\n\n" .
-                "🕐 *Business Hours:*\n" .
-                "Mon-Sat: 9:00 AM - 6:00 PM\n" .
-                "Sunday: Emergency Only",
+            'body' => "*{$this->companyName}*\n\n" .
+                "📞 UAN: {$this->helplineUAN}\n" .
+                "📧 Email: {$this->companyEmail}\n" .
+                "🌐 Web: {$this->companyWebsite}\n\n" .
+                "🕐 Mon-Sat: 8AM - 8PM",
             'footer' => "We're here to help!",
             'buttons' => [
                 ['id' => 'menu_agent', 'title' => '👤 Chat with Agent'],
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -375,19 +449,26 @@ How can we help you today?
     {
         $this->setState('talk_agent');
 
+        $msg = "Type your message and we'll connect you.\n\n";
+        if (!$this->isBusinessHours()) {
+            $msg .= "⏰ _We're offline now. Response {$this->getNextOpeningTime()}_";
+        } else {
+            $msg .= "_Response time: ~5-10 mins_";
+        }
+
         return [
             'type' => 'interactive_buttons',
-            'header' => '👤 Talk to Representative',
-            'body' => "Please describe your query or concern.\n\nType your message and our team will respond shortly.\n\n_Average response time: 5-10 minutes during business hours_",
-            'footer' => "📞 Urgent? Call {$this->helplineUAN}",
+            'header' => '👤 Talk to Agent',
+            'body' => $msg,
+            'footer' => "📞 Urgent? {$this->helplineUAN}",
             'buttons' => [
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
 
     /**
-     * Handle talk to agent flow.
+     * Handle talk to agent.
      */
     protected function handleTalkAgent(string $message, WhatsAppConversation $conversation): array
     {
@@ -396,27 +477,25 @@ How can we help you today?
             return $this->getMainMenuResponse();
         }
 
-        // Mark conversation as needing human attention
-        $conversation->update([
-            'status' => 'open',
-            'notes' => "Customer requested support. Query: {$message}",
-        ]);
-
+        $conversation->update(['status' => 'open', 'notes' => "Agent request: {$message}"]);
         $this->setState('main_menu');
 
-        $customerName = $this->customer?->name ?? 'Valued Customer';
+        $response = "✅ *Message Sent!*\n\n" .
+            "📩 _\"{$message}\"_\n\n";
+
+        if (!$this->isBusinessHours()) {
+            $response .= "⏰ We'll respond {$this->getNextOpeningTime()}.";
+        } else {
+            $response .= "Our team will reply shortly.";
+        }
 
         return [
             'type' => 'interactive_buttons',
-            'header' => '✅ Message Received!',
-            'body' => "Thank you {$customerName}!\n\n" .
-                "Your message has been sent to our support team:\n\n" .
-                "📩 _\"{$message}\"_\n\n" .
-                "A representative will respond shortly.\n" .
-                "_Business hours: 9 AM - 6 PM_",
-            'footer' => "📞 Urgent? Call {$this->helplineUAN}",
+            'header' => '✅ Received!',
+            'body' => $response,
+            'footer' => "📞 Urgent? {$this->helplineUAN}",
             'buttons' => [
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -431,10 +510,10 @@ How can we help you today?
         return [
             'type' => 'interactive_buttons',
             'header' => '💬 General Inquiry',
-            'body' => "Please type your question or feedback.\n\nWe value your input and will review your message.",
-            'footer' => "📞 Quick help: {$this->helplineUAN}",
+            'body' => "Please type your question or feedback.",
+            'footer' => "📞 {$this->helplineUAN}",
             'buttons' => [
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -449,20 +528,16 @@ How can we help you today?
             return $this->getMainMenuResponse();
         }
 
-        // Save the inquiry
-        $conversation->update([
-            'notes' => "General inquiry: {$message}",
-        ]);
-
+        $conversation->update(['notes' => "Inquiry: {$message}"]);
         $this->setState('main_menu');
 
         return [
             'type' => 'interactive_buttons',
-            'header' => '✅ Message Received',
-            'body' => "Thank you for reaching out!\n\nWe've received your message:\n📩 _\"{$message}\"_\n\nOur team will review and respond if needed.",
-            'footer' => "Thanks for contacting {$this->companyName}",
+            'header' => '✅ Received',
+            'body' => "Thank you! We've got your message.\n\n📩 _\"{$message}\"_",
+            'footer' => "Thanks for reaching out!",
             'buttons' => [
-                ['id' => 'menu_main', 'title' => '↩️ Main Menu'],
+                ['id' => 'menu_main', 'title' => '↩️ Menu'],
             ],
         ];
     }
@@ -474,9 +549,9 @@ How can we help you today?
     {
         return [
             'type' => 'interactive_buttons',
-            'header' => '❓ Invalid Selection',
-            'body' => "Sorry, I didn't understand that.\n\nPlease select an option from the menu or type *menu* to see options.",
-            'footer' => "📞 Need help? Call {$this->helplineUAN}",
+            'header' => '❓ Invalid Option',
+            'body' => "Please select from the menu or type *menu* for options.",
+            'footer' => "📞 {$this->helplineUAN}",
             'buttons' => [
                 ['id' => 'menu_main', 'title' => '📋 Show Menu'],
             ],
@@ -501,41 +576,36 @@ How can we help you today?
     }
 
     /**
-     * Find customer by phone number.
+     * Find customer by phone.
      */
     protected function findCustomerByPhone(?string $phone): ?Customer
     {
-        if (!$phone) {
-            return null;
-        }
+        if (!$phone) return null;
 
-        $normalizedPhone = preg_replace('/[^0-9]/', '', $phone);
+        $normalized = preg_replace('/[^0-9]/', '', $phone);
 
-        return Customer::where('phone', 'like', '%' . $normalizedPhone)
-            ->orWhere('whatsapp', 'like', '%' . $normalizedPhone)
-            ->orWhere('phone', 'like', '%' . substr($normalizedPhone, -10))
+        return Customer::where('phone', 'like', '%' . $normalized)
+            ->orWhere('whatsapp', 'like', '%' . $normalized)
+            ->orWhere('phone', 'like', '%' . substr($normalized, -10))
             ->first();
     }
 
     /**
-     * Get session state from cache.
+     * Get session state.
      */
     protected function getSessionState(): string
     {
-        if (!$this->phoneNumber) {
-            return 'main_menu';
-        }
-
-        return Cache::get("whatsapp_bot_state:{$this->phoneNumber}", 'main_menu');
+        if (!$this->phoneNumber) return 'new';
+        return Cache::get("whatsapp_bot:{$this->phoneNumber}", 'new');
     }
 
     /**
-     * Set session state in cache.
+     * Set session state.
      */
     protected function setState(string $state): void
     {
         if ($this->phoneNumber) {
-            Cache::put("whatsapp_bot_state:{$this->phoneNumber}", $state, $this->sessionTtl);
+            Cache::put("whatsapp_bot:{$this->phoneNumber}", $state, $this->sessionTtl);
         }
         $this->state = $state;
     }

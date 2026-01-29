@@ -327,6 +327,17 @@ class WhatsAppMessageService
                 case 'text':
                     $content = $messageData['text']['body'] ?? null;
                     break;
+                case 'interactive':
+                    // Handle interactive button/list replies
+                    $interactiveType = $messageData['interactive']['type'] ?? null;
+                    if ($interactiveType === 'button_reply') {
+                        $content = $messageData['interactive']['button_reply']['id'] ?? null;
+                    } elseif ($interactiveType === 'list_reply') {
+                        $content = $messageData['interactive']['list_reply']['id'] ?? null;
+                    }
+                    // Treat as text for bot processing
+                    $type = 'text';
+                    break;
                 case 'image':
                     $content = $messageData['image']['caption'] ?? null;
                     $mediaId = $messageData['image']['id'] ?? null;
