@@ -41,7 +41,7 @@ class WorkOrderService
                 'city_id' => $data['city_id'],
                 'customer_address_id' => $data['customer_address_id'],
                 'dealer_id' => $data['dealer_id'],
-                'dealer_address_id' => $data['dealer_address_id'],
+                'dealer_branch_id' => $data['dealer_branch_id'],
                 'category_id' => $data['category_id'],
                 'service_id' => $data['service_id'],
                 'parent_service_id' => $data['parent_service_id'] ?? null,
