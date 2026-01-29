@@ -8,19 +8,18 @@ use App\Models\Staff;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
-use App\Services\AI\GeminiAgentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppMessageService
 {
     protected WhatsAppService $whatsappService;
-    protected GeminiAgentService $aiAgent;
+    protected WhatsAppBotService $botService;
 
-    public function __construct(WhatsAppService $whatsappService, GeminiAgentService $aiAgent)
+    public function __construct(WhatsAppService $whatsappService, WhatsAppBotService $botService)
     {
         $this->whatsappService = $whatsappService;
-        $this->aiAgent = $aiAgent;
+        $this->botService = $botService;
     }
 
     /**
@@ -421,9 +420,9 @@ class WhatsAppMessageService
                 'contact_name' => $contactName,
             ]);
 
-            // Process AI response if enabled and message is text
+            // Process bot response if enabled and message is text
             if ($type === 'text' && $content) {
-                $this->processAIResponse($conversation, $content);
+                $this->processBotResponse($conversation, $content);
             }
 
             return $message;
@@ -487,63 +486,42 @@ class WhatsAppMessageService
      * @param string $userMessage
      * @return void
      */
-    protected function processAIResponse(WhatsAppConversation $conversation, string $userMessage): void
+    protected function processBotResponse(WhatsAppConversation $conversation, string $userMessage): void
     {
-        Log::info('=== AI AGENT START ===', [
-            'conversation_id' => $conversation->id,
-            'user_message' => $userMessage,
-            'phone' => $conversation->contact->phone_number ?? 'unknown',
-        ]);
-
-        // Check if AI agent is enabled
-        $aiEnabled = config('ai.whatsapp_agent.enabled', false);
-        Log::debug('AI Agent enabled check', ['enabled' => $aiEnabled]);
-
-        if (!$aiEnabled) {
-            Log::info('AI Agent skipped: WHATSAPP_AI_AGENT_ENABLED is false');
-            return;
-        }
-
-        // Check if Gemini API key is configured
-        $apiKey = config('ai.gemini.api_key');
-        Log::debug('Gemini API key check', ['has_key' => !empty($apiKey)]);
-
-        if (!$apiKey) {
-            Log::warning('AI Agent skipped: GEMINI_API_KEY not configured');
+        // Check if bot is enabled
+        if (!config('whatsapp.bot.enabled', true)) {
+            Log::debug('WhatsApp Bot is disabled');
             return;
         }
 
         try {
-            Log::info('Calling GeminiAgentService.processMessage');
-
-            // Get AI response
-            $aiResponse = $this->aiAgent->processMessage($userMessage, [
-                'phone' => $conversation->contact->phone_number ?? null,
+            Log::info('=== WHATSAPP BOT START ===', [
+                'conversation_id' => $conversation->id,
+                'user_message' => $userMessage,
             ]);
 
-            Log::info('GeminiAgentService response received', [
-                'response_length' => strlen($aiResponse ?? ''),
-                'response_preview' => substr($aiResponse ?? '', 0, 200),
-            ]);
+            // Get bot response
+            $botResponse = $this->botService->processMessage($userMessage, $conversation);
 
-            if (!$aiResponse) {
-                Log::warning('AI Agent returned empty response');
+            if (!$botResponse) {
+                Log::warning('Bot returned empty response');
                 return;
             }
 
-            // Send AI response back to user
-            Log::info('Sending AI response via WhatsApp');
-            $this->sendTextMessage($conversation->id, $aiResponse);
+            Log::info('Bot response generated', [
+                'response_length' => strlen($botResponse),
+            ]);
 
-            Log::info('=== AI AGENT COMPLETE ===', [
+            // Send bot response back to user
+            $this->sendTextMessage($conversation->id, $botResponse);
+
+            Log::info('=== WHATSAPP BOT COMPLETE ===', [
                 'conversation_id' => $conversation->id,
-                'response_sent' => true,
             ]);
         } catch (\Exception $e) {
-            Log::error('=== AI AGENT ERROR ===', [
+            Log::error('=== WHATSAPP BOT ERROR ===', [
                 'conversation_id' => $conversation->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

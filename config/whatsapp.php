@@ -125,4 +125,19 @@ return [
 
     'app_secret' => env('WHATSAPP_APP_SECRET'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Bot Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for the menu-based WhatsApp chatbot that handles customer
+    | inquiries, work order status checks, and agent escalation.
+    |
+    */
+
+    'bot' => [
+        'enabled' => env('WHATSAPP_BOT_ENABLED', true),
+        'session_ttl' => 1800, // 30 minutes
+    ],
+
 ];
