@@ -70,10 +70,11 @@ class WhatsAppConversation extends Model
     /**
      * Get all staff members who can view/manage this conversation.
      * Uses the pivot table for many-to-many relationship.
+     * Note: The pivot column is 'user_id' but references 'staff' table.
      */
     public function staff(): BelongsToMany
     {
-        return $this->belongsToMany(Staff::class, 'whatsapp_conversation_staff', 'whatsapp_conversation_id', 'staff_id')
+        return $this->belongsToMany(Staff::class, 'whatsapp_conversation_staff', 'whatsapp_conversation_id', 'user_id')
             ->withPivot(['role', 'notifications_enabled', 'last_viewed_at'])
             ->withTimestamps();
     }
