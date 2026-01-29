@@ -38,6 +38,9 @@ class WhatsAppMessage extends Model
         'sent_at',
         'delivered_at',
         'read_at',
+        'parent_message_id',
+        'reactions',
+        'is_forwarded',
     ];
 
     /**
@@ -52,6 +55,8 @@ class WhatsAppMessage extends Model
         'sent_at' => 'datetime',
         'delivered_at' => 'datetime',
         'read_at' => 'datetime',
+        'reactions' => 'json',
+        'is_forwarded' => 'boolean',
     ];
 
     /**
@@ -68,6 +73,22 @@ class WhatsAppMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'sent_by');
+    }
+
+    /**
+     * Get the parent message that this message is replying to.
+     */
+    public function parentMessage(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppMessage::class, 'parent_message_id', 'whatsapp_message_id');
+    }
+
+    /**
+     * Get the replies to this message.
+     */
+    public function replies(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WhatsAppMessage::class, 'parent_message_id', 'whatsapp_message_id');
     }
 
     /**

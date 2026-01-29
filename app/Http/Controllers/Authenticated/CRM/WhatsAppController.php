@@ -95,6 +95,7 @@ class WhatsAppController extends Controller
         $validator = Validator::make($request->all(), [
             'conversation_id' => 'required|exists:whatsapp_conversations,id',
             'message' => 'required|string|max:4096',
+            'parent_message_id' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -107,7 +108,8 @@ class WhatsAppController extends Controller
         $message = $this->messageService->sendTextMessage(
             $request->conversation_id,
             $request->message,
-            $request->user()->id
+            $request->user()->id,
+            $request->parent_message_id
         );
 
         if (!$message) {
@@ -427,6 +429,42 @@ class WhatsAppController extends Controller
             'success' => true,
             'message' => 'Conversation assigned successfully',
             'data' => $conversation->fresh()->load('assignedStaff'),
+        ]);
+    }
+
+    /**
+     * React to a message.
+     */
+    public function react(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'message_id' => 'required|string',
+            'emoji' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $success = $this->messageService->sendReaction(
+            $request->message_id,
+            $request->emoji,
+            $request->user()->id
+        );
+
+        if (!$success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add reaction',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reaction added successfully',
         ]);
     }
 

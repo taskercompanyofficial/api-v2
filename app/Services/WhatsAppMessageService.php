@@ -59,9 +59,10 @@ class WhatsAppMessageService
      * @param int $conversationId
      * @param string $message
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId WhatsApp message ID being replied to
      * @return WhatsAppMessage|null
      */
-    public function sendTextMessage(int $conversationId, string $message, ?int $sentBy = null): ?WhatsAppMessage
+    public function sendTextMessage(int $conversationId, string $message, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -78,12 +79,16 @@ class WhatsAppMessageService
             'content' => $message,
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendTextMessage(
             $conversation->contact->phone_number,
-            $message
+            $message,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -114,9 +119,10 @@ class WhatsAppMessageService
      * @param string $imageUrl
      * @param string|null $caption
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendImageMessage(int $conversationId, string $imageUrl, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
+    public function sendImageMessage(int $conversationId, string $imageUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -134,13 +140,17 @@ class WhatsAppMessageService
             'media' => ['url' => $imageUrl, 'type' => 'image'],
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendImageMessage(
             $conversation->contact->phone_number,
             $imageUrl,
-            $caption
+            $caption,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -167,9 +177,10 @@ class WhatsAppMessageService
      * @param string|null $filename
      * @param string|null $caption
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendDocumentMessage(int $conversationId, string $documentUrl, ?string $filename = null, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
+    public function sendDocumentMessage(int $conversationId, string $documentUrl, ?string $filename = null, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -187,14 +198,18 @@ class WhatsAppMessageService
             'media' => ['url' => $documentUrl, 'type' => 'document', 'filename' => $filename],
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendDocumentMessage(
             $conversation->contact->phone_number,
             $documentUrl,
             $filename,
-            $caption
+            $caption,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -220,9 +235,10 @@ class WhatsAppMessageService
      * @param string $videoUrl
      * @param string|null $caption
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendVideoMessage(int $conversationId, string $videoUrl, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
+    public function sendVideoMessage(int $conversationId, string $videoUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -240,13 +256,17 @@ class WhatsAppMessageService
             'media' => ['url' => $videoUrl, 'type' => 'video'],
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendVideoMessage(
             $conversation->contact->phone_number,
             $videoUrl,
-            $caption
+            $caption,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -271,9 +291,10 @@ class WhatsAppMessageService
      * @param int $conversationId
      * @param string $audioUrl
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendAudioMessage(int $conversationId, string $audioUrl, ?int $sentBy = null): ?WhatsAppMessage
+    public function sendAudioMessage(int $conversationId, string $audioUrl, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -290,12 +311,16 @@ class WhatsAppMessageService
             'media' => ['url' => $audioUrl, 'type' => 'audio'],
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendAudioMessage(
             $conversation->contact->phone_number,
-            $audioUrl
+            $audioUrl,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -322,9 +347,10 @@ class WhatsAppMessageService
      * @param string $languageCode
      * @param array $parameters
      * @param int|null $sentBy User ID
+     * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendTemplateMessage(int $conversationId, string $templateName, string $languageCode, array $parameters = [], ?int $sentBy = null): ?WhatsAppMessage
+    public function sendTemplateMessage(int $conversationId, string $templateName, string $languageCode, array $parameters = [], ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -345,14 +371,18 @@ class WhatsAppMessageService
             ],
             'status' => 'pending',
             'sent_by' => $sentBy,
+            'parent_message_id' => $parentMessageId,
         ]);
+
+        $context = $parentMessageId ? ['message_id' => $parentMessageId] : null;
 
         // Send via WhatsApp API
         $response = $this->whatsappService->sendTemplateMessage(
             $conversation->contact->phone_number,
             $templateName,
             $languageCode,
-            $parameters
+            $parameters,
+            $context
         );
 
         if ($response && isset($response['messages'][0]['id'])) {
@@ -387,6 +417,8 @@ class WhatsAppMessageService
             $timestamp = $messageData['timestamp'] ?? null;
             $contactProfile = $messageData['contact_profile'] ?? null;
             $metadata = $messageData['metadata'] ?? null;
+            $context = $messageData['context'] ?? null;
+            $parentMessageId = $context['id'] ?? null;
 
             if (!$from || !$messageId) {
                 Log::error('Invalid incoming message data', ['data' => $messageData]);
@@ -513,6 +545,7 @@ class WhatsAppMessageService
                 'media' => $media,
                 'status' => 'delivered',
                 'delivered_at' => $timestamp ? now()->setTimestamp($timestamp) : now(),
+                'parent_message_id' => $parentMessageId,
             ]);
 
             // Update conversation and contact
@@ -687,5 +720,51 @@ class WhatsAppMessageService
                 'trace' => $e->getTraceAsString(),
             ]);
         }
+    }
+
+    /**
+     * Send a reaction to a message.
+     *
+     * @param string $messageId WhatsApp message ID
+     * @param string $emoji Emoji
+     * @param int|null $sentBy User ID
+     * @return bool
+     */
+    public function sendReaction(string $messageId, string $emoji, ?int $sentBy = null): bool
+    {
+        $message = WhatsAppMessage::where('whatsapp_message_id', $messageId)->first();
+
+        if (!$message) {
+            Log::error('Message not found for reaction', ['message_id' => $messageId]);
+            return false;
+        }
+
+        $conversation = $message->conversation;
+
+        // Send via WhatsApp API
+        $response = $this->whatsappService->sendReaction(
+            $conversation->contact->phone_number,
+            $messageId,
+            $emoji
+        );
+
+        if ($response && isset($response['messages'][0]['id'])) {
+            // Update message reactions JSON
+            $reactions = $message->reactions ?? [];
+            $userId = $sentBy ?? 0;
+
+            // Allow only one reaction per user (standard behavior)
+            $reactions[$userId] = $emoji;
+
+            $message->update(['reactions' => $reactions]);
+
+            // Broadcast update to staff
+            $staffIds = $this->getStaffIdsForBroadcast($conversation);
+            broadcast(new WhatsAppMessageSent($message->fresh(), $staffIds));
+
+            return true;
+        }
+
+        return false;
     }
 }

@@ -66,22 +66,29 @@ class WhatsAppService
      *
      * @param string $to Phone number in E.164 format
      * @param string $message Message text
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendTextMessage(string $to, string $message): ?array
+    public function sendTextMessage(string $to, string $message, ?array $context = null): ?array
     {
         try {
-            $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'text',
-                    'text' => [
-                        'preview_url' => true,
-                        'body' => $message,
-                    ],
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'text',
+                'text' => [
+                    'preview_url' => true,
+                    'body' => $message,
                 ],
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -108,9 +115,10 @@ class WhatsAppService
      * @param string $to Phone number in E.164 format
      * @param string $imageUrl URL or media ID
      * @param string|null $caption Optional caption
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendImageMessage(string $to, string $imageUrl, ?string $caption = null): ?array
+    public function sendImageMessage(string $to, string $imageUrl, ?string $caption = null, ?array $context = null): ?array
     {
         try {
             $imageData = ['link' => $imageUrl];
@@ -119,14 +127,20 @@ class WhatsAppService
                 $imageData['caption'] = $caption;
             }
 
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'image',
+                'image' => $imageData,
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
             $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'image',
-                    'image' => $imageData,
-                ],
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -154,9 +168,10 @@ class WhatsAppService
      * @param string $documentUrl URL or media ID
      * @param string|null $filename Optional filename
      * @param string|null $caption Optional caption
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendDocumentMessage(string $to, string $documentUrl, ?string $filename = null, ?string $caption = null): ?array
+    public function sendDocumentMessage(string $to, string $documentUrl, ?string $filename = null, ?string $caption = null, ?array $context = null): ?array
     {
         try {
             $documentData = ['link' => $documentUrl];
@@ -169,14 +184,20 @@ class WhatsAppService
                 $documentData['caption'] = $caption;
             }
 
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'document',
+                'document' => $documentData,
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
             $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'document',
-                    'document' => $documentData,
-                ],
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -203,9 +224,10 @@ class WhatsAppService
      * @param string $to Phone number in E.164 format
      * @param string $videoUrl URL or media ID
      * @param string|null $caption Optional caption
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendVideoMessage(string $to, string $videoUrl, ?string $caption = null): ?array
+    public function sendVideoMessage(string $to, string $videoUrl, ?string $caption = null, ?array $context = null): ?array
     {
         try {
             $videoData = ['link' => $videoUrl];
@@ -214,14 +236,20 @@ class WhatsAppService
                 $videoData['caption'] = $caption;
             }
 
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'video',
+                'video' => $videoData,
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
             $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'video',
-                    'video' => $videoData,
-                ],
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -247,19 +275,26 @@ class WhatsAppService
      *
      * @param string $to Phone number in E.164 format
      * @param string $audioUrl URL or media ID
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendAudioMessage(string $to, string $audioUrl): ?array
+    public function sendAudioMessage(string $to, string $audioUrl, ?array $context = null): ?array
     {
         try {
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'audio',
+                'audio' => ['link' => $audioUrl],
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
             $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'audio',
-                    'audio' => ['link' => $audioUrl],
-                ],
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -287,9 +322,10 @@ class WhatsAppService
      * @param string $templateName Template name
      * @param string $languageCode Language code (e.g., 'en', 'es')
      * @param array $parameters Template parameters
+     * @param array|null $context Optional message context for replies
      * @return array|null
      */
-    public function sendTemplateMessage(string $to, string $templateName, string $languageCode, array $parameters = []): ?array
+    public function sendTemplateMessage(string $to, string $templateName, string $languageCode, array $parameters = [], ?array $context = null): ?array
     {
         try {
             $components = [];
@@ -306,20 +342,26 @@ class WhatsAppService
                 ];
             }
 
-            $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'recipient_type' => 'individual',
-                    'to' => $to,
-                    'type' => 'template',
-                    'template' => [
-                        'name' => $templateName,
-                        'language' => [
-                            'code' => $languageCode,
-                        ],
-                        'components' => $components,
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $to,
+                'type' => 'template',
+                'template' => [
+                    'name' => $templateName,
+                    'language' => [
+                        'code' => $languageCode,
                     ],
+                    'components' => $components,
                 ],
+            ];
+
+            if ($context) {
+                $payload['context'] = $context;
+            }
+
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => $payload,
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
@@ -613,6 +655,49 @@ class WhatsAppService
         } catch (GuzzleException $e) {
             Log::error('Failed to send WhatsApp interactive list', [
                 'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+    /**
+     * Send a reaction to a message.
+     *
+     * @param string $to Phone number in E.164 format
+     * @param string $messageId WhatsApp message ID to react to
+     * @param string $emoji Emoji to react with
+     * @return array|null
+     */
+    public function sendReaction(string $to, string $messageId, string $emoji): ?array
+    {
+        try {
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type' => 'individual',
+                    'to' => $to,
+                    'type' => 'reaction',
+                    'reaction' => [
+                        'message_id' => $messageId,
+                        'emoji' => $emoji,
+                    ],
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('WhatsApp reaction sent', [
+                'to' => $to,
+                'message_id' => $messageId,
+                'emoji' => $emoji,
+            ]);
+
+            return $data;
+        } catch (GuzzleException $e) {
+            Log::error('Failed to send WhatsApp reaction', [
+                'to' => $to,
+                'message_id' => $messageId,
                 'error' => $e->getMessage(),
             ]);
 
