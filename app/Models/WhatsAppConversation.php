@@ -73,7 +73,7 @@ class WhatsAppConversation extends Model
      */
     public function staff(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'whatsapp_conversation_staff')
+        return $this->belongsToMany(Staff::class, 'whatsapp_conversation_staff', 'whatsapp_conversation_id', 'staff_id')
             ->withPivot(['role', 'notifications_enabled', 'last_viewed_at'])
             ->withTimestamps();
     }
@@ -85,7 +85,7 @@ class WhatsAppConversation extends Model
     {
         return $this->staff()
             ->wherePivot('notifications_enabled', true)
-            ->pluck('users.id')
+            ->pluck('staffs.id')
             ->toArray();
     }
 
