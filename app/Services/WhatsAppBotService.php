@@ -124,12 +124,12 @@ class WhatsAppBotService
 
         if ($now->hour >= $this->businessEndHour) {
             // After closing - opens tomorrow
-            return 'tomorrow at 08:00 AM';
+            return 'tomorrow at 09:00 AM';
         } elseif ($now->dayOfWeek === 0) {
             // Sunday - opens Monday
-            return 'Monday at 08:00 AM';
+            return 'Monday at 09:00 AM';
         } else {
-            return 'at 08:00 AM';
+            return 'at 09:00 AM';
         }
     }
 
@@ -276,7 +276,7 @@ class WhatsAppBotService
         return [
             'type' => 'interactive_buttons',
             'header' => '🔍 Track Order Status',
-            'body' => "Please type your work order number.\n\n*Example:* WO-2025-00123\n\nOr type the last few digits like *123*",
+            'body' => "Please type your work order number.\n\n*Example:* TC010120260023",
             'footer' => "📞 Need help? {$this->helplineUAN}",
             'buttons' => [
                 ['id' => 'menu_main', 'title' => '↩️ Back to Menu'],
@@ -433,7 +433,7 @@ class WhatsAppBotService
                 "📞 UAN: {$this->helplineUAN}\n" .
                 "📧 Email: {$this->companyEmail}\n" .
                 "🌐 Web: {$this->companyWebsite}\n\n" .
-                "🕐 Mon-Sat: 8AM - 8PM",
+                "🕐 Mon-Sat: 9AM - 6PM",
             'footer' => "We're here to help!",
             'buttons' => [
                 ['id' => 'menu_agent', 'title' => '👤 Chat with Agent'],

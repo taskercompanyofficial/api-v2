@@ -501,7 +501,7 @@ class WhatsAppMessageService
     {
         // Check if bot is enabled
         if (!config('whatsapp.bot.enabled', true)) {
-            Log::debug('WhatsApp Bot is disabled');
+            Log::debug('WhatsApp Bot is disabled via config');
             return;
         }
 
@@ -509,13 +509,14 @@ class WhatsAppMessageService
             Log::info('=== WHATSAPP BOT START ===', [
                 'conversation_id' => $conversation->id,
                 'user_message' => $userMessage,
+                'phone' => $conversation->contact->phone_number ?? 'unknown',
             ]);
 
-            // Get bot response (now returns array with type and data)
+            // Get bot response (returns array with type and data)
             $response = $this->botService->processMessage($userMessage, $conversation);
 
             if (empty($response)) {
-                Log::warning('Bot returned empty response');
+                Log::warning('Bot returned empty response - bot may be disabled for this conversation');
                 return;
             }
 
@@ -525,12 +526,21 @@ class WhatsAppMessageService
             Log::info('Bot response generated', [
                 'type' => $type,
                 'phone' => $phoneNumber,
+                'has_body' => isset($response['body']),
+                'has_buttons' => isset($response['buttons']),
+                'has_sections' => isset($response['sections']),
             ]);
 
             // Send appropriate message type
+            $result = null;
             switch ($type) {
                 case 'interactive_list':
-                    $this->whatsappService->sendInteractiveList(
+                    Log::debug('Sending interactive list', [
+                        'phone' => $phoneNumber,
+                        'body_length' => strlen($response['body'] ?? ''),
+                        'sections_count' => count($response['sections'] ?? []),
+                    ]);
+                    $result = $this->whatsappService->sendInteractiveList(
                         $phoneNumber,
                         $response['body'],
                         $response['button'],
@@ -541,7 +551,12 @@ class WhatsAppMessageService
                     break;
 
                 case 'interactive_buttons':
-                    $this->whatsappService->sendInteractiveButtons(
+                    Log::debug('Sending interactive buttons', [
+                        'phone' => $phoneNumber,
+                        'body_length' => strlen($response['body'] ?? ''),
+                        'buttons_count' => count($response['buttons'] ?? []),
+                    ]);
+                    $result = $this->whatsappService->sendInteractiveButtons(
                         $phoneNumber,
                         $response['body'],
                         $response['buttons'],
@@ -552,18 +567,22 @@ class WhatsAppMessageService
 
                 default:
                     // Plain text fallback
-                    $this->sendTextMessage($conversation->id, $response['body'] ?? $response);
+                    Log::debug('Sending plain text', ['phone' => $phoneNumber]);
+                    $this->sendTextMessage($conversation->id, $response['body'] ?? (string)$response);
                     break;
             }
 
             Log::info('=== WHATSAPP BOT COMPLETE ===', [
                 'conversation_id' => $conversation->id,
                 'type' => $type,
+                'result' => $result ? 'sent' : 'failed',
             ]);
         } catch (\Exception $e) {
             Log::error('=== WHATSAPP BOT ERROR ===', [
                 'conversation_id' => $conversation->id,
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
         }
