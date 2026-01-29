@@ -13,15 +13,15 @@ return [
     */
 
     'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
-    
+
     'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
-    
+
     'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
-    
+
     'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
-    
+
     'api_version' => env('WHATSAPP_API_VERSION', 'v18.0'),
-    
+
     'graph_api_url' => env('WHATSAPP_GRAPH_API_URL', 'https://graph.facebook.com'),
 
     /*
@@ -96,5 +96,33 @@ return [
         'default_language' => 'en',
         'auto_mark_read' => false,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Flows Configuration
+    |--------------------------------------------------------------------------
+    |
+    | WhatsApp Flows allow interactive multi-step experiences. These settings
+    | configure encryption keys for secure data exchange with Flow endpoints.
+    |
+    */
+
+    'flows' => [
+        'enabled' => env('WHATSAPP_FLOWS_ENABLED', false),
+        'private_key_path' => env('WHATSAPP_FLOWS_PRIVATE_KEY_PATH', storage_path('keys/whatsapp_flows_private.pem')),
+        'private_key_passphrase' => env('WHATSAPP_FLOWS_PRIVATE_KEY_PASSPHRASE'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | App Secret
+    |--------------------------------------------------------------------------
+    |
+    | The Meta App Secret used for webhook signature validation.
+    | Required for secure Flow endpoint signature verification.
+    |
+    */
+
+    'app_secret' => env('WHATSAPP_APP_SECRET'),
 
 ];

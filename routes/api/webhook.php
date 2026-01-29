@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\WhatsAppWebhookController;
+use App\Http\Controllers\WhatsAppFlowController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,7 +17,10 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('webhooks/whatsapp')->group(function () {
     // Webhook verification (GET request from WhatsApp)
     Route::get('/', [WhatsAppWebhookController::class, 'verify']);
-    
+
     // Webhook handler (POST request from WhatsApp)
     Route::post('/', [WhatsAppWebhookController::class, 'handle']);
+
+    // Flow endpoint for encrypted data exchange
+    Route::post('/flow', [WhatsAppFlowController::class, 'handle']);
 });
