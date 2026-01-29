@@ -480,7 +480,7 @@ class WhatsAppMessageService
     }
 
     /**
-     * Process AI response for incoming text message.
+     * Process bot response for incoming text message.
      *
      * @param WhatsAppConversation $conversation
      * @param string $userMessage
@@ -500,28 +500,60 @@ class WhatsAppMessageService
                 'user_message' => $userMessage,
             ]);
 
-            // Get bot response
-            $botResponse = $this->botService->processMessage($userMessage, $conversation);
+            // Get bot response (now returns array with type and data)
+            $response = $this->botService->processMessage($userMessage, $conversation);
 
-            if (!$botResponse) {
+            if (empty($response)) {
                 Log::warning('Bot returned empty response');
                 return;
             }
 
+            $phoneNumber = $conversation->contact->phone_number;
+            $type = $response['type'] ?? 'text';
+
             Log::info('Bot response generated', [
-                'response_length' => strlen($botResponse),
+                'type' => $type,
+                'phone' => $phoneNumber,
             ]);
 
-            // Send bot response back to user
-            $this->sendTextMessage($conversation->id, $botResponse);
+            // Send appropriate message type
+            switch ($type) {
+                case 'interactive_list':
+                    $this->whatsappService->sendInteractiveList(
+                        $phoneNumber,
+                        $response['body'],
+                        $response['button'],
+                        $response['sections'],
+                        $response['header'] ?? null,
+                        $response['footer'] ?? null
+                    );
+                    break;
+
+                case 'interactive_buttons':
+                    $this->whatsappService->sendInteractiveButtons(
+                        $phoneNumber,
+                        $response['body'],
+                        $response['buttons'],
+                        $response['header'] ?? null,
+                        $response['footer'] ?? null
+                    );
+                    break;
+
+                default:
+                    // Plain text fallback
+                    $this->sendTextMessage($conversation->id, $response['body'] ?? $response);
+                    break;
+            }
 
             Log::info('=== WHATSAPP BOT COMPLETE ===', [
                 'conversation_id' => $conversation->id,
+                'type' => $type,
             ]);
         } catch (\Exception $e) {
             Log::error('=== WHATSAPP BOT ERROR ===', [
                 'conversation_id' => $conversation->id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

@@ -85,7 +85,7 @@ class WhatsAppService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             Log::info('WhatsApp text message sent', [
                 'to' => $to,
                 'message_id' => $data['messages'][0]['id'] ?? null,
@@ -97,7 +97,7 @@ class WhatsAppService
                 'to' => $to,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -114,7 +114,7 @@ class WhatsAppService
     {
         try {
             $imageData = ['link' => $imageUrl];
-            
+
             if ($caption) {
                 $imageData['caption'] = $caption;
             }
@@ -130,7 +130,7 @@ class WhatsAppService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             Log::info('WhatsApp image message sent', [
                 'to' => $to,
                 'message_id' => $data['messages'][0]['id'] ?? null,
@@ -142,7 +142,7 @@ class WhatsAppService
                 'to' => $to,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -160,11 +160,11 @@ class WhatsAppService
     {
         try {
             $documentData = ['link' => $documentUrl];
-            
+
             if ($filename) {
                 $documentData['filename'] = $filename;
             }
-            
+
             if ($caption) {
                 $documentData['caption'] = $caption;
             }
@@ -180,7 +180,7 @@ class WhatsAppService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             Log::info('WhatsApp document message sent', [
                 'to' => $to,
                 'message_id' => $data['messages'][0]['id'] ?? null,
@@ -192,7 +192,7 @@ class WhatsAppService
                 'to' => $to,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -209,7 +209,7 @@ class WhatsAppService
     {
         try {
             $videoData = ['link' => $videoUrl];
-            
+
             if ($caption) {
                 $videoData['caption'] = $caption;
             }
@@ -225,7 +225,7 @@ class WhatsAppService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             Log::info('WhatsApp video message sent', [
                 'to' => $to,
                 'message_id' => $data['messages'][0]['id'] ?? null,
@@ -237,7 +237,7 @@ class WhatsAppService
                 'to' => $to,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -255,7 +255,7 @@ class WhatsAppService
     {
         try {
             $components = [];
-            
+
             if (!empty($parameters)) {
                 $components[] = [
                     'type' => 'body',
@@ -285,7 +285,7 @@ class WhatsAppService
             ]);
 
             $data = json_decode($response->getBody()->getContents(), true);
-            
+
             Log::info('WhatsApp template message sent', [
                 'to' => $to,
                 'template' => $templateName,
@@ -299,7 +299,7 @@ class WhatsAppService
                 'template' => $templateName,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -329,7 +329,7 @@ class WhatsAppService
                 'message_id' => $messageId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -358,7 +358,7 @@ class WhatsAppService
 
             // Generate a unique filename
             $filename = 'whatsapp/media/' . uniqid() . '_' . basename($mediaUrl);
-            
+
             // Store the file
             Storage::disk(config('whatsapp.media.disk'))->put($filename, $mediaContent);
 
@@ -373,7 +373,7 @@ class WhatsAppService
                 'media_id' => $mediaId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return null;
         }
     }
@@ -398,7 +398,143 @@ class WhatsAppService
             Log::error('Failed to fetch WhatsApp templates', [
                 'error' => $e->getMessage(),
             ]);
-            
+
+            return null;
+        }
+    }
+
+    /**
+     * Send an interactive message with reply buttons.
+     * Maximum 3 buttons allowed by WhatsApp.
+     *
+     * @param string $to Phone number in E.164 format
+     * @param string $bodyText Message body text
+     * @param array $buttons Array of buttons [['id' => 'btn_1', 'title' => 'Button 1'], ...]
+     * @param string|null $headerText Optional header text
+     * @param string|null $footerText Optional footer text
+     * @return array|null
+     */
+    public function sendInteractiveButtons(
+        string $to,
+        string $bodyText,
+        array $buttons,
+        ?string $headerText = null,
+        ?string $footerText = null
+    ): ?array {
+        try {
+            // WhatsApp allows max 3 buttons
+            $buttons = array_slice($buttons, 0, 3);
+
+            $interactive = [
+                'type' => 'button',
+                'body' => ['text' => $bodyText],
+                'action' => [
+                    'buttons' => array_map(fn($btn) => [
+                        'type' => 'reply',
+                        'reply' => [
+                            'id' => $btn['id'],
+                            'title' => substr($btn['title'], 0, 20), // Max 20 chars
+                        ],
+                    ], $buttons),
+                ],
+            ];
+
+            if ($headerText) {
+                $interactive['header'] = ['type' => 'text', 'text' => $headerText];
+            }
+            if ($footerText) {
+                $interactive['footer'] = ['text' => $footerText];
+            }
+
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type' => 'individual',
+                    'to' => $to,
+                    'type' => 'interactive',
+                    'interactive' => $interactive,
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('WhatsApp interactive buttons sent', [
+                'to' => $to,
+                'message_id' => $data['messages'][0]['id'] ?? null,
+            ]);
+
+            return $data;
+        } catch (GuzzleException $e) {
+            Log::error('Failed to send WhatsApp interactive buttons', [
+                'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Send an interactive list message.
+     * Great for menus with more than 3 options.
+     *
+     * @param string $to Phone number in E.164 format
+     * @param string $bodyText Message body text
+     * @param string $buttonText Text for the list button (max 20 chars)
+     * @param array $sections Array of sections with rows
+     * @param string|null $headerText Optional header text
+     * @param string|null $footerText Optional footer text
+     * @return array|null
+     */
+    public function sendInteractiveList(
+        string $to,
+        string $bodyText,
+        string $buttonText,
+        array $sections,
+        ?string $headerText = null,
+        ?string $footerText = null
+    ): ?array {
+        try {
+            $interactive = [
+                'type' => 'list',
+                'body' => ['text' => $bodyText],
+                'action' => [
+                    'button' => substr($buttonText, 0, 20),
+                    'sections' => $sections,
+                ],
+            ];
+
+            if ($headerText) {
+                $interactive['header'] = ['type' => 'text', 'text' => $headerText];
+            }
+            if ($footerText) {
+                $interactive['footer'] = ['text' => $footerText];
+            }
+
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type' => 'individual',
+                    'to' => $to,
+                    'type' => 'interactive',
+                    'interactive' => $interactive,
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('WhatsApp interactive list sent', [
+                'to' => $to,
+                'message_id' => $data['messages'][0]['id'] ?? null,
+            ]);
+
+            return $data;
+        } catch (GuzzleException $e) {
+            Log::error('Failed to send WhatsApp interactive list', [
+                'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+
             return null;
         }
     }
