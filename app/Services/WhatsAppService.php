@@ -243,6 +243,44 @@ class WhatsAppService
     }
 
     /**
+     * Send an audio message.
+     *
+     * @param string $to Phone number in E.164 format
+     * @param string $audioUrl URL or media ID
+     * @return array|null
+     */
+    public function sendAudioMessage(string $to, string $audioUrl): ?array
+    {
+        try {
+            $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                'json' => [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type' => 'individual',
+                    'to' => $to,
+                    'type' => 'audio',
+                    'audio' => ['link' => $audioUrl],
+                ],
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('WhatsApp audio message sent', [
+                'to' => $to,
+                'message_id' => $data['messages'][0]['id'] ?? null,
+            ]);
+
+            return $data;
+        } catch (GuzzleException $e) {
+            Log::error('Failed to send WhatsApp audio message', [
+                'to' => $to,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Send a template message.
      *
      * @param string $to Phone number in E.164 format

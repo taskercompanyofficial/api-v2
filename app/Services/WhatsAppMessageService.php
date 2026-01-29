@@ -214,6 +214,107 @@ class WhatsAppMessageService
     }
 
     /**
+     * Send a video message and store it in the database.
+     *
+     * @param int $conversationId
+     * @param string $videoUrl
+     * @param string|null $caption
+     * @param int|null $sentBy User ID
+     * @return WhatsAppMessage|null
+     */
+    public function sendVideoMessage(int $conversationId, string $videoUrl, ?string $caption = null, ?int $sentBy = null): ?WhatsAppMessage
+    {
+        $conversation = WhatsAppConversation::with('contact')->find($conversationId);
+
+        if (!$conversation) {
+            Log::error('Conversation not found', ['conversation_id' => $conversationId]);
+            return null;
+        }
+
+        // Create message record
+        $whatsappMessage = WhatsAppMessage::create([
+            'whatsapp_conversation_id' => $conversationId,
+            'direction' => 'outbound',
+            'type' => 'video',
+            'content' => $caption,
+            'media' => ['url' => $videoUrl, 'type' => 'video'],
+            'status' => 'pending',
+            'sent_by' => $sentBy,
+        ]);
+
+        // Send via WhatsApp API
+        $response = $this->whatsappService->sendVideoMessage(
+            $conversation->contact->phone_number,
+            $videoUrl,
+            $caption
+        );
+
+        if ($response && isset($response['messages'][0]['id'])) {
+            $whatsappMessage->update([
+                'whatsapp_message_id' => $response['messages'][0]['id'],
+                'status' => 'sent',
+                'sent_at' => now(),
+            ]);
+
+            $conversation->updateLastMessageTime();
+            $conversation->contact->updateLastInteraction();
+        } else {
+            $whatsappMessage->markAsFailed('Failed to send video via WhatsApp API');
+        }
+
+        return $whatsappMessage->fresh();
+    }
+
+    /**
+     * Send an audio message and store it in the database.
+     *
+     * @param int $conversationId
+     * @param string $audioUrl
+     * @param int|null $sentBy User ID
+     * @return WhatsAppMessage|null
+     */
+    public function sendAudioMessage(int $conversationId, string $audioUrl, ?int $sentBy = null): ?WhatsAppMessage
+    {
+        $conversation = WhatsAppConversation::with('contact')->find($conversationId);
+
+        if (!$conversation) {
+            Log::error('Conversation not found', ['conversation_id' => $conversationId]);
+            return null;
+        }
+
+        // Create message record
+        $whatsappMessage = WhatsAppMessage::create([
+            'whatsapp_conversation_id' => $conversationId,
+            'direction' => 'outbound',
+            'type' => 'audio',
+            'media' => ['url' => $audioUrl, 'type' => 'audio'],
+            'status' => 'pending',
+            'sent_by' => $sentBy,
+        ]);
+
+        // Send via WhatsApp API
+        $response = $this->whatsappService->sendAudioMessage(
+            $conversation->contact->phone_number,
+            $audioUrl
+        );
+
+        if ($response && isset($response['messages'][0]['id'])) {
+            $whatsappMessage->update([
+                'whatsapp_message_id' => $response['messages'][0]['id'],
+                'status' => 'sent',
+                'sent_at' => now(),
+            ]);
+
+            $conversation->updateLastMessageTime();
+            $conversation->contact->updateLastInteraction();
+        } else {
+            $whatsappMessage->markAsFailed('Failed to send audio via WhatsApp API');
+        }
+
+        return $whatsappMessage->fresh();
+    }
+
+    /**
      * Send a template message and store it in the database.
      *
      * @param int $conversationId

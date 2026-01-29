@@ -131,8 +131,9 @@ class WhatsAppController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'conversation_id' => 'required|exists:whatsapp_conversations,id',
-            'media_type' => 'required|in:image,document,video',
-            'media_url' => 'required|url',
+            'media_type' => 'required|in:image,document,video,audio',
+            'media_url' => 'required_without:file|url',
+            'file' => 'required_without:media_url|file',
             'caption' => 'nullable|string|max:1024',
             'filename' => 'nullable|string', // For documents
         ]);
@@ -144,13 +145,25 @@ class WhatsAppController extends Controller
             ], 422);
         }
 
+        $mediaUrl = $request->media_url;
+        $filename = $request->filename;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $path = $file->store('whatsapp/media', 'public');
+            $mediaUrl = asset('storage/' . $path);
+            if (!$filename) {
+                $filename = $file->getClientOriginalName();
+            }
+        }
+
         $message = null;
 
         switch ($request->media_type) {
             case 'image':
                 $message = $this->messageService->sendImageMessage(
                     $request->conversation_id,
-                    $request->media_url,
+                    $mediaUrl,
                     $request->caption,
                     $request->user()->id
                 );
@@ -158,17 +171,24 @@ class WhatsAppController extends Controller
             case 'document':
                 $message = $this->messageService->sendDocumentMessage(
                     $request->conversation_id,
-                    $request->media_url,
-                    $request->filename,
+                    $mediaUrl,
+                    $filename,
                     $request->caption,
                     $request->user()->id
                 );
                 break;
             case 'video':
-                $message = $this->messageService->sendImageMessage(
+                $message = $this->messageService->sendVideoMessage(
                     $request->conversation_id,
-                    $request->media_url,
+                    $mediaUrl,
                     $request->caption,
+                    $request->user()->id
+                );
+                break;
+            case 'audio':
+                $message = $this->messageService->sendAudioMessage(
+                    $request->conversation_id,
+                    $mediaUrl,
                     $request->user()->id
                 );
                 break;
