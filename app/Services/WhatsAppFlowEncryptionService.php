@@ -14,37 +14,49 @@ class WhatsAppFlowEncryptionService
 {
     protected ?string $privateKeyPath;
     protected ?string $privateKeyPassphrase;
-    protected string $accessToken;
-    protected string $phoneNumberId;
+    protected ?string $accessToken = null;
+    protected ?string $phoneNumberId = null;
     protected string $apiVersion;
     protected string $graphApiUrl;
-    protected Client $httpClient;
+    protected ?Client $httpClient = null;
 
-    public function __construct(?int $businessPhoneNumberId = null)
+    public function __construct()
     {
-        // Try to get credentials from BusinessPhoneNumber model first
-        $businessPhone = null;
-        if ($businessPhoneNumberId) {
-            $businessPhone = BusinessPhoneNumber::find($businessPhoneNumberId);
-        }
-
-        if (!$businessPhone) {
-            $businessPhone = BusinessPhoneNumber::getDefaultWhatsApp();
-        }
-
-        // Use BusinessPhoneNumber credentials if available, fallback to config
-        if ($businessPhone) {
-            $this->accessToken = $businessPhone->api_token;
-            $this->phoneNumberId = $businessPhone->phone_number_id;
-        } else {
-            $this->accessToken = config('whatsapp.access_token');
-            $this->phoneNumberId = config('whatsapp.phone_number_id');
-        }
-
+        // Only load config values - no database calls in constructor
+        // This allows decryption to work without database connection
         $this->apiVersion = config('whatsapp.api_version', 'v18.0');
         $this->graphApiUrl = config('whatsapp.graph_api_url', 'https://graph.facebook.com');
         $this->privateKeyPath = config('whatsapp.flows.private_key_path');
         $this->privateKeyPassphrase = config('whatsapp.flows.private_key_passphrase');
+
+        // Fallback to config for access token and phone number
+        $this->accessToken = config('whatsapp.access_token');
+        $this->phoneNumberId = config('whatsapp.phone_number_id');
+    }
+
+    /**
+     * Initialize credentials from database (lazy loading for API calls).
+     * Called only when making API requests, not for decryption.
+     */
+    protected function initializeApiCredentials(): void
+    {
+        if ($this->httpClient !== null) {
+            return; // Already initialized
+        }
+
+        // Try to get credentials from database
+        try {
+            $businessPhone = BusinessPhoneNumber::getDefaultWhatsApp();
+            if ($businessPhone) {
+                $this->accessToken = $businessPhone->api_token;
+                $this->phoneNumberId = $businessPhone->phone_number_id;
+            }
+        } catch (\Exception $e) {
+            // Database not available, use config values
+            Log::debug('WhatsApp Flow: Using config credentials (database unavailable)', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $this->httpClient = new Client([
             'timeout' => config('whatsapp.rate_limit.timeout', 30),
@@ -65,12 +77,21 @@ class WhatsAppFlowEncryptionService
      */
     public function decryptRequest(array $body): array
     {
+        Log::debug('WhatsApp Flow: Starting decryption', [
+            'private_key_path' => $this->privateKeyPath,
+            'private_key_exists' => $this->privateKeyPath ? file_exists($this->privateKeyPath) : false,
+        ]);
+
         $encryptedAesKey = base64_decode($body['encrypted_aes_key']);
         $encryptedFlowData = base64_decode($body['encrypted_flow_data']);
         $initialVector = base64_decode($body['initial_vector']);
 
         // Load and configure RSA private key
         $privateKeyPem = $this->loadPrivateKey();
+
+        Log::debug('WhatsApp Flow: Private key loaded', [
+            'key_length' => strlen($privateKeyPem),
+        ]);
 
         /** @var \phpseclib3\Crypt\RSA\PrivateKey $rsa */
         $rsa = RSA::load($privateKeyPem, $this->privateKeyPassphrase ?: false)
@@ -157,6 +178,7 @@ class WhatsAppFlowEncryptionService
      */
     public function uploadPublicKey(string $publicKeyPem, ?int $phoneNumberId = null): bool
     {
+        $this->initializeApiCredentials();
         $phoneId = $phoneNumberId ?? $this->phoneNumberId;
 
         try {
@@ -206,6 +228,7 @@ class WhatsAppFlowEncryptionService
      */
     public function getPublicKey(?int $phoneNumberId = null): ?array
     {
+        $this->initializeApiCredentials();
         $phoneId = $phoneNumberId ?? $this->phoneNumberId;
 
         try {
