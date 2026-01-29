@@ -8,16 +8,19 @@ use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\AI\GeminiAgentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppMessageService
 {
     protected WhatsAppService $whatsappService;
+    protected GeminiAgentService $aiAgent;
 
-    public function __construct(WhatsAppService $whatsappService)
+    public function __construct(WhatsAppService $whatsappService, GeminiAgentService $aiAgent)
     {
         $this->whatsappService = $whatsappService;
+        $this->aiAgent = $aiAgent;
     }
 
     /**
@@ -418,6 +421,11 @@ class WhatsAppMessageService
                 'contact_name' => $contactName,
             ]);
 
+            // Process AI response if enabled and message is text
+            if ($type === 'text' && $content) {
+                $this->processAIResponse($conversation, $content);
+            }
+
             return $message;
         } catch (\Exception $e) {
             DB::rollBack();
@@ -470,5 +478,55 @@ class WhatsAppMessageService
         ]);
 
         return true;
+    }
+
+    /**
+     * Process AI response for incoming text message.
+     *
+     * @param WhatsAppConversation $conversation
+     * @param string $userMessage
+     * @return void
+     */
+    protected function processAIResponse(WhatsAppConversation $conversation, string $userMessage): void
+    {
+        // Check if AI agent is enabled
+        if (!config('ai.whatsapp_agent.enabled', false)) {
+            return;
+        }
+
+        // Check if Gemini API key is configured
+        if (!config('ai.gemini.api_key')) {
+            Log::debug('AI agent skipped: GEMINI_API_KEY not configured');
+            return;
+        }
+
+        try {
+            Log::info('Processing AI response', [
+                'conversation_id' => $conversation->id,
+                'message' => substr($userMessage, 0, 100),
+            ]);
+
+            // Get AI response
+            $aiResponse = $this->aiAgent->processMessage($userMessage, [
+                'phone' => $conversation->contact->phone_number ?? null,
+            ]);
+
+            if (!$aiResponse) {
+                return;
+            }
+
+            // Send AI response back to user
+            $this->sendTextMessage($conversation->id, $aiResponse);
+
+            Log::info('AI response sent', [
+                'conversation_id' => $conversation->id,
+                'response_length' => strlen($aiResponse),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to process AI response', [
+                'conversation_id' => $conversation->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
