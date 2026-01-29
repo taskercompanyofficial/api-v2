@@ -85,7 +85,7 @@ class WhatsAppConversation extends Model
     {
         return $this->staff()
             ->wherePivot('notifications_enabled', true)
-            ->pluck('staffs.id')
+            ->pluck('staff.id')
             ->toArray();
     }
 
