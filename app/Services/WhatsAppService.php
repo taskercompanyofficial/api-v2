@@ -343,28 +343,41 @@ class WhatsAppService
     public function downloadMedia(string $mediaId): ?string
     {
         try {
-            // First, get the media URL
+            // First, get the media URL from WhatsApp API
             $response = $this->client->get($mediaId);
             $mediaData = json_decode($response->getBody()->getContents(), true);
             $mediaUrl = $mediaData['url'] ?? null;
+            $mimeType = $mediaData['mime_type'] ?? null;
 
             if (!$mediaUrl) {
+                Log::warning('WhatsApp media URL not found', ['media_id' => $mediaId]);
                 return null;
             }
 
-            // Download the media file
+            // Download the actual media file from WhatsApp's CDN
             $mediaResponse = $this->client->get($mediaUrl);
             $mediaContent = $mediaResponse->getBody()->getContents();
 
-            // Generate a unique filename
-            $filename = 'whatsapp/media/' . uniqid() . '_' . basename($mediaUrl);
+            // Get content-type from response headers if not in metadata
+            if (!$mimeType) {
+                $contentType = $mediaResponse->getHeader('Content-Type');
+                $mimeType = $contentType[0] ?? 'application/octet-stream';
+            }
 
-            // Store the file
-            Storage::disk(config('whatsapp.media.disk'))->put($filename, $mediaContent);
+            // Get file extension from mime type
+            $extension = $this->getExtensionFromMimeType($mimeType);
+
+            // Generate a clean unique filename
+            $filename = 'whatsapp/media/' . uniqid() . '_' . time() . '.' . $extension;
+
+            // Store the file in PUBLIC disk for web access
+            Storage::disk('public')->put($filename, $mediaContent);
 
             Log::info('WhatsApp media downloaded', [
                 'media_id' => $mediaId,
                 'filename' => $filename,
+                'mime_type' => $mimeType,
+                'size' => strlen($mediaContent),
             ]);
 
             return $filename;
@@ -376,6 +389,36 @@ class WhatsAppService
 
             return null;
         }
+    }
+
+    /**
+     * Get file extension from MIME type.
+     */
+    protected function getExtensionFromMimeType(string $mimeType): string
+    {
+        $map = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'video/mp4' => 'mp4',
+            'video/3gpp' => '3gp',
+            'audio/aac' => 'aac',
+            'audio/mp4' => 'm4a',
+            'audio/mpeg' => 'mp3',
+            'audio/amr' => 'amr',
+            'audio/ogg' => 'ogg',
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        ];
+
+        // Clean mime type (remove charset etc)
+        $mimeType = explode(';', $mimeType)[0];
+
+        return $map[$mimeType] ?? 'bin';
     }
 
     /**
