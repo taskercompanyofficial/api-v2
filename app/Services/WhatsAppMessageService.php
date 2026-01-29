@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Events\WhatsAppMessageReceived;
 use App\Events\WhatsAppMessageSent;
-use App\Models\User;
+use App\Models\Staff;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
@@ -48,8 +48,8 @@ class WhatsAppMessageService
         }
 
         // Fallback: broadcast to all active CRM staff
-        return User::where('is_active', true)
-            ->whereIn('role', ['admin', 'manager', 'staff'])
+        return Staff::where('has_access_in_crm', true)
+            ->whereNull('deleted_at')
             ->pluck('id')
             ->toArray();
     }
