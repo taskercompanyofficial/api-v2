@@ -4,6 +4,7 @@ namespace App\Services\AI;
 
 use App\Models\Customer;
 use App\Models\WorkOrder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class GeminiAgentService
@@ -11,6 +12,10 @@ class GeminiAgentService
     protected GeminiService $gemini;
     protected ?Customer $customer = null;
     protected ?string $phoneNumber = null;
+
+    // Rate limiting: max requests per phone per minute
+    protected int $rateLimit = 5;
+    protected int $rateLimitWindow = 60; // seconds
 
     public function __construct(GeminiService $gemini)
     {
@@ -29,6 +34,13 @@ class GeminiAgentService
         try {
             // Store phone number and look up customer
             $this->phoneNumber = $context['phone'] ?? null;
+
+            // Rate limiting check
+            if (!$this->checkRateLimit()) {
+                Log::warning('AI Agent rate limited', ['phone' => $this->phoneNumber]);
+                return "You're sending messages too quickly. Please wait a moment and try again.";
+            }
+
             $this->customer = $this->findCustomerByPhone($this->phoneNumber);
 
             Log::info('AI Agent processing message', [
@@ -98,8 +110,34 @@ class GeminiAgentService
                 'error' => $e->getMessage(),
                 'message' => $message,
             ]);
+
+            // Handle quota exceeded error gracefully
+            if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'quota')) {
+                return "Our AI assistant is currently busy. Please try again in a few minutes, or contact our support directly.";
+            }
+
             return "I'm sorry, I encountered an error. Please try again later.";
         }
+    }
+
+    /**
+     * Check and enforce rate limiting.
+     */
+    protected function checkRateLimit(): bool
+    {
+        if (!$this->phoneNumber) {
+            return true; // No phone = no rate limiting
+        }
+
+        $cacheKey = "ai_rate_limit:{$this->phoneNumber}";
+        $requests = Cache::get($cacheKey, 0);
+
+        if ($requests >= $this->rateLimit) {
+            return false;
+        }
+
+        Cache::put($cacheKey, $requests + 1, $this->rateLimitWindow);
+        return true;
     }
 
     /**
