@@ -35,7 +35,15 @@ class GeminiService
      */
     public function generateContent(array $contents, array $tools = [], ?string $systemInstruction = null): array
     {
+        Log::info('=== GEMINI API CALL START ===', [
+            'model' => $this->model,
+            'has_tools' => !empty($tools),
+            'has_system_instruction' => !empty($systemInstruction),
+            'contents_count' => count($contents),
+        ]);
+
         if (!$this->apiKey) {
+            Log::error('Gemini API key is empty');
             throw new \Exception('Gemini API key not configured. Set GEMINI_API_KEY in .env');
         }
 
@@ -59,6 +67,8 @@ class GeminiService
             $payload['tools'] = $tools;
         }
 
+        Log::debug('Gemini API request URL', ['url' => $url]);
+
         try {
             $response = $this->httpClient->post($url, [
                 'headers' => [
@@ -70,16 +80,19 @@ class GeminiService
 
             $result = json_decode($response->getBody()->getContents(), true);
 
-            Log::debug('Gemini API response', [
+            Log::info('=== GEMINI API CALL SUCCESS ===', [
                 'model' => $this->model,
                 'usage' => $result['usageMetadata'] ?? null,
+                'has_candidates' => !empty($result['candidates']),
+                'finish_reason' => $result['candidates'][0]['finishReason'] ?? 'unknown',
             ]);
 
             return $result;
         } catch (GuzzleException $e) {
-            Log::error('Gemini API request failed', [
+            Log::error('=== GEMINI API CALL FAILED ===', [
                 'error' => $e->getMessage(),
                 'model' => $this->model,
+                'url' => $url,
             ]);
             throw new \Exception('Failed to communicate with Gemini API: ' . $e->getMessage());
         }

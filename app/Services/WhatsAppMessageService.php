@@ -489,43 +489,61 @@ class WhatsAppMessageService
      */
     protected function processAIResponse(WhatsAppConversation $conversation, string $userMessage): void
     {
+        Log::info('=== AI AGENT START ===', [
+            'conversation_id' => $conversation->id,
+            'user_message' => $userMessage,
+            'phone' => $conversation->contact->phone_number ?? 'unknown',
+        ]);
+
         // Check if AI agent is enabled
-        if (!config('ai.whatsapp_agent.enabled', false)) {
+        $aiEnabled = config('ai.whatsapp_agent.enabled', false);
+        Log::debug('AI Agent enabled check', ['enabled' => $aiEnabled]);
+
+        if (!$aiEnabled) {
+            Log::info('AI Agent skipped: WHATSAPP_AI_AGENT_ENABLED is false');
             return;
         }
 
         // Check if Gemini API key is configured
-        if (!config('ai.gemini.api_key')) {
-            Log::debug('AI agent skipped: GEMINI_API_KEY not configured');
+        $apiKey = config('ai.gemini.api_key');
+        Log::debug('Gemini API key check', ['has_key' => !empty($apiKey)]);
+
+        if (!$apiKey) {
+            Log::warning('AI Agent skipped: GEMINI_API_KEY not configured');
             return;
         }
 
         try {
-            Log::info('Processing AI response', [
-                'conversation_id' => $conversation->id,
-                'message' => substr($userMessage, 0, 100),
-            ]);
+            Log::info('Calling GeminiAgentService.processMessage');
 
             // Get AI response
             $aiResponse = $this->aiAgent->processMessage($userMessage, [
                 'phone' => $conversation->contact->phone_number ?? null,
             ]);
 
+            Log::info('GeminiAgentService response received', [
+                'response_length' => strlen($aiResponse ?? ''),
+                'response_preview' => substr($aiResponse ?? '', 0, 200),
+            ]);
+
             if (!$aiResponse) {
+                Log::warning('AI Agent returned empty response');
                 return;
             }
 
             // Send AI response back to user
+            Log::info('Sending AI response via WhatsApp');
             $this->sendTextMessage($conversation->id, $aiResponse);
 
-            Log::info('AI response sent', [
+            Log::info('=== AI AGENT COMPLETE ===', [
                 'conversation_id' => $conversation->id,
-                'response_length' => strlen($aiResponse),
+                'response_sent' => true,
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to process AI response', [
+            Log::error('=== AI AGENT ERROR ===', [
                 'conversation_id' => $conversation->id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
