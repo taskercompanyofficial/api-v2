@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkOrder;
+use App\Services\AdminDashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ class DashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $userId = auth()->id();
+            $userId = $request->user()->id;
             $startOfMonth = Carbon::now()->startOfMonth();
             $endOfMonth = Carbon::now()->endOfMonth();
             $today = Carbon::today();
@@ -63,12 +64,12 @@ class DashboardController extends Controller
                     ->whereNull('cancelled_at')
                     ->whereNotNull('assigned_to_id')
                     ->count(),
-                'inProgress' => WorkOrder::where('status_id', function($query) {
-                        $query->select('id')
-                            ->from('work_order_statuses')
-                            ->where('name', 'In Progress')
-                            ->limit(1);
-                    })
+                'inProgress' => WorkOrder::where('status_id', function ($query) {
+                    $query->select('id')
+                        ->from('work_order_statuses')
+                        ->where('name', 'In Progress')
+                        ->limit(1);
+                })
                     ->count(),
                 'completed' => WorkOrder::whereBetween('completed_at', [$startOfMonth, $endOfMonth])
                     ->count(),
@@ -81,13 +82,13 @@ class DashboardController extends Controller
             // Daily completion for the week (work orders closed by this user)
             $dailyCompletion = [];
             $startOfWeek = Carbon::now()->startOfWeek();
-            
+
             for ($i = 0; $i < 7; $i++) {
                 $date = $startOfWeek->copy()->addDays($i);
                 $completed = WorkOrder::where('closed_by', $userId)
                     ->whereDate('completed_at', $date)
                     ->count();
-                
+
                 $dailyCompletion[] = [
                     'day' => $date->format('D'),
                     'completed' => $completed,
@@ -414,6 +415,35 @@ class DashboardController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch analytics data: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get comprehensive admin dashboard data with filters
+     * Uses AdminDashboardService for cleaner, model-based queries
+     */
+    public function adminDashboardFull(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            // Get filter parameters
+            $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
+            $city = $request->get('city');
+            $date = $request->get('date') ? Carbon::parse($request->get('date')) : null;
+
+            // Set filters and get all data from service
+            $data = $dashboardService
+                ->setFilters($branchId, $city, $date)
+                ->getAllData();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $data,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch admin dashboard data: ' . $e->getMessage(),
             ], 500);
         }
     }
