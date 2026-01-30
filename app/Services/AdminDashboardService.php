@@ -596,8 +596,13 @@ class AdminDashboardService
             $rating = 'Average';
         }
 
+        // Calculate benchmark score (Normalized against "Excellent" threshold)
+        $excellentTarget = $this->benchmarks['nps']['excellent'] ?? 70;
+        $benchmarkScore = $excellentTarget > 0 ? round(($nps / $excellentTarget) * 100, 1) : 0;
+
         return [
             'score' => $nps,
+            'benchmarkScore' => $benchmarkScore,
             'rating' => $rating,
             'promoters' => $promoters,
             'passives' => $passives,
