@@ -430,10 +430,12 @@ class DashboardController extends Controller
             $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
             $city = $request->get('city');
             $date = $request->get('date') ? Carbon::parse($request->get('date')) : null;
+            $categoryId = $request->get('category_id') ? (int) $request->get('category_id') : null;
+            $serviceId = $request->get('service_id') ? (int) $request->get('service_id') : null;
 
             // Set filters and get all data from service
             $data = $dashboardService
-                ->setFilters($branchId, $city, $date)
+                ->setFilters($branchId, $city, $date, $categoryId, $serviceId)
                 ->getAllData();
 
             return response()->json([

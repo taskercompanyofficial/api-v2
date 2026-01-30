@@ -11,6 +11,8 @@ use App\Models\OurBranch;
 use App\Models\LeaveApplication;
 use App\Models\Part;
 use App\Models\WorkOrderFile;
+use App\Models\Categories;
+use App\Models\Service;
 use Nnjeim\World\Models\City;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +21,8 @@ class AdminDashboardService
 {
     protected ?int $branchId = null;
     protected ?string $city = null;
+    protected ?int $categoryId = null;
+    protected ?int $serviceId = null;
     protected Carbon $date;
     protected Carbon $startOfMonth;
     protected Carbon $endOfMonth;
@@ -42,10 +46,17 @@ class AdminDashboardService
     /**
      * Set filters
      */
-    public function setFilters(?int $branchId = null, ?string $city = null, ?Carbon $date = null): self
-    {
+    public function setFilters(
+        ?int $branchId = null,
+        ?string $city = null,
+        ?Carbon $date = null,
+        ?int $categoryId = null,
+        ?int $serviceId = null
+    ): self {
         $this->branchId = $branchId;
         $this->city = $city;
+        $this->categoryId = $categoryId;
+        $this->serviceId = $serviceId;
         if ($date) {
             $this->date = $date;
         }
@@ -59,7 +70,9 @@ class AdminDashboardService
     {
         return WorkOrder::query()
             ->when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))
-            ->when($this->city, fn($q) => $q->whereHas('city', fn($cq) => $cq->where('name', $this->city)));
+            ->when($this->city, fn($q) => $q->whereHas('city', fn($cq) => $cq->where('name', $this->city)))
+            ->when($this->categoryId, fn($q) => $q->where('category_id', $this->categoryId))
+            ->when($this->serviceId, fn($q) => $q->where('service_id', $this->serviceId));
     }
 
     /**
@@ -397,10 +410,21 @@ class AdminDashboardService
         return [
             'branches' => OurBranch::select('id', 'name')
                 ->where('status', 'active')
+                ->orderBy('name')
                 ->get()
                 ->toArray(),
             'cities' => City::select('id', 'name')
                 ->whereIn('id', WorkOrder::select('city_id')->distinct())
+                ->orderBy('name')
+                ->get()
+                ->toArray(),
+            'categories' => Categories::select('id', 'name')
+                ->whereIn('id', WorkOrder::select('category_id')->distinct())
+                ->orderBy('name')
+                ->get()
+                ->toArray(),
+            'services' => Service::select('id', 'name', 'category_id')
+                ->whereIn('id', WorkOrder::select('service_id')->distinct())
                 ->orderBy('name')
                 ->get()
                 ->toArray(),
