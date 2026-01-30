@@ -30,8 +30,10 @@ class AdminDashboardService
     protected Carbon $endOfWeek;
     protected Carbon $today;
 
+    protected array $benchmarks;
+
     /**
-     * Initialize date ranges
+     * Initialize date ranges and benchmarks
      */
     public function __construct()
     {
@@ -41,6 +43,27 @@ class AdminDashboardService
         $this->startOfWeek = Carbon::now()->startOfWeek();
         $this->endOfWeek = Carbon::now()->endOfWeek();
         $this->today = Carbon::today();
+        $this->benchmarks = config('dashboard_benchmarks', [
+            'kpi' => [1 => 87, 2 => 80, 3 => 70, 7 => 50],
+            'nps' => ['excellent' => 70, 'good' => 50, 'average' => 0]
+        ]);
+    }
+
+    /**
+     * Calculate benchmark-adjusted score
+     */
+    protected function calculateBenchmarkScore(float $actualPercentage, int $days): float
+    {
+        $target = $this->benchmarks['kpi'][$days] ?? 50;
+        if ($target <= 0) return 0;
+
+        // Actual KPI / Benchmark Target * 100
+        $score = ($actualPercentage / $target) * 100;
+
+        // User wants it to increase accordingly, so we don't necessarily cap at 100
+        // but typically dashboard scores are shown up to a certain point.
+        // Let's round to 1 decimal place.
+        return round($score, 1);
     }
 
     /**
@@ -101,42 +124,89 @@ class AdminDashboardService
     }
 
     /**
-     * Get worker KPIs (completion rates)
+     * Get worker KPIs (completion rates adjusted by benchmarks)
      */
-    public function getWorkerKPIs(): array
+    public function getWorkerKPIs(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
         $baseQuery = $this->baseWorkOrderQuery();
+        $start = $startDate ?? $this->startOfWeek;
+        $end = $endDate ?? $this->endOfWeek;
 
-        // Today
+        // Overall for the selected period
+        $created = (clone $baseQuery)->whereBetween('created_at', [$start, $end])->count();
+        $closed = (clone $baseQuery)->whereBetween('completed_at', [$start, $end])->count();
+
+        $actualRate = $created > 0 ? round(($closed / $created) * 100, 1) : 0;
+
+        // Calculate benchmark score based on duration
+        $daysRange = max(1, $start->diffInDays($end));
+        $benchmarkScore = $this->calculateBenchmarkScore($actualRate, $daysRange);
+
+        // Breakdowns for display
         $todayCreated = (clone $baseQuery)->whereDate('created_at', $this->today)->count();
         $todayClosed = (clone $baseQuery)->whereDate('completed_at', $this->today)->count();
-        $todayRate = $todayCreated > 0 ? round(($todayClosed / $todayCreated) * 100, 1) : 0;
+        $todayActualRate = $todayCreated > 0 ? round(($todayClosed / $todayCreated) * 100, 1) : 0;
+        $todayScore = $this->calculateBenchmarkScore($todayActualRate, 1);
 
-        // This week
         $weekCreated = (clone $baseQuery)->whereBetween('created_at', [$this->startOfWeek, $this->endOfWeek])->count();
         $weekClosed = (clone $baseQuery)->whereBetween('completed_at', [$this->startOfWeek, $this->endOfWeek])->count();
         $weekRate = $weekCreated > 0 ? round(($weekClosed / $weekCreated) * 100, 1) : 0;
+        $weekScore = $this->calculateBenchmarkScore($weekRate, 7);
 
-        // This month
         $monthCreated = (clone $baseQuery)->whereBetween('created_at', [$this->startOfMonth, $this->endOfMonth])->count();
         $monthClosed = (clone $baseQuery)->whereBetween('completed_at', [$this->startOfMonth, $this->endOfMonth])->count();
         $monthRate = $monthCreated > 0 ? round(($monthClosed / $monthCreated) * 100, 1) : 0;
+        $monthScore = $this->calculateBenchmarkScore($monthRate, 30);
 
         return [
-            'today' => ['created' => $todayCreated, 'closed' => $todayClosed, 'rate' => $todayRate],
-            'thisWeek' => ['created' => $weekCreated, 'closed' => $weekClosed, 'rate' => $weekRate],
-            'thisMonth' => ['created' => $monthCreated, 'closed' => $monthClosed, 'rate' => $monthRate],
+            'actualRate' => $actualRate,
+            'benchmarkScore' => $benchmarkScore,
+            'today' => [
+                'created' => $todayCreated,
+                'closed' => $todayClosed,
+                'rate' => $todayActualRate,
+                'score' => $todayScore
+            ],
+            'thisWeek' => [
+                'created' => $weekCreated,
+                'closed' => $weekClosed,
+                'rate' => $weekRate,
+                'score' => $weekScore
+            ],
+            'thisMonth' => [
+                'created' => $monthCreated,
+                'closed' => $monthClosed,
+                'rate' => $monthRate,
+                'score' => $monthScore
+            ],
+            'current' => [ // Legacy/Compatibility for what I just wrote
+                'created' => $todayCreated,
+                'closed' => $todayClosed,
+                'rate' => $todayActualRate,
+                'score' => $todayScore
+            ],
+            'period' => [
+                'created' => $created,
+                'closed' => $closed,
+                'rate' => $actualRate,
+                'score' => $benchmarkScore,
+                'startDate' => $start->format('Y-m-d'),
+                'endDate' => $end->format('Y-m-d'),
+            ]
         ];
     }
 
     /**
      * Get completion time distribution
      */
-    public function getCompletionTimeDistribution(): array
+    public function getCompletionTimeDistribution(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
+        $start = $startDate ?? $this->startOfMonth;
+        $end = $endDate ?? $this->endOfMonth;
+
         $completedWOs = $this->baseWorkOrderQuery()
             ->whereNotNull('completed_at')
-            ->whereBetween('completed_at', [$this->startOfMonth, $this->endOfMonth])
+            ->whereBetween('completed_at', [$start, $end])
             ->selectRaw('DATEDIFF(completed_at, created_at) as days_to_complete')
             ->get();
 
@@ -214,27 +284,34 @@ class AdminDashboardService
     }
 
     /**
-     * Get weekly KPI trend
+     * Get weekly KPI trend with benchmark-based scores
      */
-    public function getWeeklyKpiTrend(): array
+    public function getWeeklyKpiTrend(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
         $trend = [];
-        $startOfLast7Days = Carbon::now()->subDays(6)->startOfDay();
+        $start = $startDate ?? Carbon::now()->subDays(6)->startOfDay();
+        $end = $endDate ?? Carbon::now()->endOfDay();
         $baseQuery = $this->baseWorkOrderQuery();
 
-        for ($i = 0; $i < 7; $i++) {
-            $dayDate = $startOfLast7Days->copy()->addDays($i);
+        $current = $start->copy();
+        while ($current <= $end) {
+            $dayDate = $current->copy();
             $received = (clone $baseQuery)->whereDate('created_at', $dayDate)->count();
             $closed = (clone $baseQuery)->whereDate('completed_at', $dayDate)->count();
-            $kpi = $received > 0 ? round(($closed / $received) * 100) : 0;
+
+            $actualKpi = $received > 0 ? round(($closed / $received) * 100, 1) : 0;
+            $benchmarkScore = $this->calculateBenchmarkScore($actualKpi, 1); // Daily benchmark is for 1 day
 
             $trend[] = [
                 'day' => $dayDate->format('D'),
                 'date' => $dayDate->format('Y-m-d'),
                 'received' => $received,
                 'closed' => $closed,
-                'kpi' => $kpi,
+                'actualKpi' => $actualKpi,
+                'kpi' => $benchmarkScore, // User wants the percentage relative to benchmark
             ];
+
+            $current->addDay();
         }
 
         return $trend;
@@ -458,6 +535,8 @@ class AdminDashboardService
             'appliedFilters' => [
                 'branch_id' => $this->branchId,
                 'city' => $this->city,
+                'category_id' => $this->categoryId,
+                'service_id' => $this->serviceId,
                 'date' => $this->date->format('Y-m-d'),
             ],
         ];
@@ -469,13 +548,16 @@ class AdminDashboardService
      * Promoters: 9-10, Passives: 7-8, Detractors: 1-6
      * NPS = % Promoters - % Detractors
      */
-    public function getNPSScore(): array
+    public function getNPSScore(?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
+        $start = $startDate ?? $this->startOfMonth;
+        $end = $endDate ?? $this->endOfMonth;
+
         $feedbacks = \App\Models\CustomerFeedback::query()
             ->when($this->branchId, function ($q) {
                 return $q->whereHas('workOrder', fn($wq) => $wq->where('branch_id', $this->branchId));
             })
-            ->whereBetween('created_at', [$this->startOfMonth, $this->endOfMonth])
+            ->whereBetween('created_at', [$start, $end])
             ->get();
 
         $total = $feedbacks->count();
@@ -489,6 +571,10 @@ class AdminDashboardService
                 'totalResponses' => 0,
                 'promoterPercentage' => 0,
                 'detractorPercentage' => 0,
+                'rating' => 'N/A',
+                'benchmark' => $this->benchmarks['nps'],
+                'startDate' => $start->format('Y-m-d'),
+                'endDate' => $end->format('Y-m-d'),
             ];
         }
 
@@ -501,14 +587,27 @@ class AdminDashboardService
         $detractorPercentage = round(($detractors / $total) * 100, 1);
         $nps = round($promoterPercentage - $detractorPercentage);
 
+        $rating = 'Needs Improvement';
+        if ($nps >= $this->benchmarks['nps']['excellent']) {
+            $rating = 'Excellent';
+        } elseif ($nps >= $this->benchmarks['nps']['good']) {
+            $rating = 'Good';
+        } elseif ($nps >= $this->benchmarks['nps']['average']) {
+            $rating = 'Average';
+        }
+
         return [
             'score' => $nps,
+            'rating' => $rating,
             'promoters' => $promoters,
             'passives' => $passives,
             'detractors' => $detractors,
             'totalResponses' => $total,
             'promoterPercentage' => $promoterPercentage,
             'detractorPercentage' => $detractorPercentage,
+            'benchmark' => $this->benchmarks['nps'],
+            'startDate' => $start->format('Y-m-d'),
+            'endDate' => $end->format('Y-m-d'),
         ];
     }
 }

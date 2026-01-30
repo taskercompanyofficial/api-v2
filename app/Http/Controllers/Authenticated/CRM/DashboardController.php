@@ -420,33 +420,101 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get comprehensive admin dashboard data with filters
-     * Uses AdminDashboardService for cleaner, model-based queries
+     * Get full admin dashboard data (Initial load)
      */
     public function adminDashboardFull(Request $request, AdminDashboardService $dashboardService): JsonResponse
     {
         try {
-            // Get filter parameters
             $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
             $city = $request->get('city');
             $date = $request->get('date') ? Carbon::parse($request->get('date')) : null;
             $categoryId = $request->get('category_id') ? (int) $request->get('category_id') : null;
             $serviceId = $request->get('service_id') ? (int) $request->get('service_id') : null;
 
-            // Set filters and get all data from service
             $data = $dashboardService
                 ->setFilters($branchId, $city, $date, $categoryId, $serviceId)
                 ->getAllData();
 
+            return response()->json(['status' => 'success', 'data' => $data]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get worker efficiency section data
+     */
+    public function workerEfficiency(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
+            $startDate = $request->get('start_date') ? Carbon::parse($request->get('start_date')) : null;
+            $endDate = $request->get('end_date') ? Carbon::parse($request->get('end_date')) : null;
+            $kpis = $dashboardService
+                ->setFilters($branchId)
+                ->getWorkerKPIs($startDate, $endDate);
+
+            $distribution = $dashboardService->getCompletionTimeDistribution($startDate, $endDate);
+            $target = $dashboardService->getCompletionTarget();
+
             return response()->json([
                 'status' => 'success',
-                'data' => $data,
+                'data' => [
+                    'workerKPIs' => $kpis,
+                    'distribution' => $distribution,
+                    'target' => $target
+                ]
             ]);
         } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get KPI trend section data
+     */
+    public function kpiTrend(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
+            $startDate = $request->get('start_date') ? Carbon::parse($request->get('start_date')) : null;
+            $endDate = $request->get('end_date') ? Carbon::parse($request->get('end_date')) : null;
+
+            $data = $dashboardService
+                ->setFilters($branchId)
+                ->getWeeklyKpiTrend($startDate, $endDate);
+
+            $summary = $dashboardService->getWeeklyKpiSummary(); // Note: summary current uses 7 day trend internally, might need update if we want summary of selected period
+
             return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to fetch admin dashboard data: ' . $e->getMessage(),
-            ], 500);
+                'status' => 'success',
+                'data' => [
+                    'trend' => $data,
+                    'summary' => $summary
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get NPS score section data
+     */
+    public function npsScore(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
+            $startDate = $request->get('start_date') ? Carbon::parse($request->get('start_date')) : null;
+            $endDate = $request->get('end_date') ? Carbon::parse($request->get('end_date')) : null;
+
+            $data = $dashboardService
+                ->setFilters($branchId)
+                ->getNPSScore($startDate, $endDate);
+
+            return response()->json(['status' => 'success', 'data' => $data]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 }

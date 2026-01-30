@@ -154,6 +154,13 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/dashboard/admin-full', [DashboardController::class, 'adminDashboardFull']);
         Route::get('/dashboard/analytics', [DashboardController::class, 'analytics']);
 
+        // New section-specific dashboard routes
+        Route::prefix('dashboard')->group(function () {
+            Route::get('/worker-efficiency', [DashboardController::class, 'workerEfficiency']);
+            Route::get('/kpi-trend', [DashboardController::class, 'kpiTrend']);
+            Route::get('/nps-score', [DashboardController::class, 'npsScore']);
+        });
+
         // Work Orders Management
         Route::apiResource('/work-orders', WorkOrderController::class);
         Route::get('/work-orders/{id}/history', [WorkOrderController::class, 'history']);
