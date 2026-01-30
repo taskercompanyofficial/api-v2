@@ -454,11 +454,61 @@ class AdminDashboardService
             'byCity' => $this->getDistributionByCity(),
             'byBranch' => $this->getDistributionByBranch(),
             'filterOptions' => $this->getFilterOptions(),
+            'npsScore' => $this->getNPSScore(),
             'appliedFilters' => [
                 'branch_id' => $this->branchId,
                 'city' => $this->city,
                 'date' => $this->date->format('Y-m-d'),
             ],
+        ];
+    }
+
+    /**
+     * Calculate NPS Score (Net Promoter Score)
+     * Rating scale: 1-10
+     * Promoters: 9-10, Passives: 7-8, Detractors: 1-6
+     * NPS = % Promoters - % Detractors
+     */
+    public function getNPSScore(): array
+    {
+        $feedbacks = \App\Models\CustomerFeedback::query()
+            ->when($this->branchId, function ($q) {
+                return $q->whereHas('workOrder', fn($wq) => $wq->where('branch_id', $this->branchId));
+            })
+            ->whereBetween('created_at', [$this->startOfMonth, $this->endOfMonth])
+            ->get();
+
+        $total = $feedbacks->count();
+
+        if ($total === 0) {
+            return [
+                'score' => 0,
+                'promoters' => 0,
+                'passives' => 0,
+                'detractors' => 0,
+                'totalResponses' => 0,
+                'promoterPercentage' => 0,
+                'detractorPercentage' => 0,
+            ];
+        }
+
+        // NPS categories (1-10 scale)
+        $promoters = $feedbacks->filter(fn($f) => $f->rating >= 9)->count();
+        $passives = $feedbacks->filter(fn($f) => $f->rating >= 7 && $f->rating <= 8)->count();
+        $detractors = $feedbacks->filter(fn($f) => $f->rating <= 6)->count();
+
+        $promoterPercentage = round(($promoters / $total) * 100, 1);
+        $detractorPercentage = round(($detractors / $total) * 100, 1);
+        $nps = round($promoterPercentage - $detractorPercentage);
+
+        return [
+            'score' => $nps,
+            'promoters' => $promoters,
+            'passives' => $passives,
+            'detractors' => $detractors,
+            'totalResponses' => $total,
+            'promoterPercentage' => $promoterPercentage,
+            'detractorPercentage' => $detractorPercentage,
         ];
     }
 }
