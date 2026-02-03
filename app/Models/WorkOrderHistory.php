@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Auth;
 
 class WorkOrderHistory extends Model
 {
@@ -48,7 +49,7 @@ class WorkOrderHistory extends Model
         $newValue = null,
         ?array $metadata = null
     ): self {
-        $user = auth('staff')->user();
+        $user = Auth::user();
         $request = request();
 
         return self::create([

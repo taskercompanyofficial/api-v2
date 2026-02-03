@@ -37,14 +37,14 @@ class WorkOrderObserver
 
         // Skip if only timestamps changed
         unset($changes['updated_at'], $changes['created_at']);
-        
+
         if (empty($changes)) {
             return;
         }
 
         foreach ($changes as $field => $newValue) {
             $oldValue = $original[$field] ?? null;
-            
+
             // Skip if values are the same
             if ($oldValue == $newValue) {
                 continue;
@@ -91,7 +91,7 @@ class WorkOrderObserver
 
         // Get relationship mapping for this field
         $relationshipMap = $this->getRelationshipMapping();
-        
+
         if (!isset($relationshipMap[$field])) {
             // Not a foreign key field, return as-is
             return $value;
@@ -103,14 +103,13 @@ class WorkOrderObserver
         try {
             // Find the related record
             $record = $modelClass::find($value);
-            
+
             if (!$record) {
                 return $value; // Return original value if not found
             }
 
             // Get the display name for this record
             return $this->getDisplayName($record);
-            
         } catch (\Exception $e) {
             // If any error occurs, return the original value
             return $value;
@@ -141,19 +140,19 @@ class WorkOrderObserver
         if (isset($customNameAttributes[$modelClass])) {
             $attributes = $customNameAttributes[$modelClass];
             $nameParts = [];
-            
+
             foreach ($attributes as $attr) {
                 if (isset($model->$attr) && $model->$attr) {
                     $nameParts[] = $model->$attr;
                 }
             }
-            
+
             return implode(' ', $nameParts) ?: 'Unknown';
         }
 
         // Default: try common name attributes in order of preference
         $commonNameAttributes = ['name', 'title', 'label', 'code', 'number'];
-        
+
         foreach ($commonNameAttributes as $attr) {
             if (isset($model->$attr) && $model->$attr) {
                 return $model->$attr;
@@ -202,7 +201,7 @@ class WorkOrderObserver
 
         // Cache the mapping
         self::$relationshipCache = $mapping;
-        
+
         return $mapping;
     }
 
@@ -268,11 +267,11 @@ class WorkOrderObserver
         if (str_ends_with($field, '_id') || in_array($field, ['created_by', 'updated_by', 'completed_by', 'closed_by', 'cancelled_by', 'rejected_by'])) {
             $oldDisplay = $oldValue ?? 'None';
             $newDisplay = $newValue ?? 'None';
-            
+
             if ($oldValue === $newValue) {
                 return "{$label} was updated";
             }
-            
+
             return "{$label} changed from \"{$oldDisplay}\" to \"{$newDisplay}\"";
         }
 
