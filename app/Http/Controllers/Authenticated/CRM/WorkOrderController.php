@@ -320,7 +320,7 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::findOrFail($id);
 
             $histories = $workOrder->histories()
-                ->with('user:id,name,email')
+                ->with('user:id,first_name,last_name')
                 ->orderBy('id', 'desc')
                 ->get();
 

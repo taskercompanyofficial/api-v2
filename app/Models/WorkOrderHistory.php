@@ -35,7 +35,7 @@ class WorkOrderHistory extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Staff::class);
     }
 
     // Helper method to create history entry
@@ -48,7 +48,7 @@ class WorkOrderHistory extends Model
         $newValue = null,
         ?array $metadata = null
     ): self {
-        $user = auth()->user();
+        $user = auth('staff')->user();
         $request = request();
 
         return self::create([
