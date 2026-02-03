@@ -2,11 +2,13 @@
 
 namespace App\Services\WorkOrder;
 
-use App\Models\Staff;
-use App\Models\WorkOrder;
-use App\Models\WorkOrderStatus;
-use App\Models\WorkOrderHistory;
 use App\Events\WorkOrderUpdated;
+use App\Models\Staff;
+use App\Models\StoreItemInstance;
+use App\Models\WorkOrder;
+use App\Models\WorkOrderHistory;
+use App\Models\WorkOrderStatus;
+use App\Models\WorkOrderStoreItem;
 use App\Services\WorkOrder\WorkOrderNotificationService;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -382,6 +384,49 @@ class WorkOrderService
                 'total_amount' => $data['total_amount'],
                 'updated_by' => $userId,
             ]);
+
+            // Handle Store Items lifecycle if present in charges
+            if (isset($data['charges']['items']) && is_array($data['charges']['items'])) {
+                $newStoreInstanceIds = [];
+                foreach ($data['charges']['items'] as $item) {
+                    if (isset($item['type']) && $item['type'] === 'part' && isset($item['store_item_instance_id'])) {
+                        $newStoreInstanceIds[] = $item['store_item_instance_id'];
+                    }
+                }
+
+                // Get currently linked store items
+                $currentlyLinked = WorkOrderStoreItem::where('work_order_id', $workOrder->id)->pluck('store_item_instance_id')->toArray();
+
+                // Instances to ADD (in new list but not currently linked)
+                $toAdd = array_diff($newStoreInstanceIds, $currentlyLinked);
+                foreach ($toAdd as $instanceId) {
+                    StoreItemInstance::where('id', $instanceId)->update([
+                        'status' => 'used',
+                        'complaint_number' => $workOrder->id,
+                    ]);
+
+                    WorkOrderStoreItem::create([
+                        'work_order_id' => $workOrder->id,
+                        'store_item_instance_id' => $instanceId,
+                        'quantity_used' => 1, // Charges usually have 1 instance per line for serialized items
+                        'created_by' => $userId,
+                        'updated_by' => $userId,
+                    ]);
+                }
+
+                // Instances to REMOVE (currently linked but not in new list)
+                $toRemove = array_diff($currentlyLinked, $newStoreInstanceIds);
+                foreach ($toRemove as $instanceId) {
+                    StoreItemInstance::where('id', $instanceId)->update([
+                        'status' => 'active',
+                        'complaint_number' => null,
+                    ]);
+
+                    WorkOrderStoreItem::where('work_order_id', $workOrder->id)
+                        ->where('store_item_instance_id', $instanceId)
+                        ->delete();
+                }
+            }
 
             // Create history entry
             WorkOrderHistory::log(

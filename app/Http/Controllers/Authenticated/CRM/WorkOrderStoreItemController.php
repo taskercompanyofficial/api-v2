@@ -111,6 +111,9 @@ class WorkOrderStoreItemController extends Controller
         $query = $request->input('q', '');
 
         $instances = StoreItemInstance::where('status', 'active')
+            ->when($request->input('assigned_to'), function ($q) use ($request) {
+                $q->where('assigned_to', $request->input('assigned_to'));
+            })
             ->where(function ($q) use ($query) {
                 $q->where('item_instance_id', 'like', "%{$query}%")
                     ->orWhere('barcode', 'like', "%{$query}%")
