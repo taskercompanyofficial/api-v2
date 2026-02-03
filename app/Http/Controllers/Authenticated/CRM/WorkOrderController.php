@@ -725,9 +725,9 @@ class WorkOrderController extends Controller
     public function syncCharges(Request $request, string $work_order): JsonResponse
     {
         $request->validate([
-            'charges' => 'required|array',
-            'charges.items' => 'required|array',
-            'total_amount' => 'required|numeric',
+            'charges' => 'nullable|array',
+            'charges.items' => 'nullable|array',
+            'total_amount' => 'nullable|numeric',
         ]);
 
         try {
