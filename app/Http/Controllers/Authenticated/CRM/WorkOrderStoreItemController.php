@@ -109,10 +109,21 @@ class WorkOrderStoreItemController extends Controller
     public function searchAvailable(Request $request)
     {
         $query = $request->input('q', '');
+        $instances = StoreItemInstance::where('status', '!=', 'used')
+            ->where(function ($q) use ($request) {
+                $assignedTo = $request->input('assigned_to');
+                $workOrderId = $request->input('work_order_id');
 
-        $instances = StoreItemInstance::where('status', 'active')
-            ->when($request->input('assigned_to'), function ($q) use ($request) {
-                $q->where('assigned_to', $request->input('assigned_to'));
+                if ($assignedTo && $workOrderId) {
+                    $q->where('assigned_to', $assignedTo)
+                        ->orWhere('complaint_number', $workOrderId);
+                } elseif ($assignedTo) {
+                    $q->where('assigned_to', $assignedTo);
+                } elseif ($workOrderId) {
+                    $q->where('complaint_number', $workOrderId);
+                } else {
+                    $q->whereRaw('1=1'); // Default to all if no filter
+                }
             })
             ->where(function ($q) use ($query) {
                 $q->where('item_instance_id', 'like', "%{$query}%")
