@@ -39,6 +39,12 @@ use App\Http\Controllers\Authenticated\CRM\NotificationController;
 use App\Http\Controllers\Authenticated\CRM\TestNotificationController;
 use App\Http\Controllers\Authenticated\CRM\DashboardController;
 use App\Http\Controllers\Authenticated\CRM\WorkOrderStoreItemController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderPartController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderBillController;
+use App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController;
+use App\Http\Controllers\Authenticated\CRM\PartController;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController;
+use App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController;
 use App\Http\Controllers\Authenticated\FileTypeController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
@@ -83,8 +89,9 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/rawData/parent-services', [ParentServicesController::class, 'parentServicesRaw']);
         Route::get('/rawData/products', [ProductsController::class, 'productsRaw']);
         Route::get('/rawData/dealers', [DealersController::class, 'dealersRaw']);
+        Route::get('/rawData/store-items', [StoreItemController::class, 'storeItemsRaw']);
         Route::get('/rawData/dealer-branches', [DealerBranchesController::class, 'dealerBranchesRaw']);
-        Route::get('/rawData/parts', [\App\Http\Controllers\Authenticated\CRM\PartController::class, 'partsRaw']);
+        Route::get('/rawData/parts', [PartController::class, 'partsRaw']);
         Route::apiResource('/dealers', DealersController::class);
         Route::apiResource('/dealer-branches', DealerBranchesController::class);
         Route::apiResource('/social-handlers', SocialHandlersController::class);
@@ -183,7 +190,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/work-orders', WorkOrderController::class);
 
         // Parts Management
-        Route::apiResource('/parts', \App\Http\Controllers\Authenticated\CRM\PartController::class);
+        Route::apiResource('/parts', PartController::class);
 
         // Work Order Files Management (nested routes)
         Route::prefix('work-orders/{workOrderId}')->group(function () {
@@ -196,20 +203,20 @@ Route::group(['prefix' => 'crm'], function () {
             Route::post('/files/{fileId}/approval', [WorkOrderFileController::class, 'updateApproval']);
 
             // Customer Feedbacks
-            Route::get('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'index']);
-            Route::post('/feedbacks', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'store']);
-            Route::put('/feedbacks/{feedbackId}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'update']);
-            Route::delete('/feedbacks/{feedbackId}', [\App\Http\Controllers\Authenticated\CRM\CustomerFeedbackController::class, 'destroy']);
+            Route::get('/feedbacks', [CustomerFeedbackController::class, 'index']);
+            Route::post('/feedbacks', [CustomerFeedbackController::class, 'store']);
+            Route::put('/feedbacks/{feedbackId}', [CustomerFeedbackController::class, 'update']);
+            Route::delete('/feedbacks/{feedbackId}', [CustomerFeedbackController::class, 'destroy']);
 
             // Service Center Units
-            Route::get('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'show']);
-            Route::post('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'sendToServiceCenter']);
-            Route::put('/service-center-unit', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'update']);
-            Route::post('/service-center-unit/status', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'updateStatus']);
-            Route::post('/service-center-unit/pickup', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsPickedUp']);
-            Route::post('/service-center-unit/receive', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsReceived']);
-            Route::post('/service-center-unit/deliver', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'markAsDelivered']);
-            Route::get('/service-center-unit/history', [\App\Http\Controllers\Authenticated\CRM\ServiceCenterUnitController::class, 'history']);
+            Route::get('/service-center-unit', [ServiceCenterUnitController::class, 'show']);
+            Route::post('/service-center-unit', [ServiceCenterUnitController::class, 'sendToServiceCenter']);
+            Route::put('/service-center-unit', [ServiceCenterUnitController::class, 'update']);
+            Route::post('/service-center-unit/status', [ServiceCenterUnitController::class, 'updateStatus']);
+            Route::post('/service-center-unit/pickup', [ServiceCenterUnitController::class, 'markAsPickedUp']);
+            Route::post('/service-center-unit/receive', [ServiceCenterUnitController::class, 'markAsReceived']);
+            Route::post('/service-center-unit/deliver', [ServiceCenterUnitController::class, 'markAsDelivered']);
+            Route::get('/service-center-unit/history', [ServiceCenterUnitController::class, 'history']);
 
             // Work Order Store Items
             Route::get('/store-items', [WorkOrderStoreItemController::class, 'index']);
@@ -217,24 +224,24 @@ Route::group(['prefix' => 'crm'], function () {
             Route::delete('/store-items/{id}', [WorkOrderStoreItemController::class, 'destroy']);
 
             // Work Order Parts
-            Route::get('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'index']);
-            Route::post('/parts', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'store']);
-            Route::patch('/parts/bulk-status', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'bulkUpdateStatus']);
-            Route::patch('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'update']);
-            Route::delete('/parts/{workOrderPartId}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderPartController::class, 'destroy']);
+            Route::get('/parts', [WorkOrderPartController::class, 'index']);
+            Route::post('/parts', [WorkOrderPartController::class, 'store']);
+            Route::patch('/parts/bulk-status', [WorkOrderPartController::class, 'bulkUpdateStatus']);
+            Route::patch('/parts/{workOrderPartId}', [WorkOrderPartController::class, 'update']);
+            Route::delete('/parts/{workOrderPartId}', [WorkOrderPartController::class, 'destroy']);
 
             // Work Order Bills
-            Route::get('/bills', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'index']);
-            Route::post('/bills', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'store']);
-            Route::get('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'show']);
-            Route::put('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'update']);
-            Route::delete('/bills/{id}', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'destroy']);
-            Route::patch('/bills/{id}/status', [\App\Http\Controllers\Authenticated\CRM\WorkOrderBillController::class, 'updateStatus']);
+            Route::get('/bills', [WorkOrderBillController::class, 'index']);
+            Route::post('/bills', [WorkOrderBillController::class, 'store']);
+            Route::get('/bills/{id}', [WorkOrderBillController::class, 'show']);
+            Route::put('/bills/{id}', [WorkOrderBillController::class, 'update']);
+            Route::delete('/bills/{id}', [WorkOrderBillController::class, 'destroy']);
+            Route::patch('/bills/{id}/status', [WorkOrderBillController::class, 'updateStatus']);
         });
 
-        Route::apiResource('/work-order-statuses', \App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class);
-        Route::get('/work-order-statuses-raw', [\App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class, 'statusesRaw']);
-        Route::get('/work-order-sub-statuses-raw', [\App\Http\Controllers\Authenticated\CRM\WorkOrderStatusController::class, 'subStatusesRaw']);
+        Route::apiResource('/work-order-statuses', WorkOrderStatusController::class);
+        Route::get('/work-order-statuses-raw', [WorkOrderStatusController::class, 'statusesRaw']);
+        Route::get('/work-order-sub-statuses-raw', [WorkOrderStatusController::class, 'subStatusesRaw']);
 
         // File Types Management
         Route::apiResource('/file-types', FileTypeController::class);

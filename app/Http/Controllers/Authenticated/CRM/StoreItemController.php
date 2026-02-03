@@ -292,4 +292,24 @@ class StoreItemController extends Controller
             ], 500);
         }
     }
+
+    public function storeItemsRaw(Request $request)
+    {
+        $query = StoreItems::query();
+
+        if ($request->has('q')) {
+            $query->where('name', 'like', '%' . $request->q . '%');
+        }
+
+        $items = $query->withCount([
+            'itemInstances as available_count' => function ($query) {
+                $query->where('status', 'active');
+            }
+        ])->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $items
+        ]);
+    }
 }

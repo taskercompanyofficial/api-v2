@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Authenticated\CRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\Part;
+use App\Models\PartRequest;
+use App\Models\StoreItemInstance;
 use App\Models\WorkOrder;
-use App\Models\WorkOrderPart;
+use App\Models\WorkOrderHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,15 +19,11 @@ class WorkOrderPartController extends Controller
      */
     public function index($workOrderId)
     {
-        $workOrder = WorkOrder::findOrFail($workOrderId);
-        $parts = $workOrder->workOrderParts()
-            ->with(['part', 'creator', 'updater'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $workOrder = WorkOrder::with(['partRequests.part', 'partRequests.storeItem', 'partRequests.instance', 'partRequests.creator'])->findOrFail($workOrderId);
 
         return response()->json([
             'status' => 'success',
-            'data' => $parts
+            'data' => $workOrder->partRequests
         ]);
     }
 
@@ -35,38 +33,79 @@ class WorkOrderPartController extends Controller
     public function store(Request $request, $workOrderId)
     {
         $request->validate([
-            'part_id' => 'required|exists:parts,id',
+            'part_id' => 'nullable|exists:parts,id',
+            'store_item_id' => 'nullable|exists:store_items,id',
             'quantity' => 'required|integer|min:1',
             'request_type' => 'required|in:warranty,payable',
-            'pricing_source' => 'required_if:request_type,payable|in:none,local,brand',
             'unit_price' => 'nullable|numeric|min:0',
-            'part_request_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
 
-        try {
-            $workOrder = WorkOrder::findOrFail($workOrderId);
-            $part = WorkOrderPart::create([
-                'work_order_id' => $workOrder->id,
-                'part_id' => $request->part_id,
-                'quantity' => $request->quantity,
-                'request_type' => $request->request_type,
-                'pricing_source' => $request->request_type === 'warranty' ? 'none' : $request->pricing_source,
-                'unit_price' => $request->request_type === 'warranty' ? 0 : ($request->unit_price ?? 0),
-                'part_request_number' => $request->part_request_number,
-                'notes' => $request->notes,
-                'status' => 'requested',
-            ]);
+        if (!$request->part_id && !$request->store_item_id) {
+            return response()->json(['status' => 'error', 'message' => 'Either part_id or store_item_id is required'], 422);
+        }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Part demanded successfully',
-                'data' => $part->load(['part', 'creator'])
-            ]);
+        try {
+            return DB::transaction(function () use ($request, $workOrderId) {
+                $workOrder = WorkOrder::findOrFail($workOrderId);
+
+                $data = [
+                    'work_order_id' => $workOrder->id,
+                    'part_id' => $request->part_id,
+                    'store_item_id' => $request->store_item_id,
+                    'quantity' => $request->quantity,
+                    'request_type' => $request->request_type,
+                    'unit_price' => $request->unit_price ?? 0,
+                    'notes' => $request->notes,
+                    'status' => 'requested',
+                ];
+
+                // Automatic Reservation Logic
+                if ($request->store_item_id) {
+                    $availableInstance = StoreItemInstance::where('store_item_id', $request->store_item_id)
+                        ->where('status', 'active')
+                        ->first();
+
+                    if ($availableInstance) {
+                        $data['store_item_instance_id'] = $availableInstance->id;
+                        $data['status'] = 'reserved';
+
+                        // Mark instance as reserved
+                        $availableInstance->update([
+                            'status' => 'reserved',
+                            'complaint_number' => $workOrder->id // Store work order ID for traceability
+                        ]);
+                    }
+                }
+
+                $partRequest = PartRequest::create($data);
+
+                // Log History
+                $itemName = $partRequest->storeItem?->name ?? $partRequest->part?->name ?? 'Unknown Part';
+                $statusMsg = $partRequest->status === 'reserved' ? "and automatically reserved instance #{$partRequest->store_item_instance_id}" : "";
+
+                WorkOrderHistory::log(
+                    workOrderId: $workOrderId,
+                    actionType: 'created',
+                    description: "Requested part '{$itemName}' {$statusMsg}",
+                    metadata: [
+                        'part_request_id' => $partRequest->id,
+                        'item_name' => $itemName,
+                        'status' => $partRequest->status,
+                        'type' => 'part_request_created'
+                    ]
+                );
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Part request created successfully',
+                    'data' => $partRequest->load(['part', 'storeItem', 'instance', 'creator'])
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to demand part: ' . $e->getMessage()
+                'message' => 'Failed to request part: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -74,96 +113,67 @@ class WorkOrderPartController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $workOrderId, $workOrderPartId)
+    public function update(Request $request, $workOrderId, $id)
     {
         $request->validate([
-            'quantity' => 'sometimes|integer|min:1',
-            'request_type' => 'sometimes|in:warranty,payable',
-            'pricing_source' => 'sometimes|in:none,local,brand',
-            'unit_price' => 'sometimes|numeric|min:0',
-            'part_request_number' => 'nullable|string|max:100',
-            'status' => 'sometimes|in:requested,dispatched,received,installed,returned,cancelled',
-            'is_returned_faulty' => 'sometimes|boolean',
+            'status' => 'sometimes|in:requested,reserved,dispatched,received,used,returned,cancelled',
             'notes' => 'nullable|string',
-            'payment_proof' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'gas_pass_slip' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'return_slip' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'is_returned_faulty' => 'sometimes|boolean',
         ]);
 
         try {
-            $workOrderPart = WorkOrderPart::where('work_order_id', $workOrderId)
-                ->where('id', $workOrderPartId)
-                ->firstOrFail();
+            return DB::transaction(function () use ($request, $workOrderId, $id) {
+                $partRequest = PartRequest::where('work_order_id', $workOrderId)->findOrFail($id);
+                $oldStatus = $partRequest->status;
 
-            // Workflow validation: Payable parts require payment proof before dispatch
-            if ($request->has('status') && $request->status === 'dispatched') {
-                if ($workOrderPart->request_type === 'payable' && !$workOrderPart->payment_proof_path && !$request->hasFile('payment_proof')) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Payment proof is required before dispatching payable parts'
-                    ], 422);
+                $data = $request->only(['status', 'notes']);
+
+                // Handle status transitions
+                if ($request->has('status') && $request->status !== $oldStatus) {
+                    // Logic for returning instances if cancelled or returned
+                    if (in_array($request->status, ['returned', 'cancelled']) && $partRequest->store_item_instance_id) {
+                        StoreItemInstance::where('id', $partRequest->store_item_instance_id)->update([
+                            'status' => 'active',
+                            'complaint_number' => null
+                        ]);
+                    }
+
+                    // Logic for usage
+                    if ($request->status === 'used' && $partRequest->store_item_instance_id) {
+                        StoreItemInstance::where('id', $partRequest->store_item_instance_id)->update([
+                            'status' => 'used',
+                            'used_date' => now(),
+                            'used_price' => $partRequest->unit_price
+                        ]);
+                    }
                 }
-            }
 
-            $updateData = $request->only([
-                'quantity', 'request_type', 'pricing_source', 'unit_price',
-                'part_request_number', 'status', 'is_returned_faulty', 'notes'
-            ]);
+                $partRequest->update($data);
 
-            // Handle document uploads
-            $workOrder = WorkOrder::findOrFail($workOrderId);
-            
-            if ($request->hasFile('payment_proof')) {
-                $file = $request->file('payment_proof');
-                $fileName = 'payment_proof_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs(
-                    'work-orders/' . $workOrder->work_order_number . '/parts',
-                    $fileName,
-                    'public'
-                );
-                $updateData['payment_proof_path'] = $path;
-                $updateData['payment_proof_uploaded_at'] = now();
-            }
+                if ($request->has('status')) {
+                    WorkOrderHistory::log(
+                        workOrderId: $workOrderId,
+                        actionType: 'updated',
+                        description: "Updated part request status to '{$request->status}'",
+                        metadata: [
+                            'part_request_id' => $partRequest->id,
+                            'old_status' => $oldStatus,
+                            'new_status' => $request->status,
+                            'type' => 'part_request_update'
+                        ]
+                    );
+                }
 
-            if ($request->hasFile('gas_pass_slip')) {
-                $file = $request->file('gas_pass_slip');
-                $fileName = 'gas_pass_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs(
-                    'work-orders/' . $workOrder->work_order_number . '/parts',
-                    $fileName,
-                    'public'
-                );
-                $updateData['gas_pass_slip_path'] = $path;
-                $updateData['gas_pass_slip_uploaded_at'] = now();
-            }
-
-            if ($request->hasFile('return_slip')) {
-                $file = $request->file('return_slip');
-                $fileName = 'return_slip_' . $workOrderPartId . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs(
-                    'work-orders/' . $workOrder->work_order_number . '/parts',
-                    $fileName,
-                    'public'
-                );
-                $updateData['return_slip_path'] = $path;
-                $updateData['return_slip_uploaded_at'] = now();
-            }
-
-            if ($request->has('is_returned_faulty') && $request->is_returned_faulty && !$workOrderPart->is_returned_faulty) {
-                $updateData['faulty_part_returned_at'] = now();
-            }
-
-            $workOrderPart->update($updateData);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Part demand updated successfully',
-                'data' => $workOrderPart->load(['part', 'creator', 'updater'])
-            ]);
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Part request updated successfully',
+                    'data' => $partRequest->load(['part', 'storeItem', 'instance', 'creator', 'updater'])
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to update part demand: ' . $e->getMessage()
+                'message' => 'Failed to update part request: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -171,29 +181,35 @@ class WorkOrderPartController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($workOrderId, $workOrderPartId)
+    public function destroy($workOrderId, $id)
     {
         try {
-            $workOrderPart = WorkOrderPart::where('work_order_id', $workOrderId)
-                ->where('id', $workOrderPartId)
-                ->firstOrFail();
+            return DB::transaction(function () use ($workOrderId, $id) {
+                $partRequest = PartRequest::where('work_order_id', $workOrderId)->findOrFail($id);
 
-            if ($workOrderPart->status !== 'requested') {
+                if ($partRequest->status === 'used') {
+                    return response()->json(['status' => 'error', 'message' => 'Cannot delete used part requests'], 422);
+                }
+
+                // Release instance if reserved/received
+                if ($partRequest->store_item_instance_id) {
+                    StoreItemInstance::where('id', $partRequest->store_item_instance_id)->update([
+                        'status' => 'active',
+                        'complaint_number' => null
+                    ]);
+                }
+
+                $partRequest->delete();
+
                 return response()->json([
-                    'status' => 'error',
-                    'message' => 'Cannot delete a part demand that is already processed'
-                ], 422);
-            }
-
-            $workOrderPart->delete();
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Part demand removed successfully'
-            ]);
+                    'status' => 'success',
+                    'message' => 'Part request removed successfully'
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to delete part demand: ' . $e->getMessage()
+                'message' => 'Failed to delete part request: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -204,31 +220,27 @@ class WorkOrderPartController extends Controller
     public function bulkUpdateStatus(Request $request, $workOrderId)
     {
         $request->validate([
-            'part_ids' => 'required|array',
-            'part_ids.*' => 'exists:work_order_parts,id',
-            'status' => 'required|in:requested,dispatched,received,installed,returned,cancelled',
+            'ids' => 'required|array',
+            'ids.*' => 'exists:part_requests,id',
+            'status' => 'required|in:requested,reserved,dispatched,received,used,returned,cancelled',
         ]);
 
         try {
-            WorkOrderPart::whereIn('id', $request->part_ids)
-                ->where('work_order_id', $workOrderId)
-                ->update([
-                    'status' => $request->status,
-                    'updated_by' => auth()->id(),
-                    'updated_at' => now(),
-                ]);
+            DB::transaction(function () use ($request, $workOrderId) {
+                foreach ($request->ids as $id) {
+                    $this->update(new Request(['status' => $request->status]), $workOrderId, $id);
+                }
+            });
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Parts status updated successfully'
+                'message' => 'Part requests bulk updated successfully'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to update parts status: ' . $e->getMessage()
+                'message' => 'Failed to bulk update part requests: ' . $e->getMessage()
             ], 500);
         }
     }
-
-   
 }

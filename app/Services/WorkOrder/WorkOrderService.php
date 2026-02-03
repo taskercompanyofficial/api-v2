@@ -9,6 +9,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderHistory;
 use App\Models\WorkOrderStatus;
 use App\Models\WorkOrderStoreItem;
+use App\Models\WorkOrderPart;
 use App\Services\WorkOrder\WorkOrderNotificationService;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -386,13 +387,19 @@ class WorkOrderService
             ]);
 
             // Handle Store Items lifecycle if present in charges
+            $storeChanges = ['added' => [], 'removed' => [], 'updated' => []];
             if (isset($data['charges']['items']) && is_array($data['charges']['items'])) {
-                $newStoreInstanceIds = [];
+                $newStoreInstances = [];
                 foreach ($data['charges']['items'] as $item) {
                     if (isset($item['type']) && $item['type'] === 'part' && isset($item['store_item_instance_id'])) {
-                        $newStoreInstanceIds[] = $item['store_item_instance_id'];
+                        $newStoreInstances[$item['store_item_instance_id']] = [
+                            'rate' => $item['rate'] ?? 0,
+                            'name' => $item['description'] ?? 'Unnamed Part'
+                        ];
                     }
                 }
+
+                $newStoreInstanceIds = array_keys($newStoreInstances);
 
                 // Get currently linked store items
                 $currentlyLinked = WorkOrderStoreItem::where('work_order_id', $workOrder->id)->pluck('store_item_instance_id')->toArray();
@@ -400,42 +407,107 @@ class WorkOrderService
                 // Instances to ADD (in new list but not currently linked)
                 $toAdd = array_diff($newStoreInstanceIds, $currentlyLinked);
                 foreach ($toAdd as $instanceId) {
+                    $itemData = $newStoreInstances[$instanceId];
                     StoreItemInstance::where('id', $instanceId)->update([
                         'status' => 'used',
                         'complaint_number' => $workOrder->id,
+                        'used_price' => $itemData['rate'],
+                        'used_date' => now(),
                     ]);
 
                     WorkOrderStoreItem::create([
                         'work_order_id' => $workOrder->id,
                         'store_item_instance_id' => $instanceId,
-                        'quantity_used' => 1, // Charges usually have 1 instance per line for serialized items
+                        'quantity_used' => 1,
                         'created_by' => $userId,
                         'updated_by' => $userId,
                     ]);
+                    $storeChanges['added'][] = $itemData['name'];
+                }
+
+                // Instances TO UPDATE (already linked, but price might have changed)
+                $toUpdate = array_intersect($newStoreInstanceIds, $currentlyLinked);
+                foreach ($toUpdate as $instanceId) {
+                    $itemData = $newStoreInstances[$instanceId];
+                    StoreItemInstance::where('id', $instanceId)->update([
+                        'used_price' => $itemData['rate'],
+                        'used_date' => now(),
+                    ]);
+                    $storeChanges['updated'][] = $itemData['name'];
                 }
 
                 // Instances to REMOVE (currently linked but not in new list)
                 $toRemove = array_diff($currentlyLinked, $newStoreInstanceIds);
                 foreach ($toRemove as $instanceId) {
+                    $instance = StoreItemInstance::find($instanceId);
                     StoreItemInstance::where('id', $instanceId)->update([
                         'status' => 'active',
                         'complaint_number' => null,
+                        'used_price' => null,
+                        'used_date' => null,
                     ]);
 
                     WorkOrderStoreItem::where('work_order_id', $workOrder->id)
                         ->where('store_item_instance_id', $instanceId)
                         ->delete();
+                    $storeChanges['removed'][] = $instance ? $instance->description : "ID: $instanceId";
                 }
             }
+
+            // Handle WorkOrderPart (Demands) lifecycle
+            $partChanges = ['used' => [], 'reverted' => []];
+            if (isset($data['charges']['items']) && is_array($data['charges']['items'])) {
+                $chargedPartIds = [];
+                foreach ($data['charges']['items'] as $item) {
+                    if (isset($item['type']) && $item['type'] === 'part' && isset($item['part_id'])) {
+                        $chargedPartIds[] = $item['part_id'];
+                    }
+                }
+
+                // Parts currently marked as 'used' for this WO
+                $currentlyUsedParts = WorkOrderPart::where('work_order_id', $workOrder->id)
+                    ->where('status', 'used')
+                    ->pluck('id')
+                    ->toArray();
+
+                // Parts to mark as USED
+                $toMarkUsed = array_diff($chargedPartIds, $currentlyUsedParts);
+                if (!empty($toMarkUsed)) {
+                    $parts = WorkOrderPart::whereIn('id', $toMarkUsed)->get();
+                    foreach ($parts as $p) {
+                        $p->update(['status' => 'used']);
+                        $partChanges['used'][] = $p->name ?? "Requested Part";
+                    }
+                }
+
+                // Parts to revert to RECEIVED
+                $toRevert = array_diff($currentlyUsedParts, $chargedPartIds);
+                if (!empty($toRevert)) {
+                    $parts = WorkOrderPart::whereIn('id', $toRevert)->get();
+                    foreach ($parts as $p) {
+                        $p->update(['status' => 'received']);
+                        $partChanges['reverted'][] = $p->name ?? "Requested Part";
+                    }
+                }
+            }
+
+            // Build more detailed description
+            $descriptions = ['Updated charges and billing information'];
+            if (!empty($storeChanges['added'])) $descriptions[] = "Added inventory: " . implode(', ', $storeChanges['added']);
+            if (!empty($storeChanges['removed'])) $descriptions[] = "Removed inventory: " . implode(', ', $storeChanges['removed']);
+            if (!empty($partChanges['used'])) $descriptions[] = "Marked requested parts as used: " . implode(', ', $partChanges['used']);
+            if (!empty($partChanges['reverted'])) $descriptions[] = "Returned requested parts to received status: " . implode(', ', $partChanges['reverted']);
 
             // Create history entry
             WorkOrderHistory::log(
                 workOrderId: $workOrder->id,
                 actionType: 'updated',
-                description: 'Updated charges and billing information',
+                description: implode('. ', $descriptions),
                 metadata: [
                     'charges' => $data['charges'],
                     'total_amount' => $data['total_amount'],
+                    'store_item_changes' => $storeChanges,
+                    'part_demand_changes' => $partChanges,
                     'type' => 'charges_sync'
                 ]
             );

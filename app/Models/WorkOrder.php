@@ -276,6 +276,11 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderPart::class);
     }
 
+    public function partRequests(): HasMany
+    {
+        return $this->hasMany(PartRequest::class);
+    }
+
     public function statusHistory(): HasMany
     {
         return $this->hasMany(WorkOrderStatusHistory::class);
