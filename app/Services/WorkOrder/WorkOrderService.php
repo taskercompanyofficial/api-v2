@@ -369,4 +369,40 @@ class WorkOrderService
             'message' => "Reminder sent to {$workOrder->assignedTo->first_name} {$workOrder->assignedTo->last_name}",
         ];
     }
+    /**
+     * Sync quick charges for work order
+     */
+    public function syncCharges(WorkOrder $workOrder, array $data, int $userId): WorkOrder
+    {
+        try {
+            DB::beginTransaction();
+
+            $workOrder->update([
+                'charges' => $data['charges'],
+                'total_amount' => $data['total_amount'],
+                'updated_by' => $userId,
+            ]);
+
+            // Create history entry
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'updated',
+                description: 'Updated charges and billing information',
+                metadata: [
+                    'charges' => $data['charges'],
+                    'total_amount' => $data['total_amount'],
+                    'type' => 'charges_sync'
+                ]
+            );
+
+            DB::commit();
+
+            broadcast(new WorkOrderUpdated($workOrder));
+
+            return $workOrder;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
 }

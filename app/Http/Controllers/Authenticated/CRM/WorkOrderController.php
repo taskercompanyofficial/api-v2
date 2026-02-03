@@ -105,6 +105,14 @@ class WorkOrderController extends Controller
                         $customerQuery->where('name', 'like', "%{$searchTerm}%")
                             ->orWhere('phone', 'like', "%{$searchTerm}%")
                             ->orWhere('whatsapp', 'like', "%{$searchTerm}%");
+                    })
+                    ->orWhereHas('address', function ($addressQuery) use ($searchTerm) {
+                        $addressQuery->where('address_line_1', 'like', "%{$searchTerm}%")
+                            ->orWhere('address_line_2', 'like', "%{$searchTerm}%")
+                            ->orWhere('city', 'like', "%{$searchTerm}%")
+                            ->orWhere('state', 'like', "%{$searchTerm}%")
+                            ->orWhere('country', 'like', "%{$searchTerm}%")
+                            ->orWhere('zip_code', 'like', "%{$searchTerm}%");
                     });
             });
         }
@@ -708,6 +716,35 @@ class WorkOrderController extends Controller
                 'status' => 'error',
                 'message' => $e->getMessage(),
             ], 422);
+        }
+    }
+
+    /**
+     * Sync quick charges for work order
+     */
+    public function syncCharges(Request $request, string $work_order): JsonResponse
+    {
+        $request->validate([
+            'charges' => 'required|array',
+            'charges.items' => 'required|array',
+            'total_amount' => 'required|numeric',
+        ]);
+
+        try {
+            $user = $request->user();
+            $workOrder = WorkOrder::findOrFail($work_order);
+            $workOrder = $this->workOrderService->syncCharges($workOrder, $request->all(), $user->id);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Charges synced successfully',
+                'data' => $workOrder,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to sync charges: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

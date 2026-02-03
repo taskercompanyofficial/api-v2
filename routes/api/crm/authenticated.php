@@ -179,6 +179,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/work-orders/{work_order}/close', [WorkOrderController::class, 'closeWorkOrder']);
         Route::post('/work-orders/{work_order}/mark-part-in-demand', [WorkOrderController::class, 'markAsPartInDemand']);
         Route::post('/work-orders/{work_order}/complete-from-part-demand', [WorkOrderController::class, 'completeFromPartDemand']);
+        Route::post('/work-orders/{work_order}/sync-charges', [WorkOrderController::class, 'syncCharges']);
         Route::apiResource('/work-orders', WorkOrderController::class);
 
         // Parts Management
