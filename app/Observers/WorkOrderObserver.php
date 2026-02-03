@@ -42,6 +42,7 @@ class WorkOrderObserver
             return;
         }
 
+        $processedChanges = [];
         foreach ($changes as $field => $newValue) {
             $oldValue = $original[$field] ?? null;
 
@@ -57,13 +58,42 @@ class WorkOrderObserver
             // Generate human-readable description
             $description = $this->generateDescription($field, $resolvedOldValue, $resolvedNewValue, $workOrder);
 
+            $processedChanges[] = [
+                'field' => $field,
+                'old_value' => $resolvedOldValue,
+                'new_value' => $resolvedNewValue,
+                'description' => $description,
+            ];
+        }
+
+        if (empty($processedChanges)) {
+            return;
+        }
+
+        // If only one field was changed, log it specifically
+        if (count($processedChanges) === 1) {
+            $change = $processedChanges[0];
             WorkOrderHistory::log(
                 workOrderId: $workOrder->id,
                 actionType: 'updated',
-                description: $description,
-                fieldName: $field,
-                oldValue: $resolvedOldValue,
-                newValue: $resolvedNewValue
+                description: $change['description'],
+                fieldName: $change['field'],
+                oldValue: $change['old_value'],
+                newValue: $change['new_value']
+            );
+        } else {
+            // If multiple fields were changed, log them together
+            $descriptions = array_column($processedChanges, 'description');
+            $summaryDescription = "Updated multiple fields:\n" . implode("\n", array_map(fn($d) => "- " . $d, $descriptions));
+
+            WorkOrderHistory::log(
+                workOrderId: $workOrder->id,
+                actionType: 'updated',
+                description: $summaryDescription,
+                metadata: [
+                    'changes' => $processedChanges,
+                    'is_bulk_update' => true
+                ]
             );
         }
     }

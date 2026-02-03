@@ -220,10 +220,10 @@ class WorkOrderController extends Controller
     /**
      * Schedule work order appointment
      */
-    public function schedule(ScheduleWorkOrderRequest $request, string $id): JsonResponse
+    public function schedule(ScheduleWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $user = $request->user();
             $result = $this->statusService->scheduleWorkOrder($workOrder, $request->validated(), $user->id);
             return response()->json($result);
@@ -238,10 +238,10 @@ class WorkOrderController extends Controller
     /**
      * Assign or reassign staff to work order
      */
-    public function assign(AssignWorkOrderRequest $request, string $id): JsonResponse
+    public function assign(AssignWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $staff = Staff::findOrFail($request->assigned_to_id);
             if ($staff->status_id !== 1) {
                 return response()->json([
@@ -269,10 +269,10 @@ class WorkOrderController extends Controller
     /**
      * Cancel work order
      */
-    public function cancel(CancelWorkOrderRequest $request, string $id): JsonResponse
+    public function cancel(CancelWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $user = $request->user();
             $result = $this->statusService->cancelWorkOrder(
                 $workOrder,

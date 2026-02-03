@@ -162,24 +162,24 @@ Route::group(['prefix' => 'crm'], function () {
         });
 
         // Work Orders Management
+        Route::get('/work-orders/{work_order}/history', [WorkOrderController::class, 'history']);
+        Route::post('/work-orders/{work_order}/lock', [WorkOrderController::class, 'lock']);
+        Route::post('/work-orders/{work_order}/schedule', [WorkOrderController::class, 'schedule']);
+        Route::post('/work-orders/{work_order}/assign', [WorkOrderController::class, 'assign']);
+        Route::post('/work-orders/{work_order}/cancel', [WorkOrderController::class, 'cancel']);
+        Route::post('/work-orders/{work_order}/duplicate', [WorkOrderController::class, 'duplicate']);
+        Route::post('/work-orders/{work_order}/reopen', [WorkOrderController::class, 'reopen']);
+        Route::post('/work-orders/{work_order}/send-reminder', [WorkOrderController::class, 'sendReminder']);
+        Route::post('/work-orders/{work_order}/accept', [WorkOrderController::class, 'acceptWorkOrder']);
+        Route::post('/work-orders/{work_order}/start-service', [WorkOrderController::class, 'startService']);
+        Route::post('/work-orders/{work_order}/start-work', [WorkOrderController::class, 'startWork']);
+        Route::post('/work-orders/{work_order}/complete-service', [WorkOrderController::class, 'completeService']);
+        Route::post('/work-orders/{work_order}/approve', [WorkOrderController::class, 'approveWorkOrder']);
+        Route::post('/work-orders/{work_order}/reject-completion', [WorkOrderController::class, 'rejectCompletion']);
+        Route::post('/work-orders/{work_order}/close', [WorkOrderController::class, 'closeWorkOrder']);
+        Route::post('/work-orders/{work_order}/mark-part-in-demand', [WorkOrderController::class, 'markAsPartInDemand']);
+        Route::post('/work-orders/{work_order}/complete-from-part-demand', [WorkOrderController::class, 'completeFromPartDemand']);
         Route::apiResource('/work-orders', WorkOrderController::class);
-        Route::get('/work-orders/{id}/history', [WorkOrderController::class, 'history']);
-        Route::post('/work-orders/{id}/lock', [WorkOrderController::class, 'lock']);
-        Route::post('/work-orders/{id}/schedule', [WorkOrderController::class, 'schedule']);
-        Route::post('/work-orders/{id}/assign', [WorkOrderController::class, 'assign']);
-        Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
-        Route::post('/work-orders/{id}/duplicate', [WorkOrderController::class, 'duplicate']);
-        Route::post('/work-orders/{id}/reopen', [WorkOrderController::class, 'reopen']);
-        Route::post('/work-orders/{id}/send-reminder', [WorkOrderController::class, 'sendReminder']);
-        Route::post('/work-orders/{id}/accept', [WorkOrderController::class, 'acceptWorkOrder']);
-        Route::post('/work-orders/{id}/start-service', [WorkOrderController::class, 'startService']);
-        Route::post('/work-orders/{id}/start-work', [WorkOrderController::class, 'startWork']);
-        Route::post('/work-orders/{id}/complete-service', [WorkOrderController::class, 'completeService']);
-        Route::post('/work-orders/{id}/approve', [WorkOrderController::class, 'approveWorkOrder']);
-        Route::post('/work-orders/{id}/reject-completion', [WorkOrderController::class, 'rejectCompletion']);
-        Route::post('/work-orders/{id}/close', [WorkOrderController::class, 'closeWorkOrder']);
-        Route::post('/work-orders/{id}/mark-part-in-demand', [WorkOrderController::class, 'markAsPartInDemand']);
-        Route::post('/work-orders/{id}/complete-from-part-demand', [WorkOrderController::class, 'completeFromPartDemand']);
 
         // Parts Management
         Route::apiResource('/parts', \App\Http\Controllers\Authenticated\CRM\PartController::class);
