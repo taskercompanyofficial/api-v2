@@ -167,7 +167,7 @@ class WorkOrderController extends Controller
     /**
      * Get work order details
      */
-    public function show(string $id): JsonResponse
+    public function show(string $work_order): JsonResponse
     {
         $workOrder = WorkOrder::with([
             'customer',
@@ -185,7 +185,7 @@ class WorkOrderController extends Controller
             'dealerBranch',
             'city',
             'files',
-        ])->findOrFail($id);
+        ])->findOrFail($work_order);
 
         return response()->json([
             'success' => true,
@@ -196,9 +196,9 @@ class WorkOrderController extends Controller
     /**
      * Update work order
      */
-    public function update(UpdateWorkOrderRequest $request, string $id): JsonResponse
+    public function update(UpdateWorkOrderRequest $request, string $work_order): JsonResponse
     {
-        $workOrder = WorkOrder::findOrFail($id);
+        $workOrder = WorkOrder::findOrFail($work_order);
 
         try {
             // Update work order using service (Prevent updates logic moved to service)
@@ -292,9 +292,9 @@ class WorkOrderController extends Controller
     /**
      * Delete work order
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(string $work_order): JsonResponse
     {
-        $workOrder = WorkOrder::findOrFail($id);
+        $workOrder = WorkOrder::findOrFail($work_order);
 
         if ($workOrder->completed_at) {
             return response()->json([
@@ -314,10 +314,10 @@ class WorkOrderController extends Controller
     /**
      * Get work order history
      */
-    public function history(string $id): JsonResponse
+    public function history(string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
 
             $histories = $workOrder->histories()
                 ->with('user:id,first_name,last_name')
@@ -339,10 +339,10 @@ class WorkOrderController extends Controller
     /**
      * Get files associated with work order
      */
-    public function getFiles(string $id): JsonResponse
+    public function getFiles(string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $files = $this->fileService->getFiles($workOrder);
 
             return response()->json([
@@ -360,9 +360,9 @@ class WorkOrderController extends Controller
     /**
      * Upload files to work order
      */
-    public function uploadFiles(Request $request, string $id): JsonResponse
+    public function uploadFiles(Request $request, string $work_order): JsonResponse
     {
-        $workOrder = WorkOrder::findOrFail($id);
+        $workOrder = WorkOrder::findOrFail($work_order);
 
         $request->validate([
             'files' => 'required|array',
@@ -395,10 +395,10 @@ class WorkOrderController extends Controller
     /**
      * Delete work order file
      */
-    public function deleteFile(string $id, string $fileId): JsonResponse
+    public function deleteFile(string $work_order, string $fileId): JsonResponse
     {
         try {
-            $file = WorkOrderFile::where('work_order_id', $id)->findOrFail($fileId);
+            $file = WorkOrderFile::where('work_order_id', $work_order)->findOrFail($fileId);
             $this->fileService->deleteFile($file);
 
             return response()->json([
@@ -416,7 +416,7 @@ class WorkOrderController extends Controller
     /**
      * Send reminder notification to assigned staff
      */
-    public function sendReminder(Request $request, string $id): JsonResponse
+    public function sendReminder(Request $request, string $work_order): JsonResponse
     {
         try {
             $data = $request->validate([
@@ -424,7 +424,7 @@ class WorkOrderController extends Controller
             ]);
 
             $user = $request->user();
-            $workOrder = WorkOrder::with(['assignedTo'])->findOrFail($id);
+            $workOrder = WorkOrder::with(['assignedTo'])->findOrFail($work_order);
             $result = $this->workOrderService->sendReminder($workOrder, $data['remark'], $user->id);
 
             return response()->json($result);
@@ -440,11 +440,11 @@ class WorkOrderController extends Controller
     /**
      * Duplicate work order with selective copying
      */
-    public function duplicate(DuplicateWorkOrderRequest $request, string $id): JsonResponse
+    public function duplicate(DuplicateWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $originalWorkOrder = WorkOrder::findOrFail($id);
+            $originalWorkOrder = WorkOrder::findOrFail($work_order);
             $result = $this->workOrderService->duplicateWorkOrder($originalWorkOrder, $request->validated(), $user->id);
 
             return response()->json([
@@ -465,11 +465,11 @@ class WorkOrderController extends Controller
     /**
      * Reopen a work order
      */
-    public function reopen(ReopenWorkOrderRequest $request, string $id): JsonResponse
+    public function reopen(ReopenWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $originalWorkOrder = WorkOrder::findOrFail($id);
+            $originalWorkOrder = WorkOrder::findOrFail($work_order);
             $newWorkOrder = $this->workOrderService->reopenWorkOrder($originalWorkOrder, $request->validated(), $user->id);
 
             return response()->json([
@@ -488,11 +488,11 @@ class WorkOrderController extends Controller
     /**
      * Accept work order
      */
-    public function acceptWorkOrder(Request $request, string $id): JsonResponse
+    public function acceptWorkOrder(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->acceptWorkOrder($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -506,11 +506,11 @@ class WorkOrderController extends Controller
     /**
      * Start service
      */
-    public function startService(Request $request, string $id): JsonResponse
+    public function startService(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->startService($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -524,11 +524,11 @@ class WorkOrderController extends Controller
     /**
      * Start work
      */
-    public function startWork(Request $request, string $id): JsonResponse
+    public function startWork(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->startWork($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -542,11 +542,11 @@ class WorkOrderController extends Controller
     /**
      * Complete service
      */
-    public function completeService(Request $request, string $id): JsonResponse
+    public function completeService(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->completeService($workOrder, $user->id);
             return response()->json($result);
         } catch (\App\Exceptions\MissingFilesException $e) {
@@ -566,11 +566,11 @@ class WorkOrderController extends Controller
     /**
      * Mark work order as Part in Demand
      */
-    public function markAsPartInDemand(Request $request, string $id): JsonResponse
+    public function markAsPartInDemand(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->markAsPartInDemand($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -584,11 +584,11 @@ class WorkOrderController extends Controller
     /**
      * Complete service from Part in Demand status
      */
-    public function completeFromPartDemand(Request $request, string $id): JsonResponse
+    public function completeFromPartDemand(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $result = $this->statusService->completeFromPartDemand($workOrder, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -602,10 +602,10 @@ class WorkOrderController extends Controller
     /**
      * Get feedback for work order
      */
-    public function getFeedback(string $id): JsonResponse
+    public function getFeedback(string $work_order): JsonResponse
     {
         try {
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $feedback = $this->feedbackService->getFeedback($workOrder);
             return response()->json([
                 'status' => 'success',
@@ -622,11 +622,11 @@ class WorkOrderController extends Controller
     /**
      * Add feedback for work order
      */
-    public function addFeedback(AddFeedbackRequest $request, string $id): JsonResponse
+    public function addFeedback(AddFeedbackRequest $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::findOrFail($id);
+            $workOrder = WorkOrder::findOrFail($work_order);
             $feedback = $this->feedbackService->addFeedback($workOrder, $request->validated(), $user->id);
             return response()->json([
                 'status' => 'success',
@@ -644,11 +644,11 @@ class WorkOrderController extends Controller
     /**
      * Approve work order (after completion)
      */
-    public function approveWorkOrder(Request $request, string $id): JsonResponse
+    public function approveWorkOrder(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::with('status')->findOrFail($id);
+            $workOrder = WorkOrder::with('status')->findOrFail($work_order);
             $result = $this->statusService->approveWorkOrder($workOrder, $user->id);
             return response()->json($result);
         } catch (\App\Exceptions\MissingFilesException $e) {
@@ -668,7 +668,7 @@ class WorkOrderController extends Controller
     /**
      * Reject completion and send back to rework
      */
-    public function rejectCompletion(Request $request, string $id): JsonResponse
+    public function rejectCompletion(Request $request, string $work_order): JsonResponse
     {
         $request->validate([
             'reason' => 'required|string|max:500',
@@ -676,7 +676,7 @@ class WorkOrderController extends Controller
 
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::with('status')->findOrFail($id);
+            $workOrder = WorkOrder::with('status')->findOrFail($work_order);
             $result = $this->statusService->rejectCompletion($workOrder, $request->reason, $user->id);
             return response()->json($result);
         } catch (Exception $e) {
@@ -690,11 +690,11 @@ class WorkOrderController extends Controller
     /**
      * Close work order (from Feedback Pending status)
      */
-    public function closeWorkOrder(Request $request, string $id): JsonResponse
+    public function closeWorkOrder(Request $request, string $work_order): JsonResponse
     {
         try {
             $user = $request->user();
-            $workOrder = WorkOrder::with(['status', 'subStatus'])->findOrFail($id);
+            $workOrder = WorkOrder::with(['status', 'subStatus'])->findOrFail($work_order);
             $result = $this->statusService->closeWorkOrder($workOrder, $user->id);
             return response()->json($result);
         } catch (\App\Exceptions\MissingFilesException $e) {
