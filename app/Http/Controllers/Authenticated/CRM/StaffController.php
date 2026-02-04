@@ -44,12 +44,13 @@ class StaffController extends Controller
             'state' => 'nullable|string',
             'postal_code' => 'nullable|string',
             'role_id' => 'nullable|exists:roles,id',
-            'status_id' => 'nullable|exists:statuses,id',
             'joining_date' => 'nullable|date',
             'notes' => 'nullable|string',
             'has_access_in_crm' => 'nullable|boolean|in:true,false',
             'crm_login_email' => 'nullable|email|unique:staff,crm_login_email',
             'password' => 'nullable|string',
+            'branch_id' => 'nullable|exists:our_branches,id',
+            'salary_payout' => 'nullable|numeric|min:0',
         ]);
 
         $fullName = $validated['first_name'] . ' ' . ($validated['middle_name'] ?? '') . ' ' . $validated['last_name'];
@@ -74,6 +75,7 @@ class StaffController extends Controller
             'code' => $code,
             'created_by' => $user->id,
             'updated_by' => $user->id,
+            'status_id' => 1,
         ]);
 
         return response()->json(['status' => 'success', 'message' => 'Staff created successfully', 'slug' => $staff->slug]);
@@ -117,11 +119,12 @@ class StaffController extends Controller
             'employment_type' => 'nullable|string|in:full_time,part_time,contract',
             'joining_date' => 'nullable|date',
             'role_id' => 'nullable|exists:roles,id',
-            'status_id' => 'nullable|exists:statuses,id',
             'tags' => 'nullable|array',
             'has_access_in_crm' => 'nullable|boolean|in:true,false',
             'crm_login_email' => 'nullable|email|unique:staff,crm_login_email,' . $staff->id,
             'password' => 'nullable|string',
+            'branch_id' => 'nullable|exists:our_branches,id',
+            'salary_payout' => 'nullable|numeric|min:0',
         ]);
         if (isset($validated['password'])) {
             $validated['crm_login_password'] = bcrypt($validated['password']);

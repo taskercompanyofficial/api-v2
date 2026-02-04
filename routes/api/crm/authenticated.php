@@ -8,6 +8,7 @@ use App\Http\Controllers\Authenticated\CRM\DealersController;
 use App\Http\Controllers\Authenticated\CRM\DealerBranchesController;
 use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ProductsController;
+use App\Http\Controllers\Authenticated\CRM\SalaryController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
@@ -79,6 +80,8 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/role-permissions/sync', [RolePermissionController::class, 'syncPermissions']);
         Route::get('/attendances/statistics', [AttendanceController::class, 'statistics']);
         Route::apiResource('/attendances', AttendanceController::class);
+        Route::get('/salaries', [SalaryController::class, 'index']);
+        Route::get('/salaries/{staffId}', [SalaryController::class, 'show']);
         Route::apiResource('/routes', RouteController::class);
         Route::apiResource('/customers', CustomerController::class);
         Route::get('/rawData/customers', [CustomerController::class, 'customersRaw']);

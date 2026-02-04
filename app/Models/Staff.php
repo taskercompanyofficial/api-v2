@@ -47,6 +47,7 @@ class Staff extends Authenticatable
         'created_by',
         'updated_by',
         'branch_id',
+        'salary_payout',
     ];
 
     protected $casts = [
