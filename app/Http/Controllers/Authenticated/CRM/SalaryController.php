@@ -59,8 +59,11 @@ class SalaryController extends Controller
 
             if (is_array($filters)) {
                 foreach ($filters as &$filter) {
-                    if (isset($filter['id']) && $filter['id'] === 'name') {
-                        $filter['id'] = 'first_name';
+                    if (isset($filter['id'])) {
+                        if ($filter['id'] === 'name') $filter['id'] = 'first_name';
+                        if ($filter['id'] === 'monthly_salary') $filter['id'] = 'salary_payout';
+                        if ($filter['id'] === 'branch') $filter['id'] = 'branch_id';
+                        if ($filter['id'] === 'code') $filter['id'] = 'code';
                     }
                 }
                 $request->merge(['filters' => $filters]);
@@ -73,12 +76,8 @@ class SalaryController extends Controller
             $sortRules = json_decode($request->input('sort'), true);
             if (is_array($sortRules)) {
                 foreach ($sortRules as &$rule) {
-                    if ($rule['id'] === 'monthly_salary') {
-                        $rule['id'] = 'salary_payout';
-                    }
-                    if ($rule['id'] === 'name') {
-                        $rule['id'] = 'first_name';
-                    }
+                    if ($rule['id'] === 'monthly_salary') $rule['id'] = 'salary_payout';
+                    if ($rule['id'] === 'name') $rule['id'] = 'first_name';
                 }
                 $request->merge(['sort' => json_encode($sortRules)]);
             }
@@ -92,13 +91,59 @@ class SalaryController extends Controller
             // Get attendance records for the month (already eager loaded)
             $attendances = $staffMember->attendances;
 
-            // Count different attendance statuses
-            $presentDays = $attendances->whereIn('status', ['present', 'late'])->count();
-            $halfDays = $attendances->where('status', 'half_day')->count();
-            $absentDays = $totalDaysInMonth - ($presentDays + $halfDays);
+            // Get approved leave applications for the month
+            $approvedLeaves = $staffMember->leaveApplications()
+                ->where('status', 'approved')
+                ->where(function ($q) use ($startDate, $endDate) {
+                    $q->whereBetween('start_date', [$startDate, $endDate])
+                        ->orWhereBetween('end_date', [$startDate, $endDate]);
+                })
+                ->get();
 
-            // Calculate effective working days (half day = 0.5 day)
-            $effectiveWorkingDays = $presentDays + ($halfDays * 0.5);
+            // Create a map of year-month-day for efficient lookup
+            $attendanceMap = $attendances->keyBy(function ($item) {
+                return \Carbon\Carbon::parse($item->date)->format('Y-m-d');
+            });
+
+            // Count different attendance statuses and calculate effective days
+            $presentDays = 0;
+            $halfDays = 0;
+            $paidHolidays = 0;
+            $approvedLeaveDays = 0;
+            $totalWorkingHours = 0;
+
+            $currentDate = $startDate->copy();
+            while ($currentDate <= $endDate) {
+                $dateStr = $currentDate->format('Y-m-d');
+                $isHoliday = $currentDate->isSunday();
+                $isOnLeave = $approvedLeaves->contains(function ($leave) use ($currentDate) {
+                    return $currentDate->between($leave->start_date, $leave->end_date);
+                });
+
+                if ($isHoliday) {
+                    $paidHolidays++;
+                    if (isset($attendanceMap[$dateStr])) {
+                        $totalWorkingHours += (float) $attendanceMap[$dateStr]->working_hours;
+                    }
+                } elseif ($isOnLeave) {
+                    $approvedLeaveDays++;
+                } elseif (isset($attendanceMap[$dateStr])) {
+                    $att = $attendanceMap[$dateStr];
+                    $totalWorkingHours += (float) $att->working_hours;
+
+                    if ($att->status === 'present' || $att->status === 'late') {
+                        $presentDays++;
+                    } elseif ($att->status === 'half_day') {
+                        $halfDays++;
+                    }
+                }
+
+                $currentDate->addDay();
+            }
+
+            // Calculate effective working days
+            // (Half days count as 0.5)
+            $effectiveWorkingDays = $presentDays + ($halfDays * 0.5) + $paidHolidays + $approvedLeaveDays;
 
             // Calculate daily rate
             $monthlySalary = (float) $staffMember->salary_payout;
@@ -107,8 +152,8 @@ class SalaryController extends Controller
             // Calculate payable salary
             $payableSalary = $dailyRate * $effectiveWorkingDays;
 
-            // Calculate total working hours
-            $totalWorkingHours = $attendances->sum('working_hours');
+            // Absent days are those that are not present, not half, not Sunday, and not on leave
+            $absentDays = $totalDaysInMonth - ($presentDays + $halfDays + $paidHolidays + $approvedLeaveDays);
 
             return [
                 'id' => $staffMember->id,
@@ -121,7 +166,9 @@ class SalaryController extends Controller
                 'total_days' => $totalDaysInMonth,
                 'present_days' => $presentDays,
                 'half_days' => $halfDays,
-                'absent_days' => $absentDays,
+                'absent_days' => max(0, $absentDays),
+                'paid_holidays' => $paidHolidays,
+                'approved_leaves' => $approvedLeaveDays,
                 'effective_working_days' => round($effectiveWorkingDays, 2),
                 'total_working_hours' => round($totalWorkingHours, 2),
                 'payable_salary' => number_format($payableSalary, 2),
