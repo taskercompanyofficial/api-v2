@@ -221,14 +221,86 @@ class SalaryController extends Controller
             ->orderBy('date', 'asc')
             ->get();
 
-        // Count different attendance statuses
-        $presentDays = $attendances->whereIn('status', ['present', 'late'])->count();
-        $halfDays = $attendances->where('status', 'half_day')->count();
-        $lateDays = $attendances->where('status', 'late')->count();
-        $absentDays = $totalDaysInMonth - ($presentDays + $halfDays);
+        // Get approved leave applications for the month
+        $approvedLeaves = $staff->leaveApplications()
+            ->where('status', 'approved')
+            ->where(function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('start_date', [$startDate, $endDate])
+                    ->orWhereBetween('end_date', [$startDate, $endDate]);
+            })
+            ->get();
+
+        $attendanceMap = $attendances->keyBy(function ($item) {
+            return \Carbon\Carbon::parse($item->date)->format('Y-m-d');
+        });
+
+        // Calculate metrics including holidays and leaves
+        $presentDays = 0;
+        $halfDays = 0;
+        $lateDays = 0;
+        $paidHolidays = 0;
+        $approvedLeaveDays = 0;
+        $totalWorkingHours = 0;
+        $dailyBreakdown = [];
+
+        $currentDate = $startDate->copy();
+        while ($currentDate <= $endDate) {
+            $dateStr = $currentDate->format('Y-m-d');
+            $isSunday = $currentDate->isSunday();
+            $isOnLeave = $approvedLeaves->contains(function ($leave) use ($currentDate) {
+                return $currentDate->between($leave->start_date, $leave->end_date);
+            });
+
+            $attendance = $attendanceMap->get($dateStr);
+            $status = 'absent';
+            $checkIn = null;
+            $checkOut = null;
+            $hours = 0;
+
+            if ($isSunday) {
+                $status = 'holiday';
+                $paidHolidays++;
+                if ($attendance) {
+                    $totalWorkingHours += (float) $attendance->working_hours;
+                    $checkIn = $attendance->check_in_time;
+                    $checkOut = $attendance->check_out_time;
+                    $hours = $attendance->working_hours;
+                    // If they worked on Sunday, maybe show worked? But let's keep it 'holiday' for pay
+                }
+            } elseif ($isOnLeave) {
+                $status = 'leave';
+                $approvedLeaveDays++;
+            } elseif ($attendance) {
+                $status = $attendance->status;
+                $checkIn = $attendance->check_in_time;
+                $checkOut = $attendance->check_out_time;
+                $hours = $attendance->working_hours;
+                $totalWorkingHours += (float) $hours;
+
+                if ($status === 'present') {
+                    $presentDays++;
+                } elseif ($status === 'late') {
+                    $presentDays++;
+                    $lateDays++;
+                } elseif ($status === 'half_day') {
+                    $halfDays++;
+                }
+            }
+
+            $dailyBreakdown[] = [
+                'date' => $dateStr,
+                'day' => $currentDate->format('l'),
+                'status' => $status,
+                'check_in_time' => $checkIn,
+                'check_out_time' => $checkOut,
+                'working_hours' => $hours,
+            ];
+
+            $currentDate->addDay();
+        }
 
         // Calculate effective working days
-        $effectiveWorkingDays = $presentDays + ($halfDays * 0.5);
+        $effectiveWorkingDays = $presentDays + ($halfDays * 0.5) + $paidHolidays + $approvedLeaveDays;
 
         // Calculate salary
         $monthlySalary = (float) $staff->salary_payout;
@@ -236,25 +308,7 @@ class SalaryController extends Controller
         $payableSalary = $dailyRate * $effectiveWorkingDays;
         $deduction = $monthlySalary - $payableSalary;
 
-        // Calculate total working hours
-        $totalWorkingHours = $attendances->sum('working_hours');
-        $avgWorkingHours = $attendances->where('working_hours', '>', 0)->avg('working_hours') ?? 0;
-
-        // Prepare daily breakdown
-        $dailyBreakdown = [];
-        $currentDate = $startDate->copy();
-        while ($currentDate <= $endDate) {
-            $attendance = $attendances->where('date', $currentDate->format('Y-m-d'))->first();
-            $dailyBreakdown[] = [
-                'date' => $currentDate->format('Y-m-d'),
-                'day' => $currentDate->format('l'),
-                'status' => $attendance ? $attendance->status : 'absent',
-                'check_in_time' => $attendance ? $attendance->check_in_time : null,
-                'check_out_time' => $attendance ? $attendance->check_out_time : null,
-                'working_hours' => $attendance ? $attendance->working_hours : 0,
-            ];
-            $currentDate->addDay();
-        }
+        $avgWorkingHours = ($presentDays + $halfDays > 0) ? $totalWorkingHours / ($presentDays + $halfDays) : 0;
 
         return response()->json([
             'status' => 'success',
@@ -266,6 +320,7 @@ class SalaryController extends Controller
                     'branch' => $staff->branch ? $staff->branch->name : null,
                     'designation' => $staff->staffRole ? $staff->staffRole->name : null,
                     'joining_date' => $staff->joining_date,
+                    'profile_image' => $staff->profile_image,
                 ],
                 'salary_info' => [
                     'month' => $startDate->format('F Y'),
@@ -279,7 +334,9 @@ class SalaryController extends Controller
                     'present_days' => $presentDays,
                     'half_days' => $halfDays,
                     'late_days' => $lateDays,
-                    'absent_days' => $absentDays,
+                    'absent_days' => max(0, $totalDaysInMonth - ($presentDays + $halfDays + $paidHolidays + $approvedLeaveDays)),
+                    'paid_holidays' => $paidHolidays,
+                    'approved_leaves' => $approvedLeaveDays,
                     'effective_working_days' => round($effectiveWorkingDays, 2),
                     'attendance_percentage' => round(($effectiveWorkingDays / $totalDaysInMonth) * 100, 1),
                 ],
