@@ -10,6 +10,7 @@ use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ProductsController;
 use App\Http\Controllers\Authenticated\CRM\SalaryController;
 use App\Http\Controllers\Authenticated\CRM\StaffAdvanceController;
+use App\Http\Controllers\Authenticated\CRM\DefaultVendorLedgerController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
@@ -93,6 +94,22 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/staff-advances/{id}/approve', [StaffAdvanceController::class, 'approve']);
         Route::post('/staff-advances/{id}/reject', [StaffAdvanceController::class, 'reject']);
         Route::get('/staff/{staffId}/advances/active', [StaffAdvanceController::class, 'getActiveAdvances']);
+
+        // Default Vendor Ledger Management
+        Route::prefix('vendor-management')->group(function () {
+            // Ledger Routes
+            Route::get('/ledger', [DefaultVendorLedgerController::class, 'index']);
+            Route::get('/ledger/summary', [DefaultVendorLedgerController::class, 'getSummary']);
+            Route::get('/ledger/services', [DefaultVendorLedgerController::class, 'getServices']);
+            Route::get('/ledger/parts', [DefaultVendorLedgerController::class, 'getParts']);
+            Route::post('/ledger', [DefaultVendorLedgerController::class, 'store']);
+            Route::get('/ledger/{id}', [DefaultVendorLedgerController::class, 'show']);
+            Route::put('/ledger/{id}', [DefaultVendorLedgerController::class, 'update']);
+            Route::delete('/ledger/{id}', [DefaultVendorLedgerController::class, 'destroy']);
+            Route::post('/ledger/{id}/toggle-status', [DefaultVendorLedgerController::class, 'toggleStatus']);
+            Route::post('/ledger/bulk-update-revenue-share', [DefaultVendorLedgerController::class, 'bulkUpdateRevenueShare']);
+        });
+
         Route::apiResource('/routes', RouteController::class);
         Route::apiResource('/customers', CustomerController::class);
         Route::get('/rawData/customers', [CustomerController::class, 'customersRaw']);
