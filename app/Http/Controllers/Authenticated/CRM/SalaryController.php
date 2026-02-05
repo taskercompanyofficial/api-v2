@@ -517,8 +517,23 @@ class SalaryController extends Controller
                 MAX(updated_at) as last_updated_at
             ')
             ->whereIn('status', $statuses)
-            ->groupBy('month')
-            ->orderBy('month', 'desc');
+            ->groupBy('month');
+
+        // Apply sorting
+        if ($request->has('sort')) {
+            $sortRules = json_decode($request->input('sort'), true);
+            if (is_array($sortRules) && count($sortRules) > 0) {
+                foreach ($sortRules as $rule) {
+                    $column = $rule['id'] ?? 'month';
+                    $desc = isset($rule['desc']) && $rule['desc'];
+                    $query->orderBy($column, $desc ? 'desc' : 'asc');
+                }
+            } else {
+                $query->orderBy('month', 'desc');
+            }
+        } else {
+            $query->orderBy('month', 'desc');
+        }
 
         // Get paginated results
         $monthlyData = $query->paginate($perPage, ['*'], 'page', $page);
