@@ -9,6 +9,7 @@ use App\Http\Controllers\Authenticated\CRM\DealerBranchesController;
 use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ProductsController;
 use App\Http\Controllers\Authenticated\CRM\SalaryController;
+use App\Http\Controllers\Authenticated\CRM\StaffAdvanceController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
@@ -85,6 +86,13 @@ Route::group(['prefix' => 'crm'], function () {
         Route::post('/salaries/post', [SalaryController::class, 'postSalary']);
         Route::post('/salaries/pay/{id}', [SalaryController::class, 'markAsPaid']);
         Route::get('/salaries/{staffId}', [SalaryController::class, 'show']);
+        Route::get('/salaries/{staffId}/payouts', [SalaryController::class, 'staffPayouts']);
+
+        // Staff Advances Management
+        Route::apiResource('/staff-advances', StaffAdvanceController::class);
+        Route::post('/staff-advances/{id}/approve', [StaffAdvanceController::class, 'approve']);
+        Route::post('/staff-advances/{id}/reject', [StaffAdvanceController::class, 'reject']);
+        Route::get('/staff/{staffId}/advances/active', [StaffAdvanceController::class, 'getActiveAdvances']);
         Route::apiResource('/routes', RouteController::class);
         Route::apiResource('/customers', CustomerController::class);
         Route::get('/rawData/customers', [CustomerController::class, 'customersRaw']);

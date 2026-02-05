@@ -488,7 +488,7 @@ class SalaryController extends Controller
     }
 
     /**
-     * Get all posted and paid salary payouts
+     * Get monthly salary payment summaries
      */
     public function payouts(Request $request)
     {
@@ -499,50 +499,82 @@ class SalaryController extends Controller
         // Parse status filter (can be comma-separated: "posted,paid")
         $statuses = explode(',', $status);
 
+        // Get monthly aggregated data
         $query = SalaryPayout::query()
-            ->with(['staff:id,code,first_name,middle_name,last_name,branch_id', 'staff.branch:id,name', 'creator:id,first_name,last_name'])
+            ->selectRaw('
+                month,
+                COUNT(*) as total_staff,
+                SUM(base_salary) as total_base_salary,
+                SUM(calculated_deduction) as total_deductions,
+                SUM(manual_deduction) as total_manual_deductions,
+                SUM(advance_adjustment) as total_advance_adjustments,
+                SUM(final_payable) as total_payable,
+                SUM(CASE WHEN status = "posted" THEN 1 ELSE 0 END) as posted_count,
+                SUM(CASE WHEN status = "paid" THEN 1 ELSE 0 END) as paid_count,
+                SUM(CASE WHEN status = "posted" THEN final_payable ELSE 0 END) as posted_amount,
+                SUM(CASE WHEN status = "paid" THEN final_payable ELSE 0 END) as paid_amount,
+                MIN(created_at) as first_posted_at,
+                MAX(updated_at) as last_updated_at
+            ')
             ->whereIn('status', $statuses)
-            ->orderBy('created_at', 'desc');
+            ->groupBy('month')
+            ->orderBy('month', 'desc');
 
-        // Apply filters from QueryFilterTrait
-        if ($request->has('filters')) {
-            $filters = is_array($request->input('filters'))
-                ? $request->input('filters')
-                : json_decode($request->input('filters'), true);
+        // Get paginated results
+        $monthlyData = $query->paginate($perPage, ['*'], 'page', $page);
 
-            if (is_array($filters)) {
-                foreach ($filters as &$filter) {
-                    if (isset($filter['id'])) {
-                        // Map frontend column names to database columns
-                        if ($filter['id'] === 'staff_name') {
-                            // This needs to be handled differently - join or whereHas
-                            continue;
-                        }
-                        if ($filter['id'] === 'staff_code') {
-                            // This needs to be handled differently
-                            continue;
-                        }
-                    }
-                }
-                $request->merge(['filters' => $filters]);
-            }
-        }
-        $this->applyJsonFilters($query, $request);
+        // Format the data
+        $data = $monthlyData->map(function ($item) {
+            return [
+                'month' => $item->month,
+                'total_staff' => (int) $item->total_staff,
+                'total_base_salary' => number_format((float) $item->total_base_salary, 2, '.', ''),
+                'total_deductions' => number_format((float) $item->total_deductions, 2, '.', ''),
+                'total_manual_deductions' => number_format((float) $item->total_manual_deductions, 2, '.', ''),
+                'total_advance_adjustments' => number_format((float) $item->total_advance_adjustments, 2, '.', ''),
+                'total_payable' => number_format((float) $item->total_payable, 2, '.', ''),
+                'posted_count' => (int) $item->posted_count,
+                'paid_count' => (int) $item->paid_count,
+                'posted_amount' => number_format((float) $item->posted_amount, 2, '.', ''),
+                'paid_amount' => number_format((float) $item->paid_amount, 2, '.', ''),
+                'outstanding_amount' => number_format((float) $item->posted_amount, 2, '.', ''),
+                'completion_percentage' => $item->total_staff > 0
+                    ? round(($item->paid_count / $item->total_staff) * 100, 2)
+                    : 0,
+                'first_posted_at' => $item->first_posted_at,
+                'last_updated_at' => $item->last_updated_at,
+            ];
+        });
 
-        // Apply sorting
-        if ($request->has('sort')) {
-            $this->applySorting($query, $request);
-        }
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $monthlyData->currentPage(),
+                'last_page' => $monthlyData->lastPage(),
+                'per_page' => $monthlyData->perPage(),
+                'total' => $monthlyData->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get posted salary history for a specific staff member
+     */
+    public function staffPayouts(Request $request, $staffId)
+    {
+        $page = $request->input('page', 1);
+        $perPage = $request->input('perPage', 10);
+
+        $query = SalaryPayout::where('staff_id', $staffId)
+            ->whereIn('status', ['posted', 'paid'])
+            ->with('creator:id,first_name,last_name')
+            ->orderBy('month', 'desc');
 
         $payouts = $query->paginate($perPage, ['*'], 'page', $page);
 
-        // Add formatted staff name to each payout
+        // Format the data
         $data = $payouts->map(function ($payout) {
-            $staff = $payout->staff;
-            if ($staff) {
-                $payout->staff->name = trim($staff->first_name . ' ' . ($staff->middle_name ?? '') . ' ' . $staff->last_name);
-                $payout->staff->branch = $staff->branch ? $staff->branch->name : null;
-            }
             if ($payout->creator) {
                 $payout->creator->name = trim($payout->creator->first_name . ' ' . $payout->creator->last_name);
             }
