@@ -160,7 +160,7 @@ class Staff extends Authenticatable
             ->withPivot(['status', 'created_by', 'updated_by'])
             ->withTimestamps();
     }
-    
+
     /**
      * Get the user permissions for this staff member.
      *
@@ -170,7 +170,7 @@ class Staff extends Authenticatable
     {
         return $this->hasMany(UserPermission::class, 'staff_id');
     }
-    
+
     /**
      * Get all permissions for this staff member (combines role permissions and direct staff permissions).
      *
@@ -180,14 +180,14 @@ class Staff extends Authenticatable
     {
         // Get permissions directly assigned to the staff member
         $staffPermissions = $this->permissions()->get();
-        
+
         // Get permissions from the staff member's role
         $rolePermissions = $this->role ? $this->role->permissions()->get() : collect();
-        
+
         // Merge and return unique permissions as a flat array
         return $staffPermissions->concat($rolePermissions)->unique('id')->values();
     }
-    
+
     /**
      * Get all routes this staff member has permission to access.
      * 
@@ -197,25 +197,25 @@ class Staff extends Authenticatable
     {
         // Get all permissions for this staff member
         $permissionIds = $this->getAllPermissions()->pluck('id');
-        
+
         // Get all parent routes (top-level navigation items)
         $parentRoutes = \App\Models\Route::with(['children' => function ($query) use ($permissionIds) {
             // For children, only include those with permissions the staff member has
             $query->whereIn('permission_id', $permissionIds)
-                  ->orWhereNull('permission_id')
-                  ->where('status', true)
-                  ->orderBy('order');
+                ->orWhereNull('permission_id')
+                ->where('status', true)
+                ->orderBy('order');
         }])
-        ->whereNull('parent_id')
-        ->where(function ($query) use ($permissionIds) {
-            // Include routes that either have a permission the staff member has, or no permission requirement
-            $query->whereIn('permission_id', $permissionIds)
-                  ->orWhereNull('permission_id');
-        })
-        ->where('status', true)
-        ->orderBy('order')
-        ->get();
-        
+            ->whereNull('parent_id')
+            ->where(function ($query) use ($permissionIds) {
+                // Include routes that either have a permission the staff member has, or no permission requirement
+                $query->whereIn('permission_id', $permissionIds)
+                    ->orWhereNull('permission_id');
+            })
+            ->where('status', true)
+            ->orderBy('order')
+            ->get();
+
         // Filter out parent routes with no accessible children
         return $parentRoutes->filter(function ($route) {
             // Keep routes that either have accessible children or are endpoints themselves
@@ -276,7 +276,7 @@ class Staff extends Authenticatable
     {
         return $this->belongsTo(Role::class, 'role_id');
     }
-    
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
@@ -291,5 +291,9 @@ class Staff extends Authenticatable
     {
         return $this->hasMany(LeaveApplication::class);
     }
-    
+
+    public function salaryPayouts(): HasMany
+    {
+        return $this->hasMany(SalaryPayout::class);
+    }
 }

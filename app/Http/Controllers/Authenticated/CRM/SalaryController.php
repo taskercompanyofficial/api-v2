@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Authenticated\CRM;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Staff;
+use App\Models\SalaryPayout;
 use App\QueryFilterTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class SalaryController extends Controller
 {
@@ -42,6 +44,8 @@ class SalaryController extends Controller
             ])
             ->with(['branch:id,name', 'attendances' => function ($q) use ($startDate, $endDate) {
                 $q->whereBetween('date', [$startDate, $endDate]);
+            }, 'salaryPayouts' => function ($q) use ($month) {
+                $q->where('month', $month);
             }])
             ->whereNotNull('salary_payout')
             ->where('salary_payout', '>', 0);
@@ -155,25 +159,29 @@ class SalaryController extends Controller
             // Absent days are those that are not present, not half, not Sunday, and not on leave
             $absentDays = $totalDaysInMonth - ($presentDays + $halfDays + $paidHolidays + $approvedLeaveDays);
 
+            $payout = $staffMember->salaryPayouts->first();
+
             return [
                 'id' => $staffMember->id,
                 'code' => $staffMember->code,
                 'name' => trim($staffMember->first_name . ' ' . ($staffMember->middle_name ?? '') . ' ' . $staffMember->last_name),
                 'branch' => $staffMember->branch ? $staffMember->branch->name : null,
                 'branch_id' => $staffMember->branch_id,
-                'monthly_salary' => number_format($monthlySalary, 2),
-                'daily_rate' => number_format($dailyRate, 2),
-                'total_days' => $totalDaysInMonth,
+                'monthly_salary' => $payout ? number_format($payout->base_salary, 2) : number_format($monthlySalary, 2),
+                'daily_rate' => $payout ? number_format($payout->daily_rate, 2) : number_format($dailyRate, 2),
+                'total_days' => $payout ? $payout->total_days : $totalDaysInMonth,
                 'present_days' => $presentDays,
                 'half_days' => $halfDays,
                 'absent_days' => max(0, $absentDays),
                 'paid_holidays' => $paidHolidays,
                 'approved_leaves' => $approvedLeaveDays,
-                'effective_working_days' => round($effectiveWorkingDays, 2),
+                'effective_working_days' => $payout ? (float) $payout->effective_days : round($effectiveWorkingDays, 2),
                 'total_working_hours' => round($totalWorkingHours, 2),
-                'payable_salary' => number_format($payableSalary, 2),
-                'deduction' => number_format($monthlySalary - $payableSalary, 2),
+                'payable_salary' => $payout ? number_format($payout->final_payable, 2) : number_format($payableSalary, 2),
+                'deduction' => $payout ? number_format($payout->manual_deduction + $payout->calculated_deduction, 2) : number_format($monthlySalary - $payableSalary, 2),
                 'attendance_percentage' => $totalDaysInMonth > 0 ? round(($effectiveWorkingDays / $totalDaysInMonth) * 100, 1) : 0,
+                'payout' => $payout,
+                'status' => $payout ? $payout->status : 'draft',
             ];
         });
 
@@ -205,7 +213,9 @@ class SalaryController extends Controller
         $endDate = \Carbon\Carbon::parse($month . '-01')->endOfMonth();
         $totalDaysInMonth = $startDate->daysInMonth;
 
-        $staff = Staff::with(['branch:id,name', 'staffRole:id,name'])
+        $staff = Staff::with(['branch:id,name', 'staffRole:id,name', 'salaryPayouts' => function ($q) use ($month) {
+            $q->where('month', $month);
+        }])
             ->findOrFail($staffId);
 
         if (!$staff->salary_payout || $staff->salary_payout <= 0) {
@@ -321,6 +331,7 @@ class SalaryController extends Controller
                     'designation' => $staff->staffRole ? $staff->staffRole->name : null,
                     'joining_date' => $staff->joining_date,
                     'profile_image' => $staff->profile_image,
+                    'payout' => $staff->salaryPayouts->first(),
                 ],
                 'salary_info' => [
                     'month' => $startDate->format('F Y'),
@@ -346,6 +357,80 @@ class SalaryController extends Controller
                 ],
                 'daily_breakdown' => $dailyBreakdown,
             ],
+        ]);
+    }
+
+    /**
+     * Post salary for a staff member (Mark as pending payment)
+     */
+    public function postSalary(Request $request)
+    {
+        $validated = $request->validate([
+            'staff_id' => 'required|exists:staff,id',
+            'month' => 'required|string',
+            'base_salary' => 'required|numeric',
+            'daily_rate' => 'required|numeric',
+            'total_days' => 'required|integer',
+            'effective_days' => 'required|numeric',
+            'relief_absents' => 'nullable|integer',
+            'manual_deduction' => 'nullable|numeric',
+            'advance_adjustment' => 'nullable|numeric',
+            'calculated_deduction' => 'required|numeric',
+            'final_payable' => 'required|numeric',
+            'notes' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+
+        $payout = SalaryPayout::updateOrCreate(
+            ['staff_id' => $validated['staff_id'], 'month' => $validated['month']],
+            [
+                ...$validated,
+                'status' => 'posted',
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Salary posted successfully',
+            'data' => $payout,
+        ]);
+    }
+
+    /**
+     * Mark salary as paid
+     */
+    public function markAsPaid(Request $request, $id)
+    {
+        $payout = SalaryPayout::findOrFail($id);
+
+        $validated = $request->validate([
+            'transaction_id' => 'required|string',
+            'paid_amount' => 'required|numeric',
+            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+        ]);
+
+        $user = $request->user();
+
+        if ($request->hasFile('payment_proof')) {
+            $path = $request->file('payment_proof')->store('salary-payouts', 'public');
+            $payout->payment_proof = $path;
+        }
+
+        $payout->update([
+            'transaction_id' => $validated['transaction_id'],
+            'paid_amount' => $validated['paid_amount'],
+            'status' => 'paid',
+            'paid_at' => now(),
+            'updated_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Salary payment recorded successfully',
+            'data' => $payout,
         ]);
     }
 }
