@@ -81,6 +81,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/attendances/statistics', [AttendanceController::class, 'statistics']);
         Route::apiResource('/attendances', AttendanceController::class);
         Route::get('/salaries', [SalaryController::class, 'index']);
+        Route::get('/salaries/payouts', [SalaryController::class, 'payouts']);
         Route::post('/salaries/post', [SalaryController::class, 'postSalary']);
         Route::post('/salaries/pay/{id}', [SalaryController::class, 'markAsPaid']);
         Route::get('/salaries/{staffId}', [SalaryController::class, 'show']);

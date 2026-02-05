@@ -486,4 +486,78 @@ class SalaryController extends Controller
             'data' => $payout,
         ]);
     }
+
+    /**
+     * Get all posted and paid salary payouts
+     */
+    public function payouts(Request $request)
+    {
+        $page = $request->input('page', 1);
+        $perPage = $request->input('perPage', 10);
+        $status = $request->input('status', 'posted,paid');
+
+        // Parse status filter (can be comma-separated: "posted,paid")
+        $statuses = explode(',', $status);
+
+        $query = SalaryPayout::query()
+            ->with(['staff:id,code,first_name,middle_name,last_name,branch_id', 'staff.branch:id,name', 'creator:id,first_name,last_name'])
+            ->whereIn('status', $statuses)
+            ->orderBy('created_at', 'desc');
+
+        // Apply filters from QueryFilterTrait
+        if ($request->has('filters')) {
+            $filters = is_array($request->input('filters'))
+                ? $request->input('filters')
+                : json_decode($request->input('filters'), true);
+
+            if (is_array($filters)) {
+                foreach ($filters as &$filter) {
+                    if (isset($filter['id'])) {
+                        // Map frontend column names to database columns
+                        if ($filter['id'] === 'staff_name') {
+                            // This needs to be handled differently - join or whereHas
+                            continue;
+                        }
+                        if ($filter['id'] === 'staff_code') {
+                            // This needs to be handled differently
+                            continue;
+                        }
+                    }
+                }
+                $request->merge(['filters' => $filters]);
+            }
+        }
+        $this->applyJsonFilters($query, $request);
+
+        // Apply sorting
+        if ($request->has('sort')) {
+            $this->applySorting($query, $request);
+        }
+
+        $payouts = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Add formatted staff name to each payout
+        $data = $payouts->map(function ($payout) {
+            $staff = $payout->staff;
+            if ($staff) {
+                $payout->staff->name = trim($staff->first_name . ' ' . ($staff->middle_name ?? '') . ' ' . $staff->last_name);
+                $payout->staff->branch = $staff->branch ? $staff->branch->name : null;
+            }
+            if ($payout->creator) {
+                $payout->creator->name = trim($payout->creator->first_name . ' ' . $payout->creator->last_name);
+            }
+            return $payout;
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $payouts->currentPage(),
+                'last_page' => $payouts->lastPage(),
+                'per_page' => $payouts->perPage(),
+                'total' => $payouts->total(),
+            ],
+        ]);
+    }
 }
