@@ -125,7 +125,33 @@ class SalaryController extends Controller
                 });
 
                 if ($isHoliday) {
-                    $paidHolidays++;
+                    // Check if Saturday (previous day) or Monday (next day) was absent
+                    $saturday = $currentDate->copy()->subDay();
+                    $monday = $currentDate->copy()->addDay();
+
+                    $saturdayStr = $saturday->format('Y-m-d');
+                    $mondayStr = $monday->format('Y-m-d');
+
+                    // Check if Saturday or Monday exists in the attendance map with present/late/half_day status
+                    $saturdayPresent = isset($attendanceMap[$saturdayStr]) &&
+                        in_array($attendanceMap[$saturdayStr]->status, ['present', 'late', 'half_day']);
+                    $mondayPresent = isset($attendanceMap[$mondayStr]) &&
+                        in_array($attendanceMap[$mondayStr]->status, ['present', 'late', 'half_day']);
+
+                    // Check if Saturday or Monday was on approved leave
+                    $saturdayOnLeave = $approvedLeaves->contains(function ($leave) use ($saturday) {
+                        return $saturday->between($leave->start_date, $leave->end_date);
+                    });
+                    $mondayOnLeave = $approvedLeaves->contains(function ($leave) use ($monday) {
+                        return $monday->between($leave->start_date, $leave->end_date);
+                    });
+
+                    // Only count Sunday as paid holiday if both Saturday AND Monday were present or on leave
+                    // If either was absent, deduct the Sunday pay
+                    if (($saturdayPresent || $saturdayOnLeave) && ($mondayPresent || $mondayOnLeave)) {
+                        $paidHolidays++;
+                    }
+                    // Note: We still count working hours if they worked on Sunday
                     if (isset($attendanceMap[$dateStr])) {
                         $totalWorkingHours += (float) $attendanceMap[$dateStr]->working_hours;
                     }
@@ -268,14 +294,41 @@ class SalaryController extends Controller
             $hours = 0;
 
             if ($isSunday) {
-                $status = 'holiday';
-                $paidHolidays++;
+                // Check if Saturday (previous day) or Monday (next day) was absent
+                $saturday = $currentDate->copy()->subDay();
+                $monday = $currentDate->copy()->addDay();
+
+                $saturdayStr = $saturday->format('Y-m-d');
+                $mondayStr = $monday->format('Y-m-d');
+
+                // Check if Saturday or Monday exists in the attendance map with present/late/half_day status
+                $saturdayPresent = isset($attendanceMap[$saturdayStr]) &&
+                    in_array($attendanceMap[$saturdayStr]->status ?? 'absent', ['present', 'late', 'half_day']);
+                $mondayPresent = isset($attendanceMap[$mondayStr]) &&
+                    in_array($attendanceMap[$mondayStr]->status ?? 'absent', ['present', 'late', 'half_day']);
+
+                // Check if Saturday or Monday was on approved leave
+                $saturdayOnLeave = $approvedLeaves->contains(function ($leave) use ($saturday) {
+                    return $saturday->between($leave->start_date, $leave->end_date);
+                });
+                $mondayOnLeave = $approvedLeaves->contains(function ($leave) use ($monday) {
+                    return $monday->between($leave->start_date, $leave->end_date);
+                });
+
+                // Only count Sunday as paid holiday if both Saturday AND Monday were present or on leave
+                if (($saturdayPresent || $saturdayOnLeave) && ($mondayPresent || $mondayOnLeave)) {
+                    $status = 'holiday';
+                    $paidHolidays++;
+                } else {
+                    // Sunday pay is deducted because of adjacent absence
+                    $status = 'holiday_deducted';
+                }
+
                 if ($attendance) {
                     $totalWorkingHours += (float) $attendance->working_hours;
                     $checkIn = $attendance->check_in_time;
                     $checkOut = $attendance->check_out_time;
                     $hours = $attendance->working_hours;
-                    // If they worked on Sunday, maybe show worked? But let's keep it 'holiday' for pay
                 }
             } elseif ($isOnLeave) {
                 $status = 'leave';
