@@ -278,9 +278,9 @@ class WorkOrderStatusService
     {
         $workOrder->load('workOrderParts');
 
-        if ($workOrder->workOrderParts->isEmpty()) {
-            throw new Exception('Cannot mark as part in demand. No parts have been demanded for this work order.');
-        }
+        // if ($workOrder->workOrderParts->isEmpty()) {
+        //     throw new Exception('Cannot mark as part in demand. No parts have been demanded for this work order.');
+        // }
 
         $status = WorkOrderStatus::where('slug', 'in-progress')
             ->whereNull('parent_id')
