@@ -151,11 +151,11 @@ class WorkOrderAssignmentService
                 $notificationService->sendWhatsAppNotification($staff->phone, $message);
             }
         } catch (Exception $e) {
-            Log::error('Failed to send notifications in AssignmentService', [
-                'work_order_id' => $workOrder->id,
-                'staff_id' => $staff->id,
-                'error' => $e->getMessage(),
-            ]);
+            // Log::error('Failed to send notifications in AssignmentService', [
+            //     'work_order_id' => $workOrder->id,
+            //     'staff_id' => $staff->id,
+            //     'error' => $e->getMessage(),
+            // ]);
         }
     }
 

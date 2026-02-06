@@ -143,7 +143,6 @@ class AuthenticatedSessionController extends Controller
                     ],
                 ],
             ];
-            Log::info('OTP send to ' . $phone . ' with OTP ' . $otp);
             $curl = curl_init();
             curl_setopt($curl, CURLOPT_URL, $curlURL);
             curl_setopt($curl, CURLOPT_POST, 1);
