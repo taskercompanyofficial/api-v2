@@ -234,20 +234,50 @@ class ExpenseManagementController extends Controller
             );
 
             // Calculate amount based on calculation type
-            $daysToPayFor = $allowance->requires_attendance
-                ? $attendanceData['days_present']
-                : $attendanceData['days_expected'];
-
             $amountPerDay = $allowance->amount_per_day;
+            $daysToPayFor = 0;
+            $totalExpense = 0;
 
-            // If salary percentage, calculate from salary
-            if ($allowance->calculation_type === 'salary_percentage' && $allowance->percentage) {
-                $monthlySalary = $staff->salary_payout ?? 0;
-                $dailySalary = $monthlySalary / 26; // Assuming 26 working days per month
-                $amountPerDay = ($dailySalary * $allowance->percentage) / 100;
+            switch ($allowance->calculation_type) {
+                case 'attendance':
+                    // Pay per day present - absent days are deducted
+                    $daysToPayFor = $attendanceData['days_present'];
+                    $totalExpense = $daysToPayFor * $amountPerDay;
+                    break;
+
+                case 'weekly':
+                    // Fixed weekly amount (6 days worth) - no attendance deduction
+                    $daysToPayFor = 6; // Full week (Mon-Sat)
+                    $totalExpense = $daysToPayFor * $amountPerDay;
+                    break;
+
+                case 'monthly':
+                    // Fixed monthly amount split into weekly portion
+                    // Monthly / 4 weeks = weekly amount
+                    $daysToPayFor = 6;
+                    $weeklyAmount = $amountPerDay * 26 / 4; // Convert daily to monthly then to weekly
+                    $totalExpense = $weeklyAmount;
+                    break;
+
+                case 'salary_percentage':
+                    // Calculate from staff salary
+                    $monthlySalary = $staff->salary_payout ?? 0;
+                    $dailySalary = $monthlySalary / 26; // 26 working days per month
+                    $amountPerDay = ($dailySalary * ($allowance->percentage ?? 0)) / 100;
+
+                    // If requires attendance, only pay for days present
+                    if ($allowance->requires_attendance) {
+                        $daysToPayFor = $attendanceData['days_present'];
+                    } else {
+                        $daysToPayFor = 6; // Full week
+                    }
+                    $totalExpense = $daysToPayFor * $amountPerDay;
+                    break;
+
+                default:
+                    $daysToPayFor = $attendanceData['days_present'];
+                    $totalExpense = $daysToPayFor * $amountPerDay;
             }
-
-            $totalExpense = $daysToPayFor * $amountPerDay;
 
             // Create or update the weekly expense record
             StaffWeeklyExpense::updateOrCreate(
