@@ -12,6 +12,10 @@ use App\Models\LeaveApplication;
 use App\Models\Part;
 use App\Models\WorkOrderFile;
 use App\Models\Benchmark;
+use App\Models\Categories;
+use App\Models\Service;
+use Nnjeim\World\Models\City;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AdminDashboardService
