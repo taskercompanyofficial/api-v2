@@ -388,8 +388,18 @@ class AdminDashboardService
     public function getWeeklyKpiSummary(): array
     {
         $trend = $this->getWeeklyKpiTrend();
-        $kpiValues = array_column($trend, 'kpi');
-        $averageKpi = count($kpiValues) > 0 ? round(array_sum($kpiValues) / count($kpiValues)) : 0;
+        $kpiValues = array_column($trend, 'score');
+
+        if (empty($kpiValues)) {
+            return [
+                'average' => 0,
+                'bestDay' => ['day' => '', 'kpi' => 0],
+                'worstDay' => ['day' => '', 'kpi' => 0],
+                'target' => 85,
+            ];
+        }
+
+        $averageKpi = round(array_sum($kpiValues) / count($kpiValues));
         $bestDayIndex = array_search(max($kpiValues), $kpiValues);
         $worstDayIndex = array_search(min($kpiValues), $kpiValues);
 
