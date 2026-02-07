@@ -517,4 +517,22 @@ class DashboardController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Update dashboard benchmark settings
+     */
+    public function updateBenchmarkSettings(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            $settings = $request->all();
+            $dashboardService->updateBenchmarks($settings);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Benchmark settings updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
 }

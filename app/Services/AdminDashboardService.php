@@ -87,9 +87,29 @@ class AdminDashboardService
         if (empty($this->benchmarks['kpi'])) {
             $this->benchmarks['kpi'] = config('dashboard_benchmarks.kpi', [
                 'same_day' => ['target' => 85, 'min' => 0, 'max' => 0],
-                '2_day' => ['target' => 80, 'min' => 1, 'max' => 1],
-                '3_day' => ['target' => 75, 'min' => 2, 'max' => 2],
+                '1_day' => ['target' => 80, 'min' => 1, 'max' => 1],
+                '2_day' => ['target' => 75, 'min' => 2, 'max' => 2],
+                '3_4_day' => ['target' => 70, 'min' => 3, 'max' => 4],
+                '5_6_day' => ['target' => 60, 'min' => 5, 'max' => 6],
+                '7_8_day' => ['target' => 50, 'min' => 7, 'max' => 8],
+                '8_plus_day' => ['target' => 40, 'min' => 9, 'max' => 999],
             ]);
+        }
+
+        if (empty($this->benchmarks['nps'])) {
+            $this->benchmarks['nps'] = [
+                'nps_detractor' => ['min' => 1, 'max' => 6],
+                'nps_passive' => ['min' => 7, 'max' => 8],
+                'nps_promoter' => ['min' => 9, 'max' => 10],
+            ];
+        }
+
+        if (empty($this->benchmarks['nps_targets'])) {
+            $this->benchmarks['nps_targets'] = [
+                'excellent' => ['target' => 70, 'min' => 70],
+                'good' => ['target' => 50, 'min' => 50],
+                'average' => ['target' => 0, 'min' => 0],
+            ];
         }
     }
 
@@ -251,17 +271,15 @@ class AdminDashboardService
 
         $totalCompleted = $completedWOs->count();
 
-        // Define buckets exactly as in milestones seeder
+        // Define buckets based on user request
         $distribution = [
             'same_day' => ['label' => 'Same Day', 'count' => 0, 'percentage' => 0],
+            '1_day' => ['label' => '1 Day', 'count' => 0, 'percentage' => 0],
             '2_day' => ['label' => '2 Day', 'count' => 0, 'percentage' => 0],
-            '3_day' => ['label' => '3 Day', 'count' => 0, 'percentage' => 0],
-            '4_day' => ['label' => '4 Day', 'count' => 0, 'percentage' => 0],
-            '5_day' => ['label' => '5 Day', 'count' => 0, 'percentage' => 0],
-            '6_day' => ['label' => '6 Day', 'count' => 0, 'percentage' => 0],
-            '7_day' => ['label' => '7 Day', 'count' => 0, 'percentage' => 0],
-            '8_day' => ['label' => '8 Day', 'count' => 0, 'percentage' => 0],
-            '8_plus_day' => ['label' => '8+ Day', 'count' => 0, 'percentage' => 0],
+            '3_4_day' => ['label' => '3-4 Days', 'count' => 0, 'percentage' => 0],
+            '5_6_day' => ['label' => '5-6 Days', 'count' => 0, 'percentage' => 0],
+            '7_8_day' => ['label' => '7-8 Days', 'count' => 0, 'percentage' => 0],
+            '8_plus_day' => ['label' => '8+ Days', 'count' => 0, 'percentage' => 0],
         ];
 
         foreach ($completedWOs as $wo) {
@@ -270,19 +288,15 @@ class AdminDashboardService
             if ($days <= 0) {
                 $distribution['same_day']['count']++;
             } elseif ($days == 1) {
-                $distribution['2_day']['count']++;
+                $distribution['1_day']['count']++;
             } elseif ($days == 2) {
-                $distribution['3_day']['count']++;
-            } elseif ($days == 3) {
-                $distribution['4_day']['count']++;
-            } elseif ($days == 4) {
-                $distribution['5_day']['count']++;
-            } elseif ($days == 5) {
-                $distribution['6_day']['count']++;
-            } elseif ($days == 6) {
-                $distribution['7_day']['count']++;
-            } elseif ($days == 7) {
-                $distribution['8_day']['count']++;
+                $distribution['2_day']['count']++;
+            } elseif ($days == 3 || $days == 4) {
+                $distribution['3_4_day']['count']++;
+            } elseif ($days == 5 || $days == 6) {
+                $distribution['5_6_day']['count']++;
+            } elseif ($days == 7 || $days == 8) {
+                $distribution['7_8_day']['count']++;
             } else {
                 $distribution['8_plus_day']['count']++;
             }
@@ -315,7 +329,8 @@ class AdminDashboardService
     {
         $distribution = $this->getCompletionTimeDistribution();
         $totalCompleted = array_sum(array_column($distribution, 'count'));
-        $within2Days = $distribution[0]['count'] + $distribution[1]['count'];
+        // 0: Same Day, 1: 1 Day, 2: 2 Day
+        $within2Days = ($distribution[0]['count'] ?? 0) + ($distribution[1]['count'] ?? 0) + ($distribution[2]['count'] ?? 0);
 
         return [
             'targetDays' => 2,
@@ -701,5 +716,66 @@ class AdminDashboardService
             'startDate' => $start->format('Y-m-d'),
             'endDate' => $end->format('Y-m-d'),
         ];
+    }
+
+    /**
+     * Update benchmarks in database
+     */
+    public function updateBenchmarks(array $settings): void
+    {
+        $mapping = [
+            'kpi_resolution' => [
+                'sameDay' => 'same_day',
+                'oneDay' => '1_day',
+                'twoDays' => '2_day',
+                'threeFourDays' => '3_4_day',
+                'fiveSixDays' => '5_6_day',
+                'sevenEightDays' => '7_8_day',
+                'eightPlusDays' => '8_plus_day',
+            ],
+            'nps' => [
+                'nps_detractor' => ['min' => 'npsDetractorMin', 'max' => 'npsDetractorMax'],
+                'nps_passive' => ['min' => 'npsPassiveMin', 'max' => 'npsPassiveMax'],
+                'nps_promoter' => ['min' => 'npsPromoterMin', 'max' => 'npsPromoterMax'],
+            ],
+            'nps_targets' => [
+                'excellent' => 'npsExcellent',
+                'good' => 'npsGood',
+                'average' => 'npsAverage',
+            ]
+        ];
+
+        // Update KPI resolution
+        foreach ($mapping['kpi_resolution'] as $feKey => $beKey) {
+            if (isset($settings[$feKey])) {
+                Benchmark::where('category', 'kpi_resolution')->where('key', $beKey)->update([
+                    'target_value' => $settings[$feKey]
+                ]);
+            }
+        }
+
+        // Update NPS Ranges
+        foreach ($mapping['nps'] as $beKey => $rangeKeys) {
+            $update = [];
+            if (isset($settings[$rangeKeys['min']])) $update['min_value'] = $settings[$rangeKeys['min']];
+            if (isset($settings[$rangeKeys['max']])) $update['max_value'] = $settings[$rangeKeys['max']];
+
+            if (!empty($update)) {
+                Benchmark::where('category', 'nps')->where('key', $beKey)->update($update);
+            }
+        }
+
+        // Update NPS targets
+        foreach ($mapping['nps_targets'] as $beKey => $feKey) {
+            if (isset($settings[$feKey])) {
+                Benchmark::where('category', 'nps_targets')->where('key', $beKey)->update([
+                    'target_value' => $settings[$feKey],
+                    'min_value' => $settings[$feKey],
+                ]);
+            }
+        }
+
+        // Refresh local cache
+        $this->loadBenchmarks();
     }
 }

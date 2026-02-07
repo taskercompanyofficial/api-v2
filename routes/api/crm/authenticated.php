@@ -223,6 +223,7 @@ Route::group(['prefix' => 'crm'], function () {
             Route::get('/worker-efficiency', [DashboardController::class, 'workerEfficiency']);
             Route::get('/kpi-trend', [DashboardController::class, 'kpiTrend']);
             Route::get('/nps-score', [DashboardController::class, 'npsScore']);
+            Route::post('/benchmark-settings', [DashboardController::class, 'updateBenchmarkSettings']);
         });
 
         // Work Orders Management
