@@ -118,6 +118,71 @@ class WorkOrderController extends Controller
         }
 
         // Apply JSON filters from "filters" parameter
+        $filtersInput = $request->input('filters');
+        
+        // Handle simple key-value filters (from dashboard dialogs)
+        if (is_array($filtersInput)) {
+            // Handle overdue filter
+            if (isset($filtersInput['overdue']) && ($filtersInput['overdue'] === '1' || $filtersInput['overdue'] === 1 || $filtersInput['overdue'] === true || $filtersInput['overdue'] === 'true')) {
+                $query->whereNotNull('assigned_at')
+                    ->where('assigned_at', '<', now()->subDays(2))
+                    ->whereNull('completed_at')
+                    ->whereNull('cancelled_at');
+            }
+            
+            // Handle created_today filter
+            if (isset($filtersInput['created_today']) && ($filtersInput['created_today'] === '1' || $filtersInput['created_today'] === 1 || $filtersInput['created_today'] === true || $filtersInput['created_today'] === 'true')) {
+                $query->whereDate('created_at', today());
+            }
+            
+            // Handle closed_today filter
+            if (isset($filtersInput['closed_today']) && ($filtersInput['closed_today'] === '1' || $filtersInput['closed_today'] === 1 || $filtersInput['closed_today'] === true || $filtersInput['closed_today'] === 'true')) {
+                $query->whereDate('closed_at', today());
+            }
+            
+            // Handle pending filter
+            if (isset($filtersInput['pending']) && ($filtersInput['pending'] === '1' || $filtersInput['pending'] === 1 || $filtersInput['pending'] === true || $filtersInput['pending'] === 'true')) {
+                $query->whereNull('completed_at')
+                    ->whereNull('cancelled_at');
+            }
+            
+            // Handle branch_id filter
+            if (isset($filtersInput['branch_id']) && $filtersInput['branch_id']) {
+                $query->where('branch_id', $filtersInput['branch_id']);
+            }
+            
+            // Handle city filter (by name)
+            if (isset($filtersInput['city']) && $filtersInput['city']) {
+                $query->whereHas('city', function($q) use ($filtersInput) {
+                    $q->where('name', $filtersInput['city']);
+                });
+            }
+            
+            // Handle assigned_to_id / staff_id filter
+            if (isset($filtersInput['assigned_to_id']) && $filtersInput['assigned_to_id']) {
+                $query->where('assigned_to_id', $filtersInput['assigned_to_id']);
+            }
+            
+            // Handle date_from filter
+            if (isset($filtersInput['date_from']) && $filtersInput['date_from']) {
+                $query->whereDate('created_at', '>=', $filtersInput['date_from']);
+            }
+            
+            // Handle date_to filter
+            if (isset($filtersInput['date_to']) && $filtersInput['date_to']) {
+                $query->whereDate('created_at', '<=', $filtersInput['date_to']);
+            }
+            
+            // Handle status_id filter
+            if (isset($filtersInput['status_id']) && $filtersInput['status_id']) {
+                $statusIds = is_array($filtersInput['status_id'])
+                    ? $filtersInput['status_id']
+                    : [$filtersInput['status_id']];
+                $query->whereIn('status_id', $statusIds);
+            }
+        }
+        
+        // Apply the standard JSON filters for array-of-objects format
         $this->applyJsonFilters($query, $request);
 
         // Apply sorting
