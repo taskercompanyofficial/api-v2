@@ -1,5 +1,6 @@
 <?php
 
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -295,5 +296,15 @@ class Staff extends Authenticatable
     public function salaryPayouts(): HasMany
     {
         return $this->hasMany(SalaryPayout::class);
+    }
+
+    public function staffAllowances(): HasMany
+    {
+        return $this->hasMany(StaffAllowance::class);
+    }
+
+    public function weeklyExpenses(): HasMany
+    {
+        return $this->hasMany(StaffWeeklyExpense::class);
     }
 }

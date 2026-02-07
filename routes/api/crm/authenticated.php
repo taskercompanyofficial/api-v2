@@ -11,6 +11,7 @@ use App\Http\Controllers\Authenticated\CRM\ProductsController;
 use App\Http\Controllers\Authenticated\CRM\SalaryController;
 use App\Http\Controllers\Authenticated\CRM\StaffAdvanceController;
 use App\Http\Controllers\Authenticated\CRM\DefaultVendorLedgerController;
+use App\Http\Controllers\Authenticated\CRM\ExpenseManagementController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemController;
 use App\Http\Controllers\Authenticated\CRM\StoreItemInstanceController;
@@ -108,6 +109,31 @@ Route::group(['prefix' => 'crm'], function () {
             Route::delete('/ledger/{id}', [DefaultVendorLedgerController::class, 'destroy']);
             Route::post('/ledger/{id}/toggle-status', [DefaultVendorLedgerController::class, 'toggleStatus']);
             Route::post('/ledger/bulk-update-revenue-share', [DefaultVendorLedgerController::class, 'bulkUpdateRevenueShare']);
+        });
+
+        // Expense Management
+        Route::prefix('expense-management')->group(function () {
+            // Expense Categories
+            Route::get('/categories', [ExpenseManagementController::class, 'getCategories']);
+            Route::post('/categories', [ExpenseManagementController::class, 'storeCategory']);
+
+            // Staff Allowances
+            Route::get('/allowances', [ExpenseManagementController::class, 'getAllowances']);
+            Route::post('/allowances', [ExpenseManagementController::class, 'storeAllowance']);
+            Route::post('/allowances/bulk-assign', [ExpenseManagementController::class, 'bulkAssignAllowance']);
+            Route::delete('/allowances/{id}', [ExpenseManagementController::class, 'deleteAllowance']);
+
+            // Weekly Expenses
+            Route::get('/weekly-expenses', [ExpenseManagementController::class, 'getWeeklyExpenses']);
+            Route::post('/weekly-expenses/generate', [ExpenseManagementController::class, 'generateWeeklyExpenses']);
+            Route::patch('/weekly-expenses/{id}/status', [ExpenseManagementController::class, 'updateExpenseStatus']);
+            Route::post('/weekly-expenses/bulk-status', [ExpenseManagementController::class, 'bulkUpdateStatus']);
+
+            // Weekly Summary
+            Route::get('/weekly-summary', [ExpenseManagementController::class, 'getWeeklySummary']);
+
+            // Staff for allowance assignment
+            Route::get('/staff', [ExpenseManagementController::class, 'getStaffForAllowance']);
         });
 
         Route::apiResource('/routes', RouteController::class);
