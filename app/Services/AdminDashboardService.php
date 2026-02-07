@@ -11,10 +11,7 @@ use App\Models\OurBranch;
 use App\Models\LeaveApplication;
 use App\Models\Part;
 use App\Models\WorkOrderFile;
-use App\Models\Categories;
-use App\Models\Service;
-use Nnjeim\World\Models\City;
-use Carbon\Carbon;
+use App\Models\Benchmark;
 use Illuminate\Support\Facades\DB;
 
 class AdminDashboardService
@@ -30,7 +27,7 @@ class AdminDashboardService
     protected Carbon $endOfWeek;
     protected Carbon $today;
 
-    protected array $benchmarks;
+    protected array $benchmarks = [];
 
     /**
      * Initialize date ranges and benchmarks
@@ -43,26 +40,64 @@ class AdminDashboardService
         $this->startOfWeek = Carbon::now()->startOfWeek();
         $this->endOfWeek = Carbon::now()->endOfWeek();
         $this->today = Carbon::today();
-        $this->benchmarks = config('dashboard_benchmarks', [
-            'kpi' => [1 => 87, 2 => 80, 3 => 70, 7 => 50],
-            'nps' => ['excellent' => 70, 'good' => 50, 'average' => 0]
-        ]);
+        $this->loadBenchmarks();
+    }
+
+    /**
+     * Load benchmarks from database
+     */
+    protected function loadBenchmarks(): void
+    {
+        $allBenchmarks = Benchmark::where('is_active', true)->get();
+
+        $this->benchmarks = [
+            'kpi' => [],
+            'nps' => [],
+            'nps_targets' => []
+        ];
+
+        foreach ($allBenchmarks as $b) {
+            if ($b->category === 'kpi_resolution') {
+                $this->benchmarks['kpi'][$b->key] = [
+                    'target' => (float) $b->target_value,
+                    'label' => $b->label,
+                    'min' => $b->min_value,
+                    'max' => $b->max_value
+                ];
+            } elseif ($b->category === 'nps') {
+                $this->benchmarks['nps'][$b->key] = [
+                    'min' => $b->min_value,
+                    'max' => $b->max_value,
+                    'label' => $b->label
+                ];
+            } elseif ($b->category === 'nps_targets') {
+                $this->benchmarks['nps_targets'][$b->key] = [
+                    'target' => (float) $b->target_value,
+                    'min' => $b->min_value,
+                    'max' => $b->max_value
+                ];
+            }
+        }
+
+        // Fallback to config if DB is empty (initial state safety)
+        if (empty($this->benchmarks['kpi'])) {
+            $this->benchmarks['kpi'] = config('dashboard_benchmarks.kpi', [
+                'same_day' => ['target' => 85, 'min' => 0, 'max' => 0],
+                '2_day' => ['target' => 80, 'min' => 1, 'max' => 1],
+                '3_day' => ['target' => 75, 'min' => 2, 'max' => 2],
+            ]);
+        }
     }
 
     /**
      * Calculate benchmark-adjusted score
      */
-    protected function calculateBenchmarkScore(float $actualPercentage, int $days): float
+    protected function calculateBenchmarkScore(float $actualPercentage, string $key): float
     {
-        $target = $this->benchmarks['kpi'][$days] ?? 50;
+        $target = $this->benchmarks['kpi'][$key]['target'] ?? 50;
         if ($target <= 0) return 0;
 
-        // Actual KPI / Benchmark Target * 100
         $score = ($actualPercentage / $target) * 100;
-
-        // User wants it to increase accordingly, so we don't necessarily cap at 100
-        // but typically dashboard scores are shown up to a certain point.
-        // Let's round to 1 decimal place.
         return round($score, 1);
     }
 
@@ -211,37 +246,62 @@ class AdminDashboardService
             ->get();
 
         $totalCompleted = $completedWOs->count();
+
+        // Define buckets exactly as in milestones seeder
         $distribution = [
-            ['bucket' => '1 Day', 'count' => 0, 'percentage' => 0],
-            ['bucket' => '2 Days', 'count' => 0, 'percentage' => 0],
-            ['bucket' => '3-4 Days', 'count' => 0, 'percentage' => 0],
-            ['bucket' => '5-6 Days', 'count' => 0, 'percentage' => 0],
-            ['bucket' => '8+ Days', 'count' => 0, 'percentage' => 0],
+            'same_day' => ['label' => 'Same Day', 'count' => 0, 'percentage' => 0],
+            '2_day' => ['label' => '2 Day', 'count' => 0, 'percentage' => 0],
+            '3_day' => ['label' => '3 Day', 'count' => 0, 'percentage' => 0],
+            '4_day' => ['label' => '4 Day', 'count' => 0, 'percentage' => 0],
+            '5_day' => ['label' => '5 Day', 'count' => 0, 'percentage' => 0],
+            '6_day' => ['label' => '6 Day', 'count' => 0, 'percentage' => 0],
+            '7_day' => ['label' => '7 Day', 'count' => 0, 'percentage' => 0],
+            '8_day' => ['label' => '8 Day', 'count' => 0, 'percentage' => 0],
+            '8_plus_day' => ['label' => '8+ Day', 'count' => 0, 'percentage' => 0],
         ];
 
         foreach ($completedWOs as $wo) {
             $days = $wo->days_to_complete;
-            if ($days <= 1) {
-                $distribution[0]['count']++;
+
+            if ($days <= 0) {
+                $distribution['same_day']['count']++;
+            } elseif ($days == 1) {
+                $distribution['2_day']['count']++;
             } elseif ($days == 2) {
-                $distribution[1]['count']++;
-            } elseif ($days <= 4) {
-                $distribution[2]['count']++;
-            } elseif ($days <= 6) {
-                $distribution[3]['count']++;
+                $distribution['3_day']['count']++;
+            } elseif ($days == 3) {
+                $distribution['4_day']['count']++;
+            } elseif ($days == 4) {
+                $distribution['5_day']['count']++;
+            } elseif ($days == 5) {
+                $distribution['6_day']['count']++;
+            } elseif ($days == 6) {
+                $distribution['7_day']['count']++;
+            } elseif ($days == 7) {
+                $distribution['8_day']['count']++;
             } else {
-                $distribution[4]['count']++;
+                $distribution['8_plus_day']['count']++;
             }
         }
 
-        // Calculate percentages
-        foreach ($distribution as &$bucket) {
-            $bucket['percentage'] = $totalCompleted > 0
-                ? round(($bucket['count'] / $totalCompleted) * 100, 1)
+        // Calculate percentages and format for frontend
+        $result = [];
+        foreach ($distribution as $key => $data) {
+            $percentage = $totalCompleted > 0
+                ? round(($data['count'] / $totalCompleted) * 100, 1)
                 : 0;
+
+            $result[] = [
+                'bucket' => $data['label'],
+                'key' => $key,
+                'count' => $data['count'],
+                'percentage' => $percentage,
+                'benchmark' => $this->benchmarks['kpi'][$key]['target'] ?? 0,
+                'score' => $this->calculateBenchmarkScore($percentage, $key)
+            ];
         }
 
-        return $distribution;
+        return $result;
     }
 
     /**
@@ -300,15 +360,16 @@ class AdminDashboardService
             $closed = (clone $baseQuery)->whereDate('completed_at', $dayDate)->count();
 
             $actualKpi = $received > 0 ? round(($closed / $received) * 100, 1) : 0;
-            $benchmarkScore = $this->calculateBenchmarkScore($actualKpi, 1); // Daily benchmark is for 1 day
+            $benchmarkScore = $this->calculateBenchmarkScore($actualKpi, 'same_day'); // Daily trend uses same-day benchmark
 
+            // For area chart, we need a flat structure usually
             $trend[] = [
                 'day' => $dayDate->format('D'),
                 'date' => $dayDate->format('Y-m-d'),
                 'received' => $received,
                 'closed' => $closed,
                 'actualKpi' => $actualKpi,
-                'kpi' => $benchmarkScore, // User wants the percentage relative to benchmark
+                'score' => $benchmarkScore, // This is the benchmarked KPI score
             ];
 
             $current->addDay();
@@ -562,6 +623,11 @@ class AdminDashboardService
 
         $total = $feedbacks->count();
 
+        // Get configurable NPS buckets from DB benchmarks
+        $detractorRange = $this->benchmarks['nps']['nps_detractor'] ?? ['min' => 1, 'max' => 6];
+        $passiveRange = $this->benchmarks['nps']['nps_passive'] ?? ['min' => 7, 'max' => 8];
+        $promoterRange = $this->benchmarks['nps']['nps_promoter'] ?? ['min' => 9, 'max' => 10];
+
         if ($total === 0) {
             return [
                 'score' => 0,
@@ -572,32 +638,34 @@ class AdminDashboardService
                 'promoterPercentage' => 0,
                 'detractorPercentage' => 0,
                 'rating' => 'N/A',
-                'benchmark' => $this->benchmarks['nps'],
+                'benchmark' => $this->benchmarks['nps_targets'],
                 'startDate' => $start->format('Y-m-d'),
                 'endDate' => $end->format('Y-m-d'),
             ];
         }
 
-        // NPS categories (1-10 scale)
-        $promoters = $feedbacks->filter(fn($f) => $f->rating >= 9)->count();
-        $passives = $feedbacks->filter(fn($f) => $f->rating >= 7 && $f->rating <= 8)->count();
-        $detractors = $feedbacks->filter(fn($f) => $f->rating <= 6)->count();
+        // NPS categories based on configured ranges
+        $promoters = $feedbacks->filter(fn($f) => $f->rating >= $promoterRange['min'] && $f->rating <= $promoterRange['max'])->count();
+        $passives = $feedbacks->filter(fn($f) => $f->rating >= $passiveRange['min'] && $f->rating <= $passiveRange['max'])->count();
+        $detractors = $feedbacks->filter(fn($f) => $f->rating >= $detractorRange['min'] && $f->rating <= $detractorRange['max'])->count();
 
         $promoterPercentage = round(($promoters / $total) * 100, 1);
         $detractorPercentage = round(($detractors / $total) * 100, 1);
         $nps = round($promoterPercentage - $detractorPercentage);
 
         $rating = 'Needs Improvement';
-        if ($nps >= $this->benchmarks['nps']['excellent']) {
+        $targets = $this->benchmarks['nps_targets'];
+
+        if (isset($targets['excellent']) && $nps >= $targets['excellent']['min']) {
             $rating = 'Excellent';
-        } elseif ($nps >= $this->benchmarks['nps']['good']) {
+        } elseif (isset($targets['good']) && $nps >= $targets['good']['min']) {
             $rating = 'Good';
-        } elseif ($nps >= $this->benchmarks['nps']['average']) {
+        } elseif (isset($targets['average']) && $nps >= $targets['average']['min']) {
             $rating = 'Average';
         }
 
         // Calculate benchmark score (Normalized against "Excellent" threshold)
-        $excellentTarget = $this->benchmarks['nps']['excellent'] ?? 70;
+        $excellentTarget = $targets['excellent']['target'] ?? 70;
         $benchmarkScore = $excellentTarget > 0 ? round(($nps / $excellentTarget) * 100, 1) : 0;
 
         return [
@@ -610,7 +678,12 @@ class AdminDashboardService
             'totalResponses' => $total,
             'promoterPercentage' => $promoterPercentage,
             'detractorPercentage' => $detractorPercentage,
-            'benchmark' => $this->benchmarks['nps'],
+            'benchmark' => $targets,
+            'ranges' => [
+                'detractor' => $detractorRange,
+                'passive' => $passiveRange,
+                'promoter' => $promoterRange
+            ],
             'startDate' => $start->format('Y-m-d'),
             'endDate' => $end->format('Y-m-d'),
         ];
