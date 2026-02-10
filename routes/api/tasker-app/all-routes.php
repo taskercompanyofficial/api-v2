@@ -7,10 +7,9 @@ use App\Http\Controllers\Authenticated\CRM\CustomerAddressController;
 use App\Http\Controllers\Authenticated\CRM\MajorClientsController;
 use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
-use App\Http\Controllers\TaskerApp\OrderController;
 use App\Http\Controllers\TaskerApp\NotificationController;
 use App\Http\Controllers\TaskerApp\CommercialQuoteController;
-use App\Http\Controllers\TaskerApp\FreeInstallationController;
+use App\Http\Controllers\TaskerApp\WorkOrderController as TaskerWorkOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'tasker-app'], function () {
@@ -28,14 +27,15 @@ Route::group(['prefix' => 'tasker-app'], function () {
         Route::get('/auth/me', [AuthenticatedSessionController::class,'me']);
         Route::post('/auth/update', [AuthenticatedSessionController::class,'update']);
         Route::get('/parent-services', [ParentServicesController::class,'parentServices']);
+        Route::get('/trending-services', [TaskerWorkOrderController::class, 'trendingParentServices']);
         Route::get('/parent-services/{slug}', [ParentServicesController::class,'show']);
-        Route::get('/parent-services/trending', [ParentServicesController::class, 'trending']);
-        // Order routes
-        Route::prefix('orders')->group(function () {
-            Route::post('/', [OrderController::class, 'store']);
-            Route::get('/my-orders', [OrderController::class, 'customerOrders']);
-            Route::get('/{orderNumber}', [OrderController::class, 'show']);
-            Route::post('/{orderNumber}/cancel', [OrderController::class, 'cancel']);
+        
+        // Work Order routes (customer)
+        Route::prefix('work-orders')->group(function () {
+            Route::post('/', [TaskerWorkOrderController::class, 'store']);
+            Route::get('/my-work-orders', [TaskerWorkOrderController::class, 'customerWorkOrders']);
+            Route::get('/{workOrderNumber}', [TaskerWorkOrderController::class, 'show']);
+            Route::post('/{workOrderNumber}/cancel', [TaskerWorkOrderController::class, 'cancel']);
         });
         
         // Notification routes
@@ -53,12 +53,7 @@ Route::group(['prefix' => 'tasker-app'], function () {
             Route::get('/{id}', [CommercialQuoteController::class, 'show']);
         });
 
-        // Free Installation routes
-        Route::prefix('free-installations')->group(function () {
-            Route::post('/', [FreeInstallationController::class, 'store']);
-            Route::get('/', [FreeInstallationController::class, 'index']);
-            Route::get('/{id}', [FreeInstallationController::class, 'show']);
-        });
+        
     });
 
 });
