@@ -28,6 +28,7 @@ Route::group(['prefix' => 'tasker-app'], function () {
         Route::get('/auth/me', [AuthenticatedSessionController::class,'me']);
         Route::post('/auth/update', [AuthenticatedSessionController::class,'update']);
         Route::get('/parent-services', [ParentServicesController::class,'parentServices']);
+        Route::get('/parent-services/{slug}', [ParentServicesController::class,'show']);
         // Order routes
         Route::prefix('orders')->group(function () {
             Route::post('/', [OrderController::class, 'store']);
