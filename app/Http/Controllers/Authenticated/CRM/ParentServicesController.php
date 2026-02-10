@@ -414,7 +414,7 @@ class ParentServicesController extends Controller
                 'parent_services.status',
                 'parent_services.service_id',
             ])
-            ->orderByDesc('recent_orders_count')
+            ->orderBy('recent_orders_count', 'asc')
             ->orderByDesc('parent_services.updated_at');
 
             $results = $query->paginate($perPage, ['*'], 'page', $page);

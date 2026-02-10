@@ -21,6 +21,18 @@ class NotificationController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($n) {
+                    $link = null;
+                    if ($n->type === 'order') {
+                        $orderNumber = $n->data['order_number'] ?? null;
+                        if ($orderNumber) {
+                            $link = '/customer/orders/' . $orderNumber;
+                        }
+                    } elseif ($n->type === 'free_installation') {
+                        $installationId = $n->data['installation_id'] ?? null;
+                        if ($installationId) {
+                            $link = '/customer/free-installations/' . $installationId;
+                        }
+                    }
                     return [
                         'id' => $n->id,
                         'title' => $n->title,
@@ -30,6 +42,7 @@ class NotificationController extends Controller
                         'read' => (bool)$n->read,
                         'read_at' => $n->read_at,
                         'created_at' => $n->created_at,
+                        'link' => $link,
                     ];
                 });
 
