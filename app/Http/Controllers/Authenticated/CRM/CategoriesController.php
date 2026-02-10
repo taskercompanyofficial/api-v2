@@ -194,7 +194,7 @@ class CategoriesController extends Controller
     }
     public function webIndex()
     {
-        $categories = Categories::select('id', 'name', 'slug','description', 'image',  'tags', 'status', 'created_at', 'updated_at')->where('status', 'active')->get();
+        $categories = Categories::select('id', 'name', 'slug','description', 'image',  'tags', 'status', 'created_at', 'updated_at')->where('status', 'active')->orWhere('status', 'comming-soon')->get();
         return response()->json([
             'status' => 'success',
             'data' => $categories,
