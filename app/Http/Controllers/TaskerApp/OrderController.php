@@ -84,10 +84,11 @@ class OrderController extends Controller
             // Create notification
             Notification::createNotification(
                 $order->customer_id,
+                'App\Models\Customer',
                 'Order Confirmed',
                 "Your order {$order->order_number} has been confirmed and will be processed soon.",
                 'order',
-                $order->id
+                ['order_id' => $order->id, 'order_number' => $order->order_number]
             );
 
             // Load relationships for response
@@ -201,10 +202,11 @@ class OrderController extends Controller
             // Create notification
             Notification::createNotification(
                 $order->customer_id,
+                'App\Models\Customer',
                 'Order Cancelled',
                 "Your order {$order->order_number} has been cancelled.",
                 'order',
-                $order->id
+                ['order_id' => $order->id, 'order_number' => $order->order_number]
             );
 
             return response()->json([

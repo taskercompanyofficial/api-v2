@@ -104,10 +104,15 @@ class FreeInstallationController extends Controller
             // Create notification for customer
             Notification::createNotification(
                 $customer->id,
+                'App\Models\Customer',
                 'Free Installation Request Received',
                 "Your free installation request for {$installation->product_model} has been received. Order number: {$order->order_number}. Our team will contact you within 24-48 hours.",
                 'free_installation',
-                $installation->id
+                [
+                    'installation_id' => $installation->id,
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                ]
             );
 
             DB::commit();

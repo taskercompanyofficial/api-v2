@@ -16,9 +16,22 @@ class NotificationController extends Controller
         try {
             $customer = $request->user();
             
-            $notifications = Notification::where('customer_id', $customer->id)
+            $notifications = Notification::where('user_id', $customer->id)
+                ->where('user_type', 'App\Models\Customer')
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->map(function ($n) {
+                    return [
+                        'id' => $n->id,
+                        'title' => $n->title,
+                        'message' => $n->message,
+                        'type' => $n->type,
+                        'data' => $n->data,
+                        'read' => (bool)$n->read,
+                        'read_at' => $n->read_at,
+                        'created_at' => $n->created_at,
+                    ];
+                });
 
             return response()->json([
                 'status' => 'success',
@@ -40,7 +53,8 @@ class NotificationController extends Controller
         try {
             $customer = $request->user();
             
-            $notification = Notification::where('customer_id', $customer->id)
+            $notification = Notification::where('user_id', $customer->id)
+                ->where('user_type', 'App\Models\Customer')
                 ->where('id', $id)
                 ->firstOrFail();
 
@@ -67,7 +81,8 @@ class NotificationController extends Controller
         try {
             $customer = $request->user();
             
-            Notification::where('customer_id', $customer->id)
+            Notification::where('user_id', $customer->id)
+                ->where('user_type', 'App\Models\Customer')
                 ->where('read', false)
                 ->update([
                     'read' => true,
@@ -94,7 +109,8 @@ class NotificationController extends Controller
         try {
             $customer = $request->user();
             
-            $count = Notification::where('customer_id', $customer->id)
+            $count = Notification::where('user_id', $customer->id)
+                ->where('user_type', 'App\Models\Customer')
                 ->where('read', false)
                 ->count();
 
