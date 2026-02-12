@@ -17,9 +17,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
-        "maennchen/zipstream-php": "^3.1",
-       "intervention/image": "^3.11",
-        "pbmedia/laravel-ffmpeg": "^8.7",
+        "maennchen/zipstream-php": "*",
         "nnjeim/world": "^1.1",
         "phpseclib/phpseclib": "~3.0"
     },
