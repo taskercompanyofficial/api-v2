@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image;
+use FFMpeg;
 
 class WorkOrderFileController extends Controller
 {
@@ -61,39 +63,52 @@ class WorkOrderFileController extends Controller
             $workOrder = WorkOrder::findOrFail($workOrderId);
             $fileType = FileType::findOrFail($validated['file_type_id']);
 
-            // Get uploaded file
             $uploadedFile = $request->file('file');
-
-            // Generate unique filename: filetype_slug_randomstring.extension
-            $extension = $uploadedFile->getClientOriginalExtension();
+            $extension = strtolower($uploadedFile->getClientOriginalExtension());
             $randomString = Str::random(8);
             $fileName = $fileType->slug . '_' . $randomString . '.' . $extension;
+            $storagePath = 'work-orders/' . $workOrder->work_order_number . '/' . $fileName;
 
-            // Store file in: work-orders/{work_order_number}
-            $filePath = $uploadedFile->storeAs(
-                'work-orders/' . $workOrder->work_order_number,
-                $fileName,
-                'public'
-            );
+            $mimeType = $uploadedFile->getMimeType();
 
-            // Get file size in KB
-            $fileSizeKb = round($uploadedFile->getSize() / 1024, 2);
+            // Compress image
+            if (str_starts_with($mimeType, 'image/')) {
+                $image = Image::make($uploadedFile->getRealPath())
+                    ->encode($extension, 75); // 75% quality
+                Storage::disk('public')->put($storagePath, (string)$image);
+                $fileSizeKb = round(Storage::disk('public')->size($storagePath) / 1024, 2);
+            }
+            // Compress video
+            elseif (str_starts_with($mimeType, 'video/')) {
+                $tempPath = $uploadedFile->getRealPath();
+                $compressedPath = storage_path('app/public/' . $storagePath);
+                FFMpeg::fromDisk('local')
+                    ->open($tempPath)
+                    ->export()
+                    ->toDisk('public')
+                    ->inFormat(new \FFMpeg\Format\Video\X264('aac', 'libx264'))
+                    ->save($storagePath);
+                $fileSizeKb = round(Storage::disk('public')->size($storagePath) / 1024, 2);
+            }
+            // Other files: store as-is
+            else {
+                $uploadedFile->storeAs('work-orders/' . $workOrder->work_order_number, $fileName, 'public');
+                $fileSizeKb = round($uploadedFile->getSize() / 1024, 2);
+            }
 
-            // Create file record
             $file = WorkOrderFile::create([
                 'work_order_id' => $workOrderId,
                 'file_type_id' => $validated['file_type_id'],
                 'file_name' => $uploadedFile->getClientOriginalName(),
-                'file_path' => $filePath,
+                'file_path' => $storagePath,
                 'file_type' => $fileType->slug,
                 'file_size_kb' => $fileSizeKb,
-                'mime_type' => $uploadedFile->getMimeType(),
+                'mime_type' => $mimeType,
                 'uploaded_by_id' => $user->id,
                 'uploaded_at' => now(),
                 'approval_status' => $validated['approval_status'] ?? 'pending',
             ]);
 
-            // Load relationships
             $file->load('fileType', 'uploadedBy');
 
             return response()->json([
@@ -139,7 +154,7 @@ class WorkOrderFileController extends Controller
         }
     }
 
-    /**
+
     /**
      * Delete a file
      */
