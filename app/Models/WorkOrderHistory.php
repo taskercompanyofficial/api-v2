@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Staff;
 
 class WorkOrderHistory extends Model
 {
@@ -51,6 +52,7 @@ class WorkOrderHistory extends Model
     ): self {
         $user = Auth::user();
         $request = request();
+        $userId = ($user instanceof Staff) ? $user->id : null;
 
         return self::create([
             'work_order_id' => $workOrderId,
@@ -60,7 +62,7 @@ class WorkOrderHistory extends Model
             'new_value' => is_array($newValue) ? json_encode($newValue) : $newValue,
             'metadata' => $metadata,
             'description' => $description,
-            'user_id' => $user?->id,
+            'user_id' => $userId,
             'user_name' => $user?->name ?? 'System',
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent(),
