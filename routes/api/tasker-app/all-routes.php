@@ -10,6 +10,8 @@ use App\Http\Controllers\Authenticated\CRM\ServicesController;
 use App\Http\Controllers\TaskerApp\NotificationController;
 use App\Http\Controllers\TaskerApp\CommercialQuoteController;
 use App\Http\Controllers\TaskerApp\WorkOrderController as TaskerWorkOrderController;
+use App\Http\Controllers\TaskerApp\WalletController;
+use App\Http\Controllers\TaskerApp\GiftsController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'tasker-app'], function () {
@@ -52,6 +54,21 @@ Route::group(['prefix' => 'tasker-app'], function () {
             Route::post('/', [CommercialQuoteController::class, 'store']);
             Route::get('/', [CommercialQuoteController::class, 'index']);
             Route::get('/{id}', [CommercialQuoteController::class, 'show']);
+        });
+
+        Route::prefix('wallet')->group(function () {
+            Route::get('/', [WalletController::class, 'me']);
+            Route::get('/transactions', [WalletController::class, 'transactions']);
+            Route::post('/recharge', [WalletController::class, 'recharge']);
+            Route::post('/refund', [WalletController::class, 'refund']);
+            Route::post('/debit', [WalletController::class, 'debit']);
+        });
+
+        Route::prefix('gifts')->group(function () {
+            Route::get('/unclaimed', [GiftsController::class, 'unclaimed']);
+            Route::post('/check-in', [GiftsController::class, 'checkIn']);
+            Route::post('/claim/{id}', [GiftsController::class, 'claim']);
+            Route::get('/vouchers', [GiftsController::class, 'vouchers']);
         });
 
         

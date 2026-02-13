@@ -8,6 +8,7 @@ use App\Models\OTP;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\SendWhatsAppMessageJob;
 
 class OtpController extends Controller
 {
@@ -135,49 +136,16 @@ class OtpController extends Controller
         ]);
 
         try {
-            $curlURL = env('WHATSAPP_GRAPH_API_URL') . '/' . env('WHATSAPP_API_VERSION') . '/' . env('WHATSAPP_PHONE_NUMBER_ID') . '/messages';
-            $contactUsPhoneNumber = '+923041112717';
-            $curlData = [
-                'messaging_product' => 'whatsapp',
-                'to' => $phone,
+            $contactUsPhoneNumber = config('whatsapp.support_phone', env('WHATSAPP_SUPPORT_PHONE'));
+            SendWhatsAppMessageJob::dispatch([
                 'type' => 'template',
-                'template' => [
-                    'name' => 'one_time_passcode',
-                    'language' => [
-                        'code' => 'en_US',
-                    ],
-                    'components' => [
-                        [
-                            'type' => 'body',
-                            'parameters' => [
-                                ['type' => 'text', 'text' => $otp],
-                                ['type' => 'text', 'text' => $contactUsPhoneNumber],
-                            ],
-                        ],
-                        [
-                            'type' => 'button',
-                            'sub_type' => 'url',
-                            'index' => '0',
-                            'parameters' => [
-                                ['type' => 'text', 'text' => $contactUsPhoneNumber],
-                            ],
-                        ],
-                    ],
-                ],
-            ];
-            $curl = curl_init();
-            curl_setopt($curl, CURLOPT_URL, $curlURL);
-            curl_setopt($curl, CURLOPT_POST, 1);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($curlData));
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . env('WHATSAPP_ACCESS_TOKEN'),
+                'to' => $phone,
+                'template_name' => 'one_time_passcode',
+                'language_code' => 'en_US',
+                'parameters' => array_filter([$otp, $contactUsPhoneNumber]),
             ]);
-            curl_exec($curl);
-            curl_close($curl);
-        } catch (\Exception $e) {
-            Log::error('Vendor OTP send failed: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Vendor OTP dispatch failed: ' . $e->getMessage());
         }
     }
 
@@ -188,28 +156,13 @@ class OtpController extends Controller
                 ? "🎉 Welcome to Tasker Company Partner Network, {$name}!\n\nYou can now receive jobs and earn through our platform.\nWe’ll be in touch with next steps."
                 : "👋 Welcome back, {$name}!\n\nYou’re signed in to the provider app.";
 
-            $curlURL = env('WHATSAPP_GRAPH_API_URL') . '/' . env('WHATSAPP_PHONE_NUMBER_ID') . '/messages';
-            $curlData = [
-                'messaging_product' => 'whatsapp',
-                'to' => $phone,
+            SendWhatsAppMessageJob::dispatch([
                 'type' => 'text',
-                'text' => ['body' => $messageText],
-            ];
-
-            $curl = curl_init();
-            curl_setopt($curl, CURLOPT_URL, $curlURL);
-            curl_setopt($curl, CURLOPT_POST, 1);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($curlData));
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($curl, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . env('WHATSAPP_ACCESS_TOKEN'),
+                'to' => $phone,
+                'message' => $messageText,
             ]);
-
-            curl_exec($curl);
-            curl_close($curl);
-        } catch (\Exception $e) {
-            Log::error('Vendor welcome message failed: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Vendor welcome message dispatch failed: ' . $e->getMessage());
         }
     }
 }
