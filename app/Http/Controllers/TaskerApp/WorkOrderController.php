@@ -153,8 +153,6 @@ class WorkOrderController extends Controller
                 'customer_description' => $validated['notes'] ?? null,
                 'status_id' => $allocatedStatus?->id,
                 'sub_status_id' => $justLaunched?->id,
-                'created_by' => $customer->id,
-                'updated_by' => $customer->id,
             ]);
 
             foreach ($validated['items'] as $item) {
