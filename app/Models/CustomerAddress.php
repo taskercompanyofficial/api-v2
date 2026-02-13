@@ -24,6 +24,7 @@ class CustomerAddress extends Model
         'latitude',
         'longitude',
         'status',
+        'is_default',
     ];
 
     /**

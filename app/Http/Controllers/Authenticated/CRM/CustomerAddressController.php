@@ -15,7 +15,10 @@ class CustomerAddressController extends Controller
      */
     public function index(Request $request)
     {
-        $addresses = CustomerAddress::where('customer_id', $request->customer_id)->get();
+        $addresses = CustomerAddress::where('customer_id', $request->customer_id)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
         return response()->json([
 'status' => 'success',
             'data' => $addresses
@@ -45,6 +48,10 @@ class CustomerAddressController extends Controller
 
             $validatedData['created_by'] = Auth::id();
             $validatedData['updated_by'] = Auth::id();
+
+            // If customer has no addresses yet, set first as default
+            $hasAny = CustomerAddress::where('customer_id', $validatedData['customer_id'] ?? null)->exists();
+            $validatedData['is_default'] = $validatedData['is_default'] ?? !$hasAny;
 
             $address = CustomerAddress::create($validatedData);
 
@@ -105,6 +112,7 @@ class CustomerAddressController extends Controller
                 'latitude' => 'sometimes|nullable|numeric',
                 'longitude' => 'sometimes|nullable|numeric',
                 'status' => 'sometimes|required|string|max:255',
+                'is_default' => 'sometimes|boolean',
             ]);
 
             $validatedData['updated_by'] = Auth::id();
@@ -120,6 +128,38 @@ class CustomerAddressController extends Controller
                 'status' => 'error',
                 'message' => $err->getMessage(),
             ], );
+        }
+    }
+
+    /**
+     * Mark the given address as default for the customer.
+     */
+    public function setDefault(Request $request, string $id): \Illuminate\Http\JsonResponse
+    {
+        $address = CustomerAddress::find($id);
+        if (!$address) {
+            return response()->json(['status' => 'error', 'message' => 'Customer address not found'], 404);
+        }
+        $customerId = $request->input('customer_id', $address->customer_id);
+        if ((int)$customerId !== (int)$address->customer_id) {
+            return response()->json(['status' => 'error', 'message' => 'Customer mismatch for address'], 422);
+        }
+        try {
+            // Unset previous defaults safely within customer scope
+            CustomerAddress::where('customer_id', $address->customer_id)->update(['is_default' => false]);
+            $address->is_default = true;
+            $address->updated_by = Auth::id();
+            $address->save();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Default address updated',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update default address',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 

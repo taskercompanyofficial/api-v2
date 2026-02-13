@@ -22,7 +22,8 @@ Route::group(['prefix' => 'tasker-app'], function () {
     Route::post('/auth/check-credentials', [AuthenticatedSessionController::class, 'otp']);
     Route::post('/auth/sign-in', [AuthenticatedSessionController::class, 'signin']);
     Route::post('/auth/verify-otp', [AuthenticatedSessionController::class, 'verifyotp']);
-    Route::apiResource('/address', CustomerAddressController::class);    
+    Route::apiResource('/address', CustomerAddressController::class);
+    Route::post('/address/{id}/set-default', [CustomerAddressController::class, 'setDefault']);
     Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/auth/me', [AuthenticatedSessionController::class,'me']);
         Route::post('/auth/update', [AuthenticatedSessionController::class,'update']);
