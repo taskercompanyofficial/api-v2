@@ -107,6 +107,7 @@ class WorkOrder extends Model
         // Charges/Billing
         'charges',
         'files',
+        'attachments',
         // Audit
         'created_by',
         'updated_by',
@@ -142,7 +143,7 @@ class WorkOrder extends Model
 
         // JSON
         'charges' => 'array',
-        'files' => 'array',
+        'attachments' => 'array',
     ];
 
     protected static function boot()
