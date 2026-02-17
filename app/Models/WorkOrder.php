@@ -106,7 +106,7 @@ class WorkOrder extends Model
 
         // Charges/Billing
         'charges',
-
+        'files',
         // Audit
         'created_by',
         'updated_by',
@@ -142,6 +142,7 @@ class WorkOrder extends Model
 
         // JSON
         'charges' => 'array',
+        'files' => 'array',
     ];
 
     protected static function boot()
@@ -336,7 +337,7 @@ class WorkOrder extends Model
         $this->save();
     }
 
-    public function assignTo(Staff $staff, User $assignedBy): void
+    public function assignTo(Staff $staff, Staff $assignedBy): void
     {
         $this->update([
             'assigned_to_id' => $staff->id,
@@ -354,8 +355,8 @@ class WorkOrder extends Model
         ]);
     }
 
-    public function updateStatus(WorkOrderStatus $status, ?WorkOrderStatus $subStatus = null, ?string $notes = null, User $changedBy): void
-    {
+    public function updateStatus(WorkOrderStatus $status, ?WorkOrderStatus $subStatus = null, ?string $notes = null, Staff $changedBy): void
+        {
         $oldStatusId = $this->status_id;
         $oldSubStatusId = $this->sub_status_id;
 
@@ -384,7 +385,7 @@ class WorkOrder extends Model
         ]);
     }
 
-    public function cancel(string $reason, User $cancelledBy): void
+    public function cancel(string $reason, Staff $cancelledBy): void
     {
         $this->update([
             'cancelled_at' => now(),
