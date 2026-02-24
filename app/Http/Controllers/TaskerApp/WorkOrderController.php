@@ -143,6 +143,9 @@ class WorkOrderController extends Controller
             $firstItem = $validated['items'][0];
             $appointmentDate = $firstItem['scheduled_date'] ?? null;
             $appointmentTime = $firstItem['scheduled_time'] ?? null;
+            $firstParentService = ParentServices::with('service')->find($firstItem['parent_service_id']);
+            $firstServiceId = $firstParentService?->service_id;
+            $firstCategoryId = $firstParentService?->service?->category_id;
 
             $workOrder = WorkOrder::create([
                 'work_order_number' => WorkOrder::generateNumber(),
@@ -153,6 +156,9 @@ class WorkOrderController extends Controller
                 'customer_description' => $validated['notes'] ?? null,
                 'status_id' => $allocatedStatus?->id,
                 'sub_status_id' => $justLaunched?->id,
+                'parent_service_id' => $firstItem['parent_service_id'],
+                'service_id' => $firstServiceId,
+                'category_id' => $firstCategoryId,
             ]);
 
             foreach ($validated['items'] as $item) {
@@ -166,15 +172,17 @@ class WorkOrderController extends Controller
                     : max(0, $unitPrice - $discount);
                 $finalPrice = round($effectiveUnit * $quantity, 2);
 
-                $ps = ParentServices::find($item['parent_service_id']);
+                $ps = ParentServices::with('service')->find($item['parent_service_id']);
+                $serviceId = $ps?->service_id;
+                $categoryId = $ps?->service?->category_id;
 
                 WOService::create([
                     'work_order_id' => $workOrder->id,
-                    'category_id' => null,
-                    'service_id' => null,
+                    'category_id' => $categoryId,
+                    'service_id' => $serviceId,
                     'parent_service_id' => $item['parent_service_id'],
                     'service_name' => $ps?->name ?? 'Service',
-                    'service_type' => 'standard',
+                    'service_type' => 'paid',
                     'base_price' => $unitPrice,
                     'brand_tariff_price' => 0,
                     'final_price' => $finalPrice,
@@ -218,10 +226,80 @@ class WorkOrderController extends Controller
     public function customerWorkOrders(Request $request)
     {
         $customer = $request->user();
+        $perPage = (int) ($request->get('perPage', 10));
         $orders = WorkOrder::with(['services.parentService', 'status', 'subStatus'])
             ->where('customer_id', $customer->id)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate($perPage);
+
+        // Transform to mobile app "Order" shape
+        $collection = $orders->getCollection()->map(function (WorkOrder $wo) {
+            $statusSlug = $wo->status?->slug ?? null;
+            $subStatusSlug = $wo->subStatus?->slug ?? null;
+            // Map CRM status/sub-status to app order status
+            $mappedStatus = 'in_progress';
+            if ($statusSlug === 'completed') {
+                $mappedStatus = 'completed';
+            } elseif ($statusSlug === 'cancelled') {
+                $mappedStatus = 'cancelled';
+            } elseif ($statusSlug === 'allocated' || $statusSlug === 'scheduled' || $subStatusSlug === 'just-launched') {
+                $mappedStatus = 'pending';
+            }
+
+            return [
+                'id' => $wo->id,
+                'customer_id' => $wo->customer_id,
+                'customer_address_id' => $wo->customer_address_id,
+                'order_number' => $wo->work_order_number,
+                'order_date' => optional($wo->created_at)->toDateTimeString(),
+                'notes' => $wo->customer_description,
+                'payment_method' => 'cash',
+                'payment_status' => 'pending',
+                'total_amount' => (float) ($wo->total_amount ?? 0),
+                'paid_amount' => 0,
+                'discount_amount' => 0,
+                'tax_amount' => 0,
+                'status' => $mappedStatus,
+                'confirmed_at' => null,
+                'completed_at' => optional($wo->completed_at)->toDateTimeString(),
+                'cancelled_at' => optional($wo->cancelled_at)->toDateTimeString(),
+                'created_at' => optional($wo->created_at)->toDateTimeString(),
+                'updated_at' => optional($wo->updated_at)->toDateTimeString(),
+                // Minimal items mapping (optional for list view)
+                'items' => $wo->services->map(function ($svc) {
+                    return [
+                        'id' => $svc->id,
+                        'order_id' => $svc->work_order_id,
+                        'parent_service_id' => $svc->parent_service_id,
+                        'quantity' => 1,
+                        'unit_price' => (float) ($svc->base_price ?? 0),
+                        'discount' => 0,
+                        'discount_type' => 'fixed',
+                        'subtotal' => (float) ($svc->final_price ?? $svc->base_price ?? 0),
+                        'scheduled_date' => null,
+                        'scheduled_time' => null,
+                        'status' => 'pending',
+                        'assigned_technician_id' => null,
+                        'assigned_at' => null,
+                        'started_at' => null,
+                        'completed_at' => null,
+                        'completion_notes' => null,
+                        'completion_images' => null,
+                        'rating' => null,
+                        'feedback' => null,
+                        'created_at' => null,
+                        'updated_at' => null,
+                        'parentService' => $svc->parentService ? [
+                            'id' => $svc->parentService->id,
+                            'name' => $svc->parentService->name,
+                            'description' => $svc->parentService->description,
+                            'image' => $svc->parentService->image,
+                        ] : null,
+                    ];
+                }),
+            ];
+        });
+        $orders->setCollection($collection);
 
         return response()->json([
             'status' => 'success',
@@ -248,9 +326,79 @@ class WorkOrderController extends Controller
             ], 404);
         }
 
+        $statusSlug = $workOrder->status?->slug ?? null;
+        $subStatusSlug = $workOrder->subStatus?->slug ?? null;
+        $mappedStatus = 'in_progress';
+        if ($statusSlug === 'completed') {
+            $mappedStatus = 'completed';
+        } elseif ($statusSlug === 'cancelled') {
+            $mappedStatus = 'cancelled';
+        } elseif ($statusSlug === 'allocated' || $statusSlug === 'scheduled' || $subStatusSlug === 'just-launched') {
+            $mappedStatus = 'pending';
+        }
+
+        $order = [
+            'id' => $workOrder->id,
+            'customer_id' => $workOrder->customer_id,
+            'customer_address_id' => $workOrder->customer_address_id,
+            'order_number' => $workOrder->work_order_number,
+            'order_date' => optional($workOrder->created_at)->toDateTimeString(),
+            'notes' => $workOrder->customer_description,
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'total_amount' => (float) ($workOrder->total_amount ?? 0),
+            'paid_amount' => 0,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'status' => $mappedStatus,
+            'confirmed_at' => null,
+            'completed_at' => optional($workOrder->completed_at)->toDateTimeString(),
+            'cancelled_at' => optional($workOrder->cancelled_at)->toDateTimeString(),
+            'created_at' => optional($workOrder->created_at)->toDateTimeString(),
+            'updated_at' => optional($workOrder->updated_at)->toDateTimeString(),
+            'address' => $workOrder->address ? [
+                'address_type' => $workOrder->address->address_type ?? 'home',
+                'address_line_1' => $workOrder->address->address_line_1 ?? '',
+                'city' => $workOrder->address->city ?? '',
+                'state' => $workOrder->address->state ?? '',
+                'zip_code' => $workOrder->address->zip_code ?? '',
+            ] : null,
+            'items' => $workOrder->services->map(function ($svc) use ($workOrder) {
+                return [
+                    'id' => $svc->id,
+                    'order_id' => $svc->work_order_id,
+                    'parent_service_id' => $svc->parent_service_id,
+                    'quantity' => 1,
+                    'unit_price' => (float) ($svc->base_price ?? 0),
+                    'discount' => 0,
+                    'discount_type' => 'fixed',
+                    'subtotal' => (float) ($svc->final_price ?? $svc->base_price ?? 0),
+                    'scheduled_date' => optional($workOrder->appointment_date)?->toDateString(),
+                    'scheduled_time' => $workOrder->appointment_time,
+                    'status' => 'pending',
+                    'assigned_technician_id' => null,
+                    'assigned_at' => null,
+                    'started_at' => null,
+                    'completed_at' => null,
+                    'completion_notes' => null,
+                    'completion_images' => null,
+                    'rating' => null,
+                    'feedback' => null,
+                    'created_at' => null,
+                    'updated_at' => null,
+                    'parentService' => $svc->parentService ? [
+                        'id' => $svc->parentService->id,
+                        'name' => $svc->parentService->name,
+                        'description' => $svc->parentService->description,
+                        'image' => $svc->parentService->image,
+                    ] : null,
+                ];
+            }),
+        ];
+
         return response()->json([
             'status' => 'success',
-            'data' => $workOrder,
+            'data' => $order,
         ]);
     }
 
