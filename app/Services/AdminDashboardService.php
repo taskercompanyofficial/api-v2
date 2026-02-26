@@ -279,7 +279,7 @@ class AdminDashboardService
             '3_4_day' => ['label' => '3-4 Days', 'count' => 0, 'percentage' => 0],
             '5_6_day' => ['label' => '5-6 Days', 'count' => 0, 'percentage' => 0],
             '7_8_day' => ['label' => '7-8 Days', 'count' => 0, 'percentage' => 0],
-            '8_plus_day' => ['label' => '8+ Days', 'count' => 0, 'percentage' => 0],
+            '25_plus_day' => ['label' => '25+ Days', 'count' => 0, 'percentage' => 0],
         ];
 
         foreach ($completedWOs as $wo) {
@@ -298,7 +298,7 @@ class AdminDashboardService
             } elseif ($days == 7 || $days == 8) {
                 $distribution['7_8_day']['count']++;
             } else {
-                $distribution['8_plus_day']['count']++;
+                $distribution['25_plus_day']['count']++;
             }
         }
 
