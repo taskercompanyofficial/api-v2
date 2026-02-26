@@ -72,13 +72,11 @@ class CustomerController extends Controller
                 'name' => 'required|string|max:255',
                 'avatar' => 'nullable|string|max:255',
                 'email' => 'nullable|email|max:255|unique:customers,email',
-                'phone' => 'nullable|string|max:20',
-                'whatsapp' => 'nullable|string|max:20',
-                'customer_id' => 'nullable|string|max:255|unique:customers,customer_id',
+                'phone' => 'required|string|max:20',
+                'whatsapp' => 'required|string|max:20',
                 'is_care_of_customer' => 'nullable|boolean',
                 'status' => 'nullable|string|max:50', // e.g., 'active', 'inactive'
                 'description' => 'nullable|string',
-                'kind_of_issue' => 'nullable|string|max:255',
             ]);
             $customerId = 'cus' . strtoupper(bin2hex(random_bytes(4)));
             $validatedData['customer_id'] = $customerId;

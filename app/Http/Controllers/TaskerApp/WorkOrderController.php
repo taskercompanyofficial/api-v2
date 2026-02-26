@@ -170,26 +170,27 @@ class WorkOrderController extends Controller
                 $effectiveUnit = $discountType === 'percentage'
                     ? max(0, $unitPrice * (1 - ($discount / 100)))
                     : max(0, $unitPrice - $discount);
-                $finalPrice = round($effectiveUnit * $quantity, 2);
+                $finalPricePerUnit = round($effectiveUnit, 2);
 
                 $ps = ParentServices::with('service')->find($item['parent_service_id']);
                 $serviceId = $ps?->service_id;
                 $categoryId = $ps?->service?->category_id;
 
-                WOService::create([
-                    'work_order_id' => $workOrder->id,
-                    'category_id' => $categoryId,
-                    'service_id' => $serviceId,
-                    'parent_service_id' => $item['parent_service_id'],
-                    'quantity' => $quantity,
-                    'service_name' => $ps?->name ?? 'Service',
-                    'service_type' => 'paid',
-                    'base_price' => $unitPrice,
-                    'brand_tariff_price' => 0,
-                    'final_price' => $finalPrice,
-                    'is_warranty_covered' => false,
-                    'status' => 'pending',
-                ]);
+                for ($i = 0; $i < $quantity; $i++) {
+                    WOService::create([
+                        'work_order_id' => $workOrder->id,
+                        'category_id' => $categoryId,
+                        'service_id' => $serviceId,
+                        'parent_service_id' => $item['parent_service_id'],
+                        'service_name' => $ps?->name ?? 'Service',
+                        'service_type' => 'paid',
+                        'base_price' => $unitPrice,
+                        'brand_tariff_price' => 0,
+                        'final_price' => $finalPricePerUnit,
+                        'is_warranty_covered' => false,
+                        'status' => 'pending',
+                    ]);
+                }
             }
 
             $workOrder->calculateTotal();
@@ -369,7 +370,7 @@ class WorkOrderController extends Controller
                     'id' => $svc->id,
                     'order_id' => $svc->work_order_id,
                     'parent_service_id' => $svc->parent_service_id,
-                    'quantity' => (int) ($svc->quantity ?? 1),
+                    'quantity' => 1,
                     'unit_price' => (float) ($svc->base_price ?? 0),
                     'discount' => 0,
                     'discount_type' => 'fixed',

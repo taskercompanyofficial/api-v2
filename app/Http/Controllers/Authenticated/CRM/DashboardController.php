@@ -188,7 +188,7 @@ class DashboardController extends Controller
 
             // Revenue statistics (if you have amount fields)
             $monthlyRevenue = WorkOrder::whereBetween('completed_at', [$startOfMonth, $endOfMonth])
-                ->sum('final_amount') ?? 0;
+                ->sum('total_amount') ?? 0;
 
             // Status distribution
             $statusDistribution = DB::table('work_orders')

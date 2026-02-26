@@ -12,7 +12,6 @@ class WorkOrderService extends Model
         'category_id',
         'service_id',
         'parent_service_id',
-        'quantity',
         'service_name',
         'service_type',
         'base_price',
@@ -27,7 +26,6 @@ class WorkOrderService extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
         'base_price' => 'decimal:2',
         'brand_tariff_price' => 'decimal:2',
         'final_price' => 'decimal:2',
