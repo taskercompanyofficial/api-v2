@@ -42,4 +42,6 @@ include_once __DIR__ . '/api/website/all-routes.php';
 include_once __DIR__ . '/api/staff-app/all-routes.php';
 include_once __DIR__ . '/api/tasker-app/all-routes.php';
 include_once __DIR__ . '/api/vendor/all-routes.php';
+include_once __DIR__ . '/api/tc-chat/all-routes.php';
 include_once __DIR__ . '/api/webhook.php';
+

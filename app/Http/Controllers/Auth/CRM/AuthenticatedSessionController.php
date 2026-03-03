@@ -19,7 +19,7 @@ class AuthenticatedSessionController extends Controller
 
         if (Auth::attempt(['crm_login_email' => $request->email, 'password' => $request->password])) {
             $staff = Auth::user();
-            
+
             // Check if staff has CRM access
             if (!$staff->has_access_in_crm) {
                 Auth::logout();
@@ -27,7 +27,7 @@ class AuthenticatedSessionController extends Controller
                     'message' => 'You do not have access to the CRM system.',
                 ], 403);
             }
-            
+
             // Check staff status - only active staff can login
             $staffWithStatus = Staff::with('status')->find($staff->id);
             if (!$staffWithStatus->status || $staffWithStatus->status->slug !== 'active') {
@@ -37,7 +37,7 @@ class AuthenticatedSessionController extends Controller
                     'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
                 ], 403);
             }
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Logged in successfully',
@@ -58,7 +58,7 @@ class AuthenticatedSessionController extends Controller
 
         if (Auth::attempt(['crm_login_email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
-            
+
             // Check if staff has CRM access
             if (!$user->has_access_in_crm) {
                 Auth::logout();
@@ -66,7 +66,7 @@ class AuthenticatedSessionController extends Controller
                     'message' => 'You do not have access to the CRM system.',
                 ], 403);
             }
-            
+
             // Check staff status - only active staff can login
             $staffWithStatus = Staff::with('status')->find($user->id);
             if (!$staffWithStatus->status || $staffWithStatus->status->slug !== 'active') {
@@ -76,7 +76,7 @@ class AuthenticatedSessionController extends Controller
                     'message' => "Your account is currently {$statusMessage}. Please contact your administrator.",
                 ], 403);
             }
-            
+
             $oldToken = $user->tokens()->where('name', 'auth_token')->first();
             if ($oldToken) {
                 $oldToken->delete();
@@ -98,7 +98,7 @@ class AuthenticatedSessionController extends Controller
     {
         $staff = $request->user();
         $staff = Staff::with(['role', 'status'])->find($staff->id);
-        
+
         // Check if staff status is active
         if (!$staff->status || $staff->status->slug !== 'active') {
             $staff->tokens()->delete();
