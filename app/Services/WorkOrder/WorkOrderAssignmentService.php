@@ -33,9 +33,9 @@ class WorkOrderAssignmentService
         $previousAssignedId = $workOrder->assigned_to_id;
 
         // Check if it's the same staff
-        if ($previousAssignedId == $staffId) {
-            throw new Exception('This work order is already assigned to the selected staff member');
-        }
+        // if ($previousAssignedId == $staffId) {
+        //     throw new Exception('This work order is already assigned to the selected staff member');
+        // }
 
         $assignedStaff = Staff::findOrFail($staffId);
 
