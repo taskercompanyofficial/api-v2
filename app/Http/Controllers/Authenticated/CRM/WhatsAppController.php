@@ -358,7 +358,36 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Mark messages as read.
+     * Mark messages in a conversation as read.
+     */
+    public function markConversationAsRead(Request $request, int $id): JsonResponse
+    {
+        $conversation = WhatsAppConversation::findOrFail($id);
+
+        // Get all unread inbound messages
+        $unreadMessages = $conversation->messages()
+            ->where('direction', 'inbound')
+            ->whereNull('read_at')
+            ->get();
+
+        foreach ($unreadMessages as $message) {
+            $message->markAsRead();
+
+            // Optionally notify WhatsApp API (doing this for all might be slow, usually only the last one is enough for Meta to mark earlier as read? No, Meta needs IDs)
+            if ($message->whatsapp_message_id) {
+                $this->whatsappService->markMessageAsRead($message->whatsapp_message_id);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Conversation marked as read',
+            'count' => $unreadMessages->count(),
+        ]);
+    }
+
+    /**
+     * Mark a specific message as read.
      */
     public function markAsRead(Request $request): JsonResponse
     {

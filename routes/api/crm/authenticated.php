@@ -178,6 +178,7 @@ Route::group(['prefix' => 'crm'], function () {
             Route::put('/contacts/{id}/opt-in', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateContactOptIn']);
             Route::put('/conversations/{id}/status', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'updateConversationStatus']);
             Route::put('/conversations/{id}/assign', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'assignConversation']);
+            Route::post('/conversations/{id}/mark-as-read', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'markConversationAsRead']);
             Route::post('/react', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'react']);
             Route::get('/media/{mediaId}', [\App\Http\Controllers\Authenticated\CRM\WhatsAppController::class, 'getMedia']);
         });
