@@ -28,6 +28,7 @@ Route::group(['prefix' => 'tc-chat'], function () {
             Route::put('/conversations/{id}/status', [WhatsAppController::class, 'updateConversationStatus']);
             Route::put('/conversations/{id}/assign', [WhatsAppController::class, 'assignConversation']);
             Route::post('/react', [WhatsAppController::class, 'react']);
+            Route::put('/conversations/{id}/pin', [WhatsAppController::class, 'togglePin']);
             Route::get('/media/{mediaId}', [WhatsAppController::class, 'getMedia']);
         });
 

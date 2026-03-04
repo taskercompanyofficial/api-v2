@@ -34,6 +34,8 @@ class WhatsAppConversation extends Model
         'bot_disabled_by',
         'last_message_at',
         'assigned_to',
+        'is_pinned',
+        'pinned_at',
         'notes',
     ];
 
@@ -46,6 +48,8 @@ class WhatsAppConversation extends Model
         'last_message_at' => 'datetime',
         'bot_disabled' => 'boolean',
         'bot_disabled_at' => 'datetime',
+        'is_pinned' => 'boolean',
+        'pinned_at' => 'datetime',
     ];
 
     /**
@@ -232,5 +236,41 @@ class WhatsAppConversation extends Model
             ->where('direction', 'inbound')
             ->whereNull('read_at')
             ->update(['read_at' => now(), 'status' => 'read']);
+    }
+
+    /**
+     * Pin the conversation.
+     */
+    public function pin(): void
+    {
+        $this->update([
+            'is_pinned' => true,
+            'pinned_at' => now(),
+        ]);
+    }
+
+    /**
+     * Unpin the conversation.
+     */
+    public function unpin(): void
+    {
+        $this->update([
+            'is_pinned' => false,
+            'pinned_at' => null,
+        ]);
+    }
+
+    /**
+     * Toggle pin status.
+     */
+    public function togglePin(): bool
+    {
+        if ($this->is_pinned) {
+            $this->unpin();
+            return false;
+        } else {
+            $this->pin();
+            return true;
+        }
     }
 }

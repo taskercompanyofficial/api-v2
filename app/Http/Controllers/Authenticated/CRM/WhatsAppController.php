@@ -35,6 +35,7 @@ class WhatsAppController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = WhatsAppConversation::with(['contact', 'customer', 'assignedStaff', 'latestMessage'])
+            ->orderByDesc('is_pinned')
             ->orderBy('last_message_at', 'desc');
 
         // Filter by status
@@ -407,6 +408,21 @@ class WhatsAppController extends Controller
         return response()->json([
             'success' => $success,
             'message' => $success ? 'Message marked as read' : 'Failed to mark message as read',
+        ]);
+    }
+
+    /**
+     * Toggle pin status of a conversation.
+     */
+    public function togglePin(int $id): JsonResponse
+    {
+        $conversation = WhatsAppConversation::findOrFail($id);
+        $isPinned = $conversation->togglePin();
+
+        return response()->json([
+            'success' => true,
+            'is_pinned' => $isPinned,
+            'message' => $isPinned ? 'Chat pinned' : 'Chat unpinned',
         ]);
     }
 
