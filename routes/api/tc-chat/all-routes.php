@@ -32,5 +32,16 @@ Route::group(['prefix' => 'tc-chat'], function () {
 
         // Staff directory (matches staff to WhatsApp conversations by phone)
         Route::get('/staff-list', [StaffChatController::class, 'getStaffList']);
+
+        // Staff Tasks (admin-assigned, read-only for staff, status update only)
+        Route::get('/tasks', [\App\Http\Controllers\Authenticated\StaffApp\StaffTaskController::class, 'index']);
+        Route::get('/tasks/summary', [\App\Http\Controllers\Authenticated\StaffApp\StaffTaskController::class, 'summary']);
+        Route::patch('/tasks/{id}/status', [\App\Http\Controllers\Authenticated\StaffApp\StaffTaskController::class, 'updateStatus']);
+
+        // Staff Todos (personal, full CRUD)
+        Route::get('/todos', [\App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'index']);
+        Route::post('/todos', [\App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'store']);
+        Route::put('/todos/{id}', [\App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'update']);
+        Route::delete('/todos/{id}', [\App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'destroy']);
     });
 });
