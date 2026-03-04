@@ -583,6 +583,7 @@ class WhatsAppMessageService
                 'content' => $content,
                 'media' => $media,
                 'status' => 'delivered',
+                'sent_at' => $timestamp ? now()->setTimestamp($timestamp) : now(),
                 'delivered_at' => $timestamp ? now()->setTimestamp($timestamp) : now(),
                 'parent_message_id' => $parentMessageId,
             ]);
