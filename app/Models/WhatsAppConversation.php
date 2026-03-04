@@ -29,6 +29,9 @@ class WhatsAppConversation extends Model
         'customer_id',
         'whatsapp_conversation_id',
         'status',
+        'bot_disabled',
+        'bot_disabled_at',
+        'bot_disabled_by',
         'last_message_at',
         'assigned_to',
         'notes',
@@ -41,6 +44,8 @@ class WhatsAppConversation extends Model
      */
     protected $casts = [
         'last_message_at' => 'datetime',
+        'bot_disabled' => 'boolean',
+        'bot_disabled_at' => 'datetime',
     ];
 
     /**
@@ -168,6 +173,30 @@ class WhatsAppConversation extends Model
     public function assignTo(int $userId): void
     {
         $this->update(['assigned_to' => $userId]);
+    }
+
+    /**
+     * Disable the bot for this conversation.
+     */
+    public function disableBot(?int $staffId = null): void
+    {
+        $this->update([
+            'bot_disabled' => true,
+            'bot_disabled_at' => now(),
+            'bot_disabled_by' => $staffId,
+        ]);
+    }
+
+    /**
+     * Enable the bot for this conversation.
+     */
+    public function enableBot(): void
+    {
+        $this->update([
+            'bot_disabled' => false,
+            'bot_disabled_at' => null,
+            'bot_disabled_by' => null,
+        ]);
     }
 
     /**

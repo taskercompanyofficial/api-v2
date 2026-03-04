@@ -69,5 +69,11 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::get('/service-concerns-raw', [ServiceConcernController::class, 'serviceConcernsRaw']);
         Route::get('/service-sub-concerns-raw', [ServiceSubConcernController::class, 'serviceSubConcernsRaw']);
         Route::get('/warranty-types-raw', [\App\Http\Controllers\Authenticated\CRM\WarrantyTypeController::class, 'warrantyTypesRaw']);
+
+        // Todo routes
+        Route::get('/todos', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'index']);
+        Route::post('/todos', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'store']);
+        Route::put('/todos/{id}', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'update']);
+        Route::delete('/todos/{id}', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'destroy']);
     });
 });

@@ -103,6 +103,15 @@ class WhatsAppMessageService
             $conversation->updateLastMessageTime();
             $conversation->contact->updateLastInteraction();
 
+            // Disable bot automatically when staff replies (Staff Takeover)
+            if ($sentBy && !$conversation->bot_disabled) {
+                $conversation->disableBot($sentBy);
+                Log::info('WhatsApp Bot auto-disabled due to staff reply', [
+                    'conversation_id' => $conversationId,
+                    'staff_id' => $sentBy
+                ]);
+            }
+
             // Broadcast event to conversation staff (or all CRM staff if none assigned)
             $staffIds = $this->getStaffIdsForBroadcast($conversation);
             broadcast(new WhatsAppMessageSent($whatsappMessage->fresh(), $staffIds));
@@ -674,9 +683,15 @@ class WhatsAppMessageService
      */
     protected function processBotResponse(WhatsAppConversation $conversation, string $userMessage): void
     {
-        // Check if bot is enabled
+        // Check if bot is enabled globally
         if (!config('whatsapp.bot.enabled', true)) {
             Log::debug('WhatsApp Bot is disabled via config');
+            return;
+        }
+
+        // Check if bot is disabled for this specific conversation (staff takeover)
+        if ($conversation->bot_disabled) {
+            Log::info('WhatsApp Bot is disabled for this conversation (Staff Takeover)', ['conversation_id' => $conversation->id]);
             return;
         }
 
