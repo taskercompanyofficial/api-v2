@@ -67,6 +67,46 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * Start a new chat with a phone number
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'phone_number' => 'required|string',
+            'whatsapp_name' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $phoneNumber = str_replace(['+', ' ', '-', '(', ')'], '', $request->phone_number);
+
+        $contact = WhatsAppContact::firstOrCreate(
+            ['phone_number' => $phoneNumber],
+            ['whatsapp_name' => $request->whatsapp_name ?? $phoneNumber]
+        );
+
+        $conversation = $contact->activeConversation();
+
+        if (!$conversation) {
+            $conversation = WhatsAppConversation::create([
+                'whatsapp_contact_id' => $contact->id,
+                'status' => 'open',
+                'last_message_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $conversation->load(['contact', 'customer', 'assignedStaff']),
+        ]);
+    }
+
+    /**
      * Get a specific conversation with messages.
      */
     public function show(int $id): JsonResponse
@@ -217,9 +257,10 @@ class WhatsAppController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'conversation_id' => 'required|exists:whatsapp_conversations,id',
-            'template_name' => 'required|string|exists:whatsapp_templates,name',
+            'template_name' => 'required|string',
             'language_code' => 'nullable|string',
             'parameters' => 'nullable|array',
+            'custom_message' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -229,20 +270,61 @@ class WhatsAppController extends Controller
             ], 422);
         }
 
-        $template = WhatsAppTemplate::where('name', $request->template_name)->first();
+        $templateName = $request->template_name;
+        $languageCode = $request->get('language_code', 'en_US');
 
-        if (!$template->isApproved()) {
+        // Check if DB template exists, otherwise proceed gracefully if it's the specific hardcoded template
+        $template = WhatsAppTemplate::where('name', $templateName)->first();
+
+        if ($template) {
+            $languageCode = $request->get('language_code', $template->language);
+            if (!$template->isApproved()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Template is not approved',
+                ], 400);
+            }
+        } elseif ($templateName !== 'greetings_template') {
+            // Only allow greetings_template or existing DB approved templates
             return response()->json([
                 'success' => false,
-                'message' => 'Template is not approved',
+                'message' => 'Template not found or not approved',
             ], 400);
+        }
+
+        $conversation = WhatsAppConversation::with('contact')->find($request->conversation_id);
+        $parameters = $request->get('parameters', []);
+
+        if ($templateName === 'greetings_template' && $conversation) {
+            $customerName = $conversation->contact->whatsapp_name ?? 'Customer';
+            $staffName = trim($request->user()->first_name . ' ' . $request->user()->last_name);
+            if (empty($staffName)) {
+                $staffName = 'Staff';
+            }
+            $customMsg = $request->input('custom_message', 'How can I assist you today?');
+
+            $parameters = [
+                [
+                    'type' => 'header',
+                    'parameters' => [
+                        ['type' => 'text', 'parameter_name' => 'customer_name', 'text' => $customerName]
+                    ],
+                ],
+                [
+                    'type' => 'body',
+                    'parameters' => [
+                        ['type' => 'text', 'parameter_name' => 'staff_name', 'text' => $staffName],
+                        ['type' => 'text', 'parameter_name' => 'custom_message', 'text' => $customMsg]
+                    ],
+                ]
+            ];
         }
 
         $message = $this->messageService->sendTemplateMessage(
             $request->conversation_id,
-            $request->template_name,
-            $request->get('language_code', $template->language),
-            $request->get('parameters', []),
+            $templateName,
+            $languageCode,
+            $parameters,
             $request->user()->id
         );
 

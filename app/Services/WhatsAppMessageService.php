@@ -8,6 +8,7 @@ use App\Models\Staff;
 use App\Models\WhatsAppContact;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Models\WhatsAppTemplate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -359,11 +360,40 @@ class WhatsAppMessageService
             return null;
         }
 
+        $previewContent = null;
+        $template = WhatsAppTemplate::where('name', $templateName)->first();
+        if ($template && $template->preview_text) {
+            $previewContent = $template->preview_text;
+            $paramIndex = 1;
+
+            if (array_is_list($parameters) && (!empty($parameters) && !is_array($parameters[0]))) {
+                foreach ($parameters as $param) {
+                    $previewContent = str_replace('{{' . $paramIndex . '}}', $param, $previewContent);
+                    $paramIndex++;
+                }
+            } else {
+                foreach ($parameters as $component) {
+                    if (isset($component['parameters'])) {
+                        foreach ($component['parameters'] as $param) {
+                            $value = $param['text'] ?? '';
+                            if (isset($param['parameter_name'])) {
+                                $previewContent = str_replace('{{' . $param['parameter_name'] . '}}', $value, $previewContent);
+                            } else {
+                                $previewContent = str_replace('{{' . $paramIndex . '}}', $value, $previewContent);
+                                $paramIndex++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Create message record
         $whatsappMessage = WhatsAppMessage::create([
             'whatsapp_conversation_id' => $conversationId,
             'direction' => 'outbound',
             'type' => 'template',
+            'content' => $previewContent,
             'template_data' => [
                 'name' => $templateName,
                 'language' => $languageCode,
@@ -587,9 +617,10 @@ class WhatsAppMessageService
      *
      * @param string $messageId
      * @param string $status
+     * @param array $errors
      * @return bool
      */
-    public function updateMessageStatus(string $messageId, string $status): bool
+    public function updateMessageStatus(string $messageId, string $status, array $errors = []): bool
     {
         $message = WhatsAppMessage::where('whatsapp_message_id', $messageId)->first();
 
@@ -612,7 +643,11 @@ class WhatsAppMessageService
                 $message->markAsRead();
                 break;
             case 'failed':
-                $message->markAsFailed('Message delivery failed');
+                $errorDetails = 'Message delivery failed';
+                if (!empty($errors) && isset($errors[0]['message'])) {
+                    $errorDetails = $errors[0]['message'];
+                }
+                $message->markAsFailed($errorDetails);
                 break;
         }
 
@@ -620,6 +655,12 @@ class WhatsAppMessageService
             'message_id' => $messageId,
             'status' => $status,
         ]);
+
+        // Broadcast the status update to the frontend via Reverb
+        if ($message->conversation) {
+            $staffIds = $this->getStaffIdsForBroadcast($message->conversation);
+            broadcast(new WhatsAppMessageReceived($message, $staffIds));
+        }
 
         return true;
     }
@@ -702,7 +743,7 @@ class WhatsAppMessageService
                 default:
                     // Plain text fallback
                     Log::debug('Sending plain text', ['phone' => $phoneNumber]);
-                    $this->sendTextMessage($conversation->id, $response['body'] ?? (string)$response);
+                    $this->sendTextMessage($conversation->id, $response['body'] ?? (string) $response);
                     break;
             }
 

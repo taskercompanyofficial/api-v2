@@ -35,7 +35,7 @@ class WhatsAppWebhookService
         Log::warning('WhatsApp webhook verification failed', [
             'mode' => $mode,
             'token_match' => $token === $verifyToken,
-        ]); 
+        ]);
 
         return null;
     }
@@ -56,7 +56,7 @@ class WhatsAppWebhookService
 
                 foreach ($changes as $change) {
                     $value = $change['value'] ?? [];
-                    
+
                     // Process messages
                     if (isset($value['messages'])) {
                         $this->processMessages($value['messages'], $value);
@@ -91,7 +91,7 @@ class WhatsAppWebhookService
         // Extract metadata
         $metadata = $value['metadata'] ?? [];
         $contacts = $value['contacts'] ?? [];
-        
+
         foreach ($messages as $messageData) {
             // Find the contact profile for this message
             $contactProfile = null;
@@ -101,11 +101,11 @@ class WhatsAppWebhookService
                     break;
                 }
             }
-            
+
             // Add contact profile and metadata to message data
             $messageData['contact_profile'] = $contactProfile;
             $messageData['metadata'] = $metadata;
-            
+
             $this->messageService->processIncomingMessage($messageData);
         }
     }
@@ -121,9 +121,10 @@ class WhatsAppWebhookService
         foreach ($statuses as $status) {
             $messageId = $status['id'] ?? null;
             $statusValue = $status['status'] ?? null;
+            $errors = $status['errors'] ?? [];
 
             if ($messageId && $statusValue) {
-                $this->messageService->updateMessageStatus($messageId, $statusValue);
+                $this->messageService->updateMessageStatus($messageId, $statusValue, $errors);
             }
 
             // Log errors if present
@@ -150,7 +151,7 @@ class WhatsAppWebhookService
         }
 
         $appSecret = config('whatsapp.app_secret');
-        
+
         if (!$appSecret) {
             Log::warning('WhatsApp app secret not configured');
             return true;

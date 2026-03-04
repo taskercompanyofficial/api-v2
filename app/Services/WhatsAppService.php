@@ -75,7 +75,7 @@ class WhatsAppService
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'text',
                 'text' => [
                     'preview_url' => true,
@@ -130,7 +130,7 @@ class WhatsAppService
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'image',
                 'image' => $imageData,
             ];
@@ -187,7 +187,7 @@ class WhatsAppService
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'document',
                 'document' => $documentData,
             ];
@@ -239,7 +239,7 @@ class WhatsAppService
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'video',
                 'video' => $videoData,
             ];
@@ -284,7 +284,7 @@ class WhatsAppService
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'audio',
                 'audio' => ['link' => $audioUrl],
             ];
@@ -331,21 +331,27 @@ class WhatsAppService
             $components = [];
 
             if (!empty($parameters)) {
-                $components[] = [
-                    'type' => 'body',
-                    'parameters' => array_map(function ($param) {
-                        return [
-                            'type' => 'text',
-                            'text' => $param,
-                        ];
-                    }, $parameters),
-                ];
+                // If it's a simple flat array of strings, assume they are all body parameters
+                if (array_is_list($parameters) && !is_array($parameters[0])) {
+                    $components[] = [
+                        'type' => 'body',
+                        'parameters' => array_map(function ($param) {
+                            return [
+                                'type' => 'text',
+                                'text' => (string) $param,
+                            ];
+                        }, $parameters),
+                    ];
+                } else {
+                    // Otherwise, assume it's already a structured components array matching WhatsApp's specs
+                    $components = $parameters;
+                }
             }
 
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
-                'to' => $to,
+                'to' => $this->formatPhoneNumber($to),
                 'type' => 'template',
                 'template' => [
                     'name' => $templateName,
@@ -373,8 +379,18 @@ class WhatsAppService
             ]);
 
             return $data;
-        } catch (GuzzleException $e) {
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : $e->getMessage();
             Log::error('Failed to send WhatsApp template message', [
+                'to' => $to,
+                'template' => $templateName,
+                'error' => $errorBody,
+                'payload' => $payload
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to send WhatsApp template message (General Error)', [
                 'to' => $to,
                 'template' => $templateName,
                 'error' => $e->getMessage(),
@@ -638,7 +654,7 @@ class WhatsAppService
                 'json' => [
                     'messaging_product' => 'whatsapp',
                     'recipient_type' => 'individual',
-                    'to' => $to,
+                    'to' => $this->formatPhoneNumber($to),
                     'type' => 'interactive',
                     'interactive' => $interactive,
                 ],
@@ -676,7 +692,7 @@ class WhatsAppService
                 'json' => [
                     'messaging_product' => 'whatsapp',
                     'recipient_type' => 'individual',
-                    'to' => $to,
+                    'to' => $this->formatPhoneNumber($to),
                     'type' => 'reaction',
                     'reaction' => [
                         'message_id' => $messageId,
@@ -702,6 +718,31 @@ class WhatsAppService
             ]);
 
             return null;
+            return null;
         }
+    }
+
+    /**
+     * Clean and format phone number for WhatsApp API
+     *
+     * @param string $number
+     * @return string
+     */
+    public function formatPhoneNumber(string $number): string
+    {
+        // Remove everything except digits
+        $number = preg_replace('/[^\d]/', '', $number);
+
+        // If it starts with 00, strip 00 (e.g. 0092 -> 92)
+        if (str_starts_with($number, '00')) {
+            return substr($number, 2);
+        }
+
+        // If it starts with 0 (national format), replace with 92 (Pakistani format by default)
+        if (str_starts_with($number, '0')) {
+            return '92' . substr($number, 1);
+        }
+
+        return $number;
     }
 }
