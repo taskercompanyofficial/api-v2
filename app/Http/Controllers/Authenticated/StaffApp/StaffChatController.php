@@ -42,29 +42,33 @@ class StaffChatController extends Controller
 
         // Get all phone numbers from staff
         $phoneNumbers = $staff->pluck('phone')->filter()->map(function ($phone) {
-            return preg_replace('/[^0-9]/', '', $phone);
-        })->filter()->toArray();
+            $clean = preg_replace('/[^0-9]/', '', $phone);
+            return substr($clean, -10);
+        })->filter(function ($p) {
+            return strlen($p) >= 10; })->toArray();
 
         // Find WhatsApp conversations linked to these phone numbers
         $whatsappConversations = \App\Models\WhatsAppConversation::with(['contact', 'latestMessage'])
             ->whereHas('contact', function ($q) use ($phoneNumbers) {
                 $q->where(function ($q2) use ($phoneNumbers) {
                     foreach ($phoneNumbers as $phone) {
-                        $q2->orWhere('phone_number', 'like', "%{$phone}%");
+                        $q2->orWhere('phone_number', 'like', "%{$phone}");
                     }
                 });
             })
             ->get()
             ->keyBy(function ($conv) {
-                return preg_replace('/[^0-9]/', '', $conv->contact->phone_number ?? '');
+                $cleanPhone = preg_replace('/[^0-9]/', '', $conv->contact->phone_number ?? '');
+                return substr($cleanPhone, -10);
             });
 
         // Enrich staff data with WhatsApp conversation info
         $enriched = $staff->map(function ($member) use ($whatsappConversations) {
             $memberData = $member->toArray();
             $cleanPhone = preg_replace('/[^0-9]/', '', $member->phone ?? '');
+            $lookupPhone = substr($cleanPhone, -10);
 
-            $waConv = $whatsappConversations->get($cleanPhone);
+            $waConv = $whatsappConversations->get($lookupPhone);
             $memberData['whatsapp_conversation'] = $waConv ? [
                 'id' => $waConv->id,
                 'status' => $waConv->status,
