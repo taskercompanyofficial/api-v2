@@ -123,7 +123,7 @@ class WhatsAppMessageService
      * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendImageMessage(int $conversationId, string $imageUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
+    public function sendImageMessage(int $conversationId, string $imageUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null, ?string $mediaId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -149,7 +149,7 @@ class WhatsAppMessageService
         // Send via WhatsApp API
         $response = $this->whatsappService->sendImageMessage(
             $conversation->contact->phone_number,
-            $imageUrl,
+            $mediaId ?? $imageUrl,
             $caption,
             $context
         );
@@ -181,7 +181,7 @@ class WhatsAppMessageService
      * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendDocumentMessage(int $conversationId, string $documentUrl, ?string $filename = null, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
+    public function sendDocumentMessage(int $conversationId, string $documentUrl, ?string $filename = null, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null, ?string $mediaId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -207,7 +207,7 @@ class WhatsAppMessageService
         // Send via WhatsApp API
         $response = $this->whatsappService->sendDocumentMessage(
             $conversation->contact->phone_number,
-            $documentUrl,
+            $mediaId ?? $documentUrl,
             $filename,
             $caption,
             $context
@@ -239,7 +239,7 @@ class WhatsAppMessageService
      * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendVideoMessage(int $conversationId, string $videoUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
+    public function sendVideoMessage(int $conversationId, string $videoUrl, ?string $caption = null, ?int $sentBy = null, ?string $parentMessageId = null, ?string $mediaId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -265,7 +265,7 @@ class WhatsAppMessageService
         // Send via WhatsApp API
         $response = $this->whatsappService->sendVideoMessage(
             $conversation->contact->phone_number,
-            $videoUrl,
+            $mediaId ?? $videoUrl,
             $caption,
             $context
         );
@@ -295,7 +295,7 @@ class WhatsAppMessageService
      * @param string|null $parentMessageId
      * @return WhatsAppMessage|null
      */
-    public function sendAudioMessage(int $conversationId, string $audioUrl, ?int $sentBy = null, ?string $parentMessageId = null): ?WhatsAppMessage
+    public function sendAudioMessage(int $conversationId, string $audioUrl, ?int $sentBy = null, ?string $parentMessageId = null, ?string $mediaId = null): ?WhatsAppMessage
     {
         $conversation = WhatsAppConversation::with('contact')->find($conversationId);
 
@@ -320,7 +320,7 @@ class WhatsAppMessageService
         // Send via WhatsApp API
         $response = $this->whatsappService->sendAudioMessage(
             $conversation->contact->phone_number,
-            $audioUrl,
+            $mediaId ?? $audioUrl,
             $context
         );
 

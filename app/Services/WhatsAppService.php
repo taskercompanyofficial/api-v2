@@ -121,7 +121,7 @@ class WhatsAppService
     public function sendImageMessage(string $to, string $imageUrl, ?string $caption = null, ?array $context = null): ?array
     {
         try {
-            $imageData = ['link' => $imageUrl];
+            $imageData = filter_var($imageUrl, FILTER_VALIDATE_URL) ? ['link' => $imageUrl] : ['id' => $imageUrl];
 
             if ($caption) {
                 $imageData['caption'] = $caption;
@@ -174,7 +174,7 @@ class WhatsAppService
     public function sendDocumentMessage(string $to, string $documentUrl, ?string $filename = null, ?string $caption = null, ?array $context = null): ?array
     {
         try {
-            $documentData = ['link' => $documentUrl];
+            $documentData = filter_var($documentUrl, FILTER_VALIDATE_URL) ? ['link' => $documentUrl] : ['id' => $documentUrl];
 
             if ($filename) {
                 $documentData['filename'] = $filename;
@@ -230,7 +230,7 @@ class WhatsAppService
     public function sendVideoMessage(string $to, string $videoUrl, ?string $caption = null, ?array $context = null): ?array
     {
         try {
-            $videoData = ['link' => $videoUrl];
+            $videoData = filter_var($videoUrl, FILTER_VALIDATE_URL) ? ['link' => $videoUrl] : ['id' => $videoUrl];
 
             if ($caption) {
                 $videoData['caption'] = $caption;
@@ -281,12 +281,13 @@ class WhatsAppService
     public function sendAudioMessage(string $to, string $audioUrl, ?array $context = null): ?array
     {
         try {
+            $audioData = filter_var($audioUrl, FILTER_VALIDATE_URL) ? ['link' => $audioUrl] : ['id' => $audioUrl];
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
                 'to' => $this->formatPhoneNumber($to),
                 'type' => 'audio',
-                'audio' => ['link' => $audioUrl],
+                'audio' => $audioData,
             ];
 
             if ($context) {
@@ -677,6 +678,50 @@ class WhatsAppService
             return null;
         }
     }
+    /**
+     * Upload media to WhatsApp Cloud API.
+     *
+     * @param string $filePath Absolute path to the file
+     * @param string $mimeType Mime type of the file
+     * @return string|null Media ID if successful
+     */
+    public function uploadMedia(string $filePath, string $mimeType): ?string
+    {
+        try {
+            $response = $this->client->post("{$this->phoneNumberId}/media", [
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($filePath, 'r'),
+                        'filename' => basename($filePath)
+                    ],
+                    [
+                        'name' => 'type',
+                        'contents' => $mimeType
+                    ],
+                    [
+                        'name' => 'messaging_product',
+                        'contents' => 'whatsapp'
+                    ]
+                ]
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            Log::info('WhatsApp media uploaded successfully', [
+                'media_id' => $data['id'] ?? null,
+            ]);
+
+            return $data['id'] ?? null;
+        } catch (GuzzleException $e) {
+            Log::error('Failed to upload WhatsApp media', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     /**
      * Send a reaction to a message.
      *

@@ -190,6 +190,7 @@ class WhatsAppController extends Controller
         $mediaUrl = $request->media_url;
         $filename = $request->filename;
 
+        $metaId = null;
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $path = $file->store('whatsapp/media', 'public');
@@ -197,6 +198,12 @@ class WhatsAppController extends Controller
             if (!$filename) {
                 $filename = $file->getClientOriginalName();
             }
+
+            // Upload to Meta Cloud API to ensure delivery from non-public servers
+            $metaId = $this->whatsappService->uploadMedia(
+                storage_path('app/public/' . $path),
+                $file->getMimeType()
+            );
         }
 
         $message = null;
@@ -207,7 +214,9 @@ class WhatsAppController extends Controller
                     $request->conversation_id,
                     $mediaUrl,
                     $request->caption,
-                    $request->user()->id
+                    $request->user()->id,
+                    null,
+                    $metaId
                 );
                 break;
             case 'document':
@@ -216,7 +225,9 @@ class WhatsAppController extends Controller
                     $mediaUrl,
                     $filename,
                     $request->caption,
-                    $request->user()->id
+                    $request->user()->id,
+                    null,
+                    $metaId
                 );
                 break;
             case 'video':
@@ -224,14 +235,18 @@ class WhatsAppController extends Controller
                     $request->conversation_id,
                     $mediaUrl,
                     $request->caption,
-                    $request->user()->id
+                    $request->user()->id,
+                    null,
+                    $metaId
                 );
                 break;
             case 'audio':
                 $message = $this->messageService->sendAudioMessage(
                     $request->conversation_id,
                     $mediaUrl,
-                    $request->user()->id
+                    $request->user()->id,
+                    null,
+                    $metaId
                 );
                 break;
         }
