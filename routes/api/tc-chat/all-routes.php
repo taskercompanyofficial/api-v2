@@ -20,6 +20,7 @@ Route::group(['prefix' => 'tc-chat'], function () {
             Route::post('/send-media', [WhatsAppController::class, 'sendMediaMessage']);
             Route::post('/send-template', [WhatsAppController::class, 'sendTemplate']);
             Route::post('/mark-as-read', [WhatsAppController::class, 'markAsRead']);
+            Route::post('/conversations/{id}/mark-as-read', [WhatsAppController::class, 'markConversationAsRead']);
             Route::get('/templates', [WhatsAppController::class, 'getTemplates']);
             Route::post('/templates/sync', [WhatsAppController::class, 'syncTemplates']);
             Route::get('/contacts', [WhatsAppController::class, 'getContacts']);

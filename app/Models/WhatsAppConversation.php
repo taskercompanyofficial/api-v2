@@ -49,6 +49,11 @@ class WhatsAppConversation extends Model
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     */
+    protected $appends = ['unread_count'];
+
+    /**
      * Get the WhatsApp contact that owns the conversation.
      */
     public function contact(): BelongsTo
@@ -216,5 +221,16 @@ class WhatsAppConversation extends Model
             ->where('direction', 'inbound')
             ->whereNull('read_at')
             ->count();
+    }
+
+    /**
+     * Mark all inbound messages as read.
+     */
+    public function markAllMessagesAsRead(): int
+    {
+        return $this->messages()
+            ->where('direction', 'inbound')
+            ->whereNull('read_at')
+            ->update(['read_at' => now(), 'status' => 'read']);
     }
 }
