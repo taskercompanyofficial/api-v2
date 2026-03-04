@@ -42,7 +42,9 @@ class StaffTodoController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|regex:/^\d{2}:\d{2}$/',
             'priority' => 'nullable|in:low,medium,high',
+            'remind_before' => 'nullable|in:5_min,15_min,30_min,1_hour,2_hour,1_day',
         ]);
 
         if ($validator->fails()) {
@@ -60,9 +62,14 @@ class StaffTodoController extends Controller
                 'title' => $request->title,
                 'description' => $request->description,
                 'due_date' => $request->due_date,
+                'due_time' => $request->due_time,
                 'priority' => $request->priority ?? 'medium',
+                'remind_before' => $request->remind_before,
                 'status' => 'pending',
             ]);
+
+            $todo->calculateReminderAt();
+            $todo->save();
 
             return response()->json([
                 'status' => 'success',
@@ -87,7 +94,9 @@ class StaffTodoController extends Controller
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|regex:/^\d{2}:\d{2}$/',
             'priority' => 'nullable|in:low,medium,high',
+            'remind_before' => 'nullable|in:5_min,15_min,30_min,1_hour,2_hour,1_day',
         ]);
 
         if ($validator->fails()) {
@@ -101,7 +110,13 @@ class StaffTodoController extends Controller
         try {
             $staff = $request->user();
             $todo = StaffTodo::where('staff_id', $staff->id)->findOrFail($id);
-            $todo->update($request->only(['status', 'title', 'description', 'due_date', 'priority']));
+            $todo->update($request->only(['status', 'title', 'description', 'due_date', 'due_time', 'priority', 'remind_before']));
+
+            // Recalculate reminder if deadline or remind_before changed
+            if ($request->has('due_date') || $request->has('due_time') || $request->has('remind_before')) {
+                $todo->calculateReminderAt();
+                $todo->save();
+            }
 
             return response()->json([
                 'status' => 'success',
