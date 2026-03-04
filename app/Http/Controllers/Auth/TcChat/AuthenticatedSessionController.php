@@ -59,6 +59,26 @@ class AuthenticatedSessionController extends Controller
             'user' => $user,
         ]);
     }
+
+    public function updateNotificationSettings(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'push_enabled' => 'nullable|boolean',
+            'email_enabled' => 'nullable|boolean',
+            'sound_enabled' => 'nullable|boolean',
+            'vibrate_enabled' => 'nullable|boolean',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Notification settings updated successfully',
+            'user' => $user,
+        ]);
+    }
     public function destroy(Request $request)
     {
         $request->user()->tokens()->delete();

@@ -49,11 +49,19 @@ class Staff extends Authenticatable
         'updated_by',
         'branch_id',
         'salary_payout',
+        'push_enabled',
+        'email_enabled',
+        'sound_enabled',
+        'vibrate_enabled',
     ];
 
     protected $casts = [
         'dob' => 'date',
         'joining_date' => 'date',
+        'push_enabled' => 'boolean',
+        'email_enabled' => 'boolean',
+        'sound_enabled' => 'boolean',
+        'vibrate_enabled' => 'boolean',
     ];
 
     protected $hidden = [

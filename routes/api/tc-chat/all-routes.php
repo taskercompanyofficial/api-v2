@@ -11,6 +11,7 @@ Route::group(['prefix' => 'tc-chat'], function () {
     Route::post('/auth/sign-out', [AuthenticatedSessionController::class, 'destroy']);
     Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/me', [AuthenticatedSessionController::class, 'me']);
+        Route::patch('/me/notification-settings', [AuthenticatedSessionController::class, 'updateNotificationSettings']);
         Route::post('/notifications/register-token', [NotificationController::class, 'registerToken']);
         Route::prefix('whatsapp')->group(function () {
             Route::get('/conversations', [WhatsAppController::class, 'index']);
