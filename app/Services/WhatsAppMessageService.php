@@ -669,7 +669,7 @@ class WhatsAppMessageService
         // Broadcast the status update to the frontend via Reverb
         if ($message->conversation) {
             $staffIds = $this->getStaffIdsForBroadcast($message->conversation);
-            broadcast(new WhatsAppMessageReceived($message, $staffIds));
+            broadcast(new \App\Events\WhatsAppMessageStatusUpdated($message, $staffIds));
         }
 
         return true;
