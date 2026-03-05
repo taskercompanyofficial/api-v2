@@ -16,7 +16,7 @@ class FileTypeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->input('perPage', 15);
+        $perPage = $request->input('perPage', 50);
         $search = $request->input('search');
         $status = $request->input('status');
         $category = $request->input('category'); // image, document, video, audio

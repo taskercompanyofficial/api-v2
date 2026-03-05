@@ -399,26 +399,26 @@ class WorkOrderStatusService
             throw new Exception('Cannot schedule completed or cancelled work order');
         }
 
-        // Update appointment date and time
+        // Find the "Scheduled" status
+        $scheduledStatus = WorkOrderStatus::where('slug', 'scheduled')
+            ->whereNull('parent_id')
+            ->first();
+
+        if (!$scheduledStatus) {
+            throw new Exception('Status "Scheduled" not found. Please add it to the work order statuses.');
+        }
+
+        $oldStatusId = $workOrder->status_id;
+        $oldSubStatusId = $workOrder->sub_status_id;
+
+        // Update appointment date, time, and status
         $workOrder->update([
             'appointment_date' => $data['scheduled_date'],
             'appointment_time' => $data['scheduled_time'],
+            'status_id' => $scheduledStatus->id,
+            'sub_status_id' => null,
             'updated_by' => $userId,
         ]);
-
-        // Update status to Dispatched - Technician Accepted if work order has an assigned technician
-        if ($workOrder->assigned_to_id) {
-            $dispatchedStatus = WorkOrderStatus::where('slug', 'dispatched')->first();
-            $technicianAcceptedSubStatus = WorkOrderStatus::where('slug', 'technician-accepted')
-                ->where('parent_id', $dispatchedStatus?->id)
-                ->first();
-
-            if ($dispatchedStatus && $technicianAcceptedSubStatus) {
-                $workOrder->status_id = $dispatchedStatus->id;
-                $workOrder->sub_status_id = $technicianAcceptedSubStatus->id;
-                $workOrder->save();
-            }
-        }
 
         // Add remarks if provided
         if (isset($data['remarks']) && $data['remarks']) {
@@ -434,16 +434,30 @@ class WorkOrderStatusService
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
             actionType: 'scheduled',
-            description: "Work order scheduled for {$workOrder->appointment_date} at {$workOrder->appointment_time}",
+            description: "Work order scheduled for {$data['scheduled_date']} at {$data['scheduled_time']} - Status changed to Scheduled",
             metadata: [
-                'appointment_date' => $workOrder->appointment_date,
-                'appointment_time' => $workOrder->appointment_time,
+                'old_status_id' => $oldStatusId,
+                'new_status_id' => $scheduledStatus->id,
+                'old_sub_status_id' => $oldSubStatusId,
+                'appointment_date' => $data['scheduled_date'],
+                'appointment_time' => $data['scheduled_time'],
                 'remarks' => $data['remarks'] ?? null,
             ]
         );
 
+        // Calculate delay until the scheduled date/time and dispatch a job to reopen the work order
+        $scheduledDateTime = \Carbon\Carbon::parse("{$data['scheduled_date']} {$data['scheduled_time']}");
+        $delay = now()->diffInSeconds($scheduledDateTime, false);
+
+        if ($delay > 0) {
+            \App\Jobs\ReopenScheduledWorkOrderJob::dispatch($workOrder->id)
+                ->delay($scheduledDateTime);
+
+            Log::info("ReopenScheduledWorkOrderJob dispatched for work order #{$workOrder->id}, scheduled for {$scheduledDateTime}");
+        }
+
         // Send notification
-        $scheduledDate = $workOrder->appointment_date . ' at ' . $workOrder->appointment_time;
+        $scheduledDate = $data['scheduled_date'] . ' at ' . $data['scheduled_time'];
         $this->notificationService->workOrderScheduled($workOrder, $userId, $scheduledDate);
 
         return [
