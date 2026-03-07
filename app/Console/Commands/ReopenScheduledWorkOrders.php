@@ -44,20 +44,10 @@ class ReopenScheduledWorkOrders extends Command
             return 1;
         }
 
-        // Find all work orders with "Scheduled" status whose appointment date/time has passed
-        $now = Carbon::now();
-
+        // Find all work orders with "Scheduled" status whose appointment date has arrived or passed
         $workOrders = WorkOrder::where('status_id', $scheduledStatus->id)
             ->whereNotNull('appointment_date')
-            ->whereNotNull('appointment_time')
-            ->where(function ($query) use ($now) {
-                // Date is before today OR date is today and time has passed
-                $query->where('appointment_date', '<', $now->toDateString())
-                    ->orWhere(function ($q) use ($now) {
-                    $q->where('appointment_date', '=', $now->toDateString())
-                        ->where('appointment_time', '<=', $now->toTimeString());
-                });
-            })
+            ->where('appointment_date', '<=', Carbon::today()->toDateString())
             ->get();
 
         if ($workOrders->isEmpty()) {

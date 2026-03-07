@@ -12,6 +12,79 @@ use Illuminate\Support\Facades\Validator;
 class WorkOrderBillController extends Controller
 {
     /**
+     * Get all bills across all work orders (for the Bills page)
+     */
+    public function allBills(Request $request): JsonResponse
+    {
+        $query = WorkOrderBill::with([
+            'workOrder:id,work_order_number,customer_id',
+            'workOrder.customer:id,name,phone',
+            'createdBy:id,first_name,last_name',
+        ]);
+
+        // Search by reference or work order number
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('reference', 'like', "%{$search}%")
+                    ->orWhereHas('workOrder', function ($wq) use ($search) {
+                        $wq->where('work_order_number', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Filter by status
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
+        }
+
+        // Filter by document type
+        if ($type = $request->input('document_type')) {
+            $query->where('document_type', $type);
+        }
+
+        // Filter by date range
+        if ($from = $request->input('from_date')) {
+            $query->whereDate('date', '>=', $from);
+        }
+        if ($to = $request->input('to_date')) {
+            $query->whereDate('date', '<=', $to);
+        }
+
+        // Sorting
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortDir = $request->input('sort_dir', 'desc');
+        $query->orderBy($sortBy, $sortDir);
+
+        // Pagination
+        $perPage = $request->input('per_page', 20);
+        $bills = $query->paginate($perPage);
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Bills retrieved successfully',
+            'data' => $bills,
+        ]);
+    }
+
+    /**
+     * Get a single bill globally (without knowing work order context)
+     */
+    public function globalShow(int $id): JsonResponse
+    {
+        $bill = WorkOrderBill::with([
+            'workOrder:id,work_order_number',
+            'createdBy:id,first_name,last_name',
+            'updatedBy:id,first_name,last_name',
+        ])->findOrFail($id);
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Bill retrieved successfully',
+            'data' => $bill,
+        ]);
+    }
+
+    /**
      * Get all bills for a work order
      */
     public function index(int $workOrderId): JsonResponse
@@ -90,9 +163,9 @@ class WorkOrderBillController extends Controller
     /**
      * Get a single bill
      */
-    public function show(int $id): JsonResponse
+    public function show(int $workOrderId, int $id): JsonResponse
     {
-        $bill = WorkOrderBill::with([
+        $bill = WorkOrderBill::where('work_order_id', $workOrderId)->with([
             'workOrder:id,work_order_number',
             'createdBy:id,first_name,last_name',
             'updatedBy:id,first_name,last_name',
@@ -108,9 +181,9 @@ class WorkOrderBillController extends Controller
     /**
      * Update a bill
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, int $workOrderId, int $id): JsonResponse
     {
-        $bill = WorkOrderBill::findOrFail($id);
+        $bill = WorkOrderBill::where('work_order_id', $workOrderId)->findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'document_type' => 'sometimes|in:invoice,quotation',
@@ -166,9 +239,9 @@ class WorkOrderBillController extends Controller
     /**
      * Delete a bill
      */
-    public function destroy(int $id): JsonResponse
+    public function destroy(int $workOrderId, int $id): JsonResponse
     {
-        $bill = WorkOrderBill::findOrFail($id);
+        $bill = WorkOrderBill::where('work_order_id', $workOrderId)->findOrFail($id);
         $bill->delete();
 
         return response()->json([
@@ -180,9 +253,9 @@ class WorkOrderBillController extends Controller
     /**
      * Quick status update
      */
-    public function updateStatus(Request $request, int $id): JsonResponse
+    public function updateStatus(Request $request, int $workOrderId, int $id): JsonResponse
     {
-        $bill = WorkOrderBill::findOrFail($id);
+        $bill = WorkOrderBill::where('work_order_id', $workOrderId)->findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:draft,sent,paid,overdue,cancelled',

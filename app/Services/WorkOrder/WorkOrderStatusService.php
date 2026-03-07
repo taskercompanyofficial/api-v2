@@ -445,15 +445,18 @@ class WorkOrderStatusService
             ]
         );
 
-        // Calculate delay until the scheduled date/time and dispatch a job to reopen the work order
-        $scheduledDateTime = \Carbon\Carbon::parse("{$data['scheduled_date']} {$data['scheduled_time']}");
-        $delay = now()->diffInSeconds($scheduledDateTime, false);
+        // Dispatch a delayed job to reopen the work order on the scheduled date (start of day)
+        $scheduledDate = \Carbon\Carbon::parse($data['scheduled_date'])->startOfDay();
 
-        if ($delay > 0) {
+        if ($scheduledDate->isFuture()) {
             \App\Jobs\ReopenScheduledWorkOrderJob::dispatch($workOrder->id)
-                ->delay($scheduledDateTime);
+                ->delay($scheduledDate);
 
-            Log::info("ReopenScheduledWorkOrderJob dispatched for work order #{$workOrder->id}, scheduled for {$scheduledDateTime}");
+            Log::info("ReopenScheduledWorkOrderJob dispatched for work order #{$workOrder->id}, scheduled for {$scheduledDate->toDateString()}");
+        } else {
+            // If the scheduled date is today, dispatch immediately
+            \App\Jobs\ReopenScheduledWorkOrderJob::dispatch($workOrder->id);
+            Log::info("ReopenScheduledWorkOrderJob dispatched immediately for work order #{$workOrder->id} (scheduled date is today)");
         }
 
         // Send notification
@@ -629,18 +632,18 @@ class WorkOrderStatusService
             ->where('parent_id', $completedStatus?->id)
             ->first();
 
-        if (!$completedStatus || $workOrder->status_id !== $completedStatus->id) {
-            throw new Exception('Work order must be in Completed status to close');
-        }
+        // if (!$completedStatus || $workOrder->status_id !== $completedStatus->id) {
+        //     throw new Exception('Work order must be in Completed status to close');
+        // }
 
-        if ($feedbackPendingSubStatus && $workOrder->sub_status_id !== $feedbackPendingSubStatus->id) {
-            throw new Exception('Work order must be in Feedback Pending status to close');
-        }
+        // if ($feedbackPendingSubStatus && $workOrder->sub_status_id !== $feedbackPendingSubStatus->id) {
+        //     throw new Exception('Work order must be in Feedback Pending status to close');
+        // }
 
-        // Check if customer feedback exists
-        if (!$workOrder->feedback()->exists()) {
-            throw new Exception('Customer feedback is required before closing the work order');
-        }
+        // // Check if customer feedback exists
+        // if (!$workOrder->feedback()->exists()) {
+        //     throw new Exception('Customer feedback is required before closing the work order');
+        // }
         if ($warrenty_type == 1) {
             if (!$workOrder->brand_complaint_no) {
                 throw new Exception('Brand Complain number required before closing the work order.');

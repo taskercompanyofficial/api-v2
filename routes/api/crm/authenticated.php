@@ -298,6 +298,10 @@ Route::group(['prefix' => 'crm'], function () {
             Route::patch('/bills/{id}/status', [WorkOrderBillController::class, 'updateStatus']);
         });
 
+        // Bills Management (global listing)
+        Route::get('/bills', [WorkOrderBillController::class, 'allBills']);
+        Route::get('/bills/{id}', [WorkOrderBillController::class, 'globalShow']);
+
         Route::apiResource('/work-order-statuses', WorkOrderStatusController::class);
         Route::get('/work-order-statuses-raw', [WorkOrderStatusController::class, 'statusesRaw']);
         Route::get('/work-order-sub-statuses-raw', [WorkOrderStatusController::class, 'subStatusesRaw']);
