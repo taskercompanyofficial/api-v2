@@ -47,6 +47,7 @@ class WorkOrder extends Model
         'service_end_time',
 
         // Descriptions
+        'notes',
         'customer_description',
         'defect_description',
         'technician_remarks',
@@ -333,8 +334,8 @@ class WorkOrder extends Model
 
     public function calculateTotal(): void
     {
-        $this->total_amount = (float)($this->services()->sum('final_price') ?? 0);
-        $this->final_amount = (float)($this->total_amount - ($this->discount ?? 0));
+        $this->total_amount = (float) ($this->services()->sum('final_price') ?? 0);
+        $this->final_amount = (float) ($this->total_amount - ($this->discount ?? 0));
         $this->save();
     }
 
@@ -357,7 +358,7 @@ class WorkOrder extends Model
     }
 
     public function updateStatus(WorkOrderStatus $status, ?WorkOrderStatus $subStatus = null, ?string $notes = null, Staff $changedBy): void
-        {
+    {
         $oldStatusId = $this->status_id;
         $oldSubStatusId = $this->sub_status_id;
 

@@ -14,11 +14,15 @@ use Exception;
 
 class WorkOrderController extends Controller
 {
-    protected WorkOrderNotificationService $notificationService;
+    protected $notificationService;
+    protected $statusService;
 
-    public function __construct(WorkOrderNotificationService $notificationService)
-    {
+    public function __construct(
+        WorkOrderNotificationService $notificationService,
+        \App\Services\WorkOrder\WorkOrderStatusService $statusService
+    ) {
         $this->notificationService = $notificationService;
+        $this->statusService = $statusService;
     }
 
     /**
@@ -645,6 +649,64 @@ class WorkOrderController extends Controller
                     'files.fileType',
                 ]),
             ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Schedule work order (staff app)
+     */
+    public function schedule(string $id, Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'scheduled_date' => 'required|date',
+            'scheduled_time' => 'required|string',
+            'remarks' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $staff = $request->user();
+            $workOrder = WorkOrder::where('assigned_to_id', $staff->id)->findOrFail($id);
+
+            $result = $this->statusService->scheduleWorkOrder($workOrder, $request->all(), $staff->id);
+
+            return response()->json($result);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel work order (staff app)
+     */
+    public function cancel(string $id, Request $request): JsonResponse
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        try {
+            $staff = $request->user();
+            $workOrder = WorkOrder::where('assigned_to_id', $staff->id)->findOrFail($id);
+
+            $result = $this->statusService->cancelWorkOrder($workOrder, $request->reason, $staff->id);
+
+            return response()->json($result);
         } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',

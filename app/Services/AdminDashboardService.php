@@ -119,7 +119,8 @@ class AdminDashboardService
     protected function calculateBenchmarkScore(float $actualPercentage, string $key): float
     {
         $target = $this->benchmarks['kpi'][$key]['target'] ?? 50;
-        if ($target <= 0) return 0;
+        if ($target <= 0)
+            return 0;
 
         $score = ($actualPercentage / $target) * 100;
         return round($score, 1);
@@ -347,11 +348,17 @@ class AdminDashboardService
         return Staff::select('staff.id as staffId')
             ->selectRaw("CONCAT(staff.first_name, ' ', staff.last_name) as name")
             ->selectRaw("SUM(CASE WHEN work_orders.completed_at IS NULL AND work_orders.cancelled_at IS NULL THEN 1 ELSE 0 END) as open")
+            ->selectRaw("SUM(CASE WHEN work_order_statuses.slug = 'dispatched' AND work_orders.completed_at IS NULL AND work_orders.cancelled_at IS NULL THEN 1 ELSE 0 END) as dispatched")
+            ->selectRaw("SUM(CASE WHEN work_order_statuses.slug = 'in-progress' AND work_orders.completed_at IS NULL AND work_orders.cancelled_at IS NULL THEN 1 ELSE 0 END) as in_progress")
+            ->selectRaw("SUM(CASE WHEN work_order_statuses.slug = 'scheduled' AND work_orders.completed_at IS NULL AND work_orders.cancelled_at IS NULL THEN 1 ELSE 0 END) as scheduled")
             ->selectRaw("SUM(CASE WHEN DATE(work_orders.completed_at) = CURDATE() THEN 1 ELSE 0 END) as closed")
-            ->join('work_orders', 'work_orders.assigned_to_id', '=', 'staff.id')
-            ->whereDate('work_orders.created_at', $this->date)
-            ->when($this->branchId, fn($q) => $q->where('work_orders.branch_id', $this->branchId))
+            ->leftJoin('work_orders', 'work_orders.assigned_to_id', '=', 'staff.id')
+            ->leftJoin('work_order_statuses', 'work_orders.status_id', '=', 'work_order_statuses.id')
             ->whereNull('work_orders.deleted_at')
+            ->when($this->branchId, fn($q) => $q->where('staff.branch_id', $this->branchId))
+            ->whereHas('role', function ($q) {
+                $q->where('slug', 'technician');
+            })
             ->groupBy('staff.id', 'staff.first_name', 'staff.last_name')
             ->get()
             ->map(function ($staff) {
@@ -757,8 +764,10 @@ class AdminDashboardService
         // Update NPS Ranges
         foreach ($mapping['nps'] as $beKey => $rangeKeys) {
             $update = [];
-            if (isset($settings[$rangeKeys['min']])) $update['min_value'] = $settings[$rangeKeys['min']];
-            if (isset($settings[$rangeKeys['max']])) $update['max_value'] = $settings[$rangeKeys['max']];
+            if (isset($settings[$rangeKeys['min']]))
+                $update['min_value'] = $settings[$rangeKeys['min']];
+            if (isset($settings[$rangeKeys['max']]))
+                $update['max_value'] = $settings[$rangeKeys['max']];
 
             if (!empty($update)) {
                 Benchmark::where('category', 'nps')->where('key', $beKey)->update($update);
@@ -777,5 +786,45 @@ class AdminDashboardService
 
         // Refresh local cache
         $this->loadBenchmarks();
+    }
+
+    /**
+     * Get detailed staff workload report (full breakdown)
+     */
+    public function getStaffSummary(): array
+    {
+        $statuses = DB::table('work_order_statuses')
+            ->whereNull('parent_id')
+            ->orderBy('order')
+            ->get();
+
+        $query = Staff::select('staff.id', 'staff.first_name', 'staff.last_name', 'staff.branch_id')
+            ->selectRaw("CONCAT(staff.first_name, ' ', staff.last_name) as name")
+            ->leftJoin('work_orders', 'work_orders.assigned_to_id', '=', 'staff.id')
+            ->leftJoin('work_order_statuses', 'work_orders.status_id', '=', 'work_order_statuses.id')
+            ->whereNull('work_orders.deleted_at')
+            ->whereHas('role', function ($q) {
+                $q->where('slug', 'technician');
+            });
+
+        // Add dynamic status counts
+        foreach ($statuses as $status) {
+            $slug = str_replace('-', '_', $status->slug);
+            $query->selectRaw("SUM(CASE WHEN work_order_statuses.slug = ? THEN 1 ELSE 0 END) as {$slug}", [$status->slug]);
+        }
+
+        // Add overall totals
+        $query->selectRaw("SUM(CASE WHEN work_orders.completed_at IS NULL AND work_orders.cancelled_at IS NULL THEN 1 ELSE 0 END) as total_open");
+        $query->selectRaw("SUM(CASE WHEN work_orders.completed_at IS NOT NULL THEN 1 ELSE 0 END) as total_closed");
+
+        $staffData = $query->groupBy('staff.id', 'staff.first_name', 'staff.last_name', 'staff.branch_id')
+            ->when($this->branchId, fn($q) => $q->where('staff.branch_id', $this->branchId))
+            ->get()
+            ->toArray();
+
+        return [
+            'staff' => $staffData,
+            'statuses' => $statuses->toArray()
+        ];
     }
 }

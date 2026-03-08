@@ -404,9 +404,9 @@ class WorkOrderStatusService
             ->whereNull('parent_id')
             ->first();
 
-        if (!$scheduledStatus) {
-            throw new Exception('Status "Scheduled" not found. Please add it to the work order statuses.');
-        }
+        // If Scheduled status doesn't exist, we'll just update appointment info without changing status
+        $statusId = $scheduledStatus ? $scheduledStatus->id : $workOrder->status_id;
+        $subStatusId = $scheduledStatus ? null : $workOrder->sub_status_id;
 
         $oldStatusId = $workOrder->status_id;
         $oldSubStatusId = $workOrder->sub_status_id;
@@ -415,8 +415,8 @@ class WorkOrderStatusService
         $workOrder->update([
             'appointment_date' => $data['scheduled_date'],
             'appointment_time' => $data['scheduled_time'],
-            'status_id' => $scheduledStatus->id,
-            'sub_status_id' => null,
+            'status_id' => $statusId,
+            'sub_status_id' => $subStatusId,
             'updated_by' => $userId,
         ]);
 

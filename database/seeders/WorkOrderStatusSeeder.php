@@ -34,9 +34,18 @@ class WorkOrderStatusSeeder extends Seeder
                 ],
             ],
             [
+                'name' => 'Scheduled',
+                'color' => '#6366f1', // Indigo
+                'order' => 3,
+                'children' => [
+                    ['name' => 'Scheduled for Today', 'color' => '#818cf8', 'order' => 1],
+                    ['name' => 'Scheduled for Future', 'color' => '#a5b4fc', 'order' => 2],
+                ],
+            ],
+            [
                 'name' => 'In Progress',
                 'color' => '#f59e0b', // Amber
-                'order' => 3,
+                'order' => 4,
                 'children' => [
                     ['name' => 'Going to Work', 'color' => '#fbbf24', 'order' => 1],
                     ['name' => 'Reached Location', 'color' => '#fcd34d', 'order' => 2],
@@ -48,7 +57,7 @@ class WorkOrderStatusSeeder extends Seeder
             [
                 'name' => 'On Hold',
                 'color' => '#6b7280', // Gray
-                'order' => 4,
+                'order' => 5,
                 'children' => [
                     ['name' => 'Customer Unavailable', 'color' => '#9ca3af', 'order' => 1],
                     ['name' => 'Parts On Order', 'color' => '#d1d5db', 'order' => 2],
@@ -59,7 +68,7 @@ class WorkOrderStatusSeeder extends Seeder
             [
                 'name' => 'Completed',
                 'color' => '#10b981', // Green
-                'order' => 5,
+                'order' => 6,
                 'children' => [
                     ['name' => 'Work Completed', 'color' => '#34d399', 'order' => 1],
                     ['name' => 'Successfully Completed', 'color' => '#6ee7b7', 'order' => 2],
@@ -70,7 +79,7 @@ class WorkOrderStatusSeeder extends Seeder
             [
                 'name' => 'Cancelled',
                 'color' => '#ef4444', // Red
-                'order' => 6,
+                'order' => 7,
                 'children' => [
                     ['name' => 'Customer Cancelled', 'color' => '#f87171', 'order' => 1],
                     ['name' => 'Technician Rejected', 'color' => '#fca5a5', 'order' => 2],
@@ -81,7 +90,7 @@ class WorkOrderStatusSeeder extends Seeder
             [
                 'name' => 'Closed',
                 'color' => '#14b8a6', // Teal
-                'order' => 7,
+                'order' => 8,
                 'children' => [
                     ['name' => 'Closed - Completed', 'color' => '#2dd4bf', 'order' => 1],
                     ['name' => 'Closed - Cancelled', 'color' => '#5eead4', 'order' => 2],
@@ -94,25 +103,31 @@ class WorkOrderStatusSeeder extends Seeder
             $children = $statusData['children'] ?? [];
             unset($statusData['children']);
 
-            // Create parent status
-            $parentStatus = WorkOrderStatus::create([
-                'name' => $statusData['name'],
-                'slug' => \Str::slug($statusData['name']),
-                'color' => $statusData['color'],
-                'order' => $statusData['order'],
-                'is_active' => true,
-            ]);
-
-            // Create child statuses
-            foreach ($children as $childData) {
-                WorkOrderStatus::create([
-                    'parent_id' => $parentStatus->id,
-                    'name' => $childData['name'],
-                    'slug' => \Str::slug($childData['name']),
-                    'color' => $childData['color'],
-                    'order' => $childData['order'],
+            // Create or update parent status
+            $parentStatus = WorkOrderStatus::updateOrCreate(
+                ['slug' => \Str::slug($statusData['name'])],
+                [
+                    'name' => $statusData['name'],
+                    'color' => $statusData['color'],
+                    'order' => $statusData['order'],
                     'is_active' => true,
-                ]);
+                ]
+            );
+
+            // Create or update child statuses
+            foreach ($children as $childData) {
+                WorkOrderStatus::updateOrCreate(
+                    [
+                        'parent_id' => $parentStatus->id,
+                        'slug' => \Str::slug($childData['name'])
+                    ],
+                    [
+                        'name' => $childData['name'],
+                        'color' => $childData['color'],
+                        'order' => $childData['order'],
+                        'is_active' => true,
+                    ]
+                );
             }
         }
 

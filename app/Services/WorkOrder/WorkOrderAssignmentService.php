@@ -51,6 +51,7 @@ class WorkOrderAssignmentService
             'assigned_at' => now(),
             'status_id' => $dispatchedStatus?->id,
             'sub_status_id' => $assignedToTechnicianSubStatus?->id,
+            // 'notes' => $notes,
             'updated_by' => $currentUserId,
         ];
 
@@ -174,26 +175,32 @@ class WorkOrderAssignmentService
         $lines[] = "*👤 CUSTOMER INFORMATION*";
         $lines[] = "─────────────────────────────────────";
         $lines[] = "*Name:* " . ($workOrder->customer->name ?? 'N/A');
-        if ($workOrder->customer->phone) $lines[] = "*Phone:* {$workOrder->customer->phone}";
-        if ($workOrder->customer->whatsapp) $lines[] = "*WhatsApp:* {$workOrder->customer->whatsapp}";
+        if ($workOrder->customer->phone)
+            $lines[] = "*Phone:* {$workOrder->customer->phone}";
+        if ($workOrder->customer->whatsapp)
+            $lines[] = "*WhatsApp:* {$workOrder->customer->whatsapp}";
         $lines[] = "";
 
         if ($workOrder->address) {
             $lines[] = "*📍 ADDRESS INFORMATION*";
             $lines[] = "─────────────────────────────────────";
-            if ($workOrder->address->address_line_1) $lines[] = "*Address:* {$workOrder->address->address_line_1}";
+            if ($workOrder->address->address_line_1)
+                $lines[] = "*Address:* {$workOrder->address->address_line_1}";
             $lines[] = "";
         }
 
         $lines[] = "*🔧 PRODUCT INFORMATION*";
         $lines[] = "─────────────────────────────────────";
-        if ($workOrder->brand) $lines[] = "*Brand:* {$workOrder->brand->name}";
-        if ($workOrder->product) $lines[] = "*Product:* {$workOrder->product->name}";
+        if ($workOrder->brand)
+            $lines[] = "*Brand:* {$workOrder->brand->name}";
+        if ($workOrder->product)
+            $lines[] = "*Product:* {$workOrder->product->name}";
         $lines[] = "";
 
         $lines[] = "*⚙️ SERVICE INFORMATION*";
         $lines[] = "─────────────────────────────────────";
-        if ($workOrder->service) $lines[] = "*Service Type:* {$workOrder->service->name}";
+        if ($workOrder->service)
+            $lines[] = "*Service Type:* {$workOrder->service->name}";
         $lines[] = "";
 
         if ($workOrder->defect_description) {

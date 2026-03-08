@@ -217,6 +217,7 @@ Route::group(['prefix' => 'crm'], function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/dashboard/admin', [DashboardController::class, 'adminDashboard']);
         Route::get('/dashboard/admin-full', [DashboardController::class, 'adminDashboardFull']);
+        Route::get('/dashboard/staff-summary', [DashboardController::class, 'staffSummary']);
         Route::get('/dashboard/analytics', [DashboardController::class, 'analytics']);
 
         // New section-specific dashboard routes

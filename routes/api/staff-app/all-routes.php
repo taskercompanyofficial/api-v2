@@ -65,6 +65,8 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::delete('/work-orders/{id}/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
         Route::post('/work-orders/{id}/update-status', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatus']);
         Route::post('/work-orders/{id}/update-status-by-slug', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'updateStatusBySlug']);
+        Route::post('/work-orders/{id}/schedule', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'schedule']);
+        Route::post('/work-orders/{id}/cancel', [App\Http\Controllers\Authenticated\StaffApp\WorkOrderController::class, 'cancel']);
         Route::get('/parent-services-raw', [ParentServicesController::class, 'parentServicesRaw']);
         Route::get('/service-concerns-raw', [ServiceConcernController::class, 'serviceConcernsRaw']);
         Route::get('/service-sub-concerns-raw', [ServiceSubConcernController::class, 'serviceSubConcernsRaw']);
@@ -75,5 +77,11 @@ Route::group(['prefix' => 'staff-app'], function () {
         Route::post('/todos', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'store']);
         Route::put('/todos/{id}', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'update']);
         Route::delete('/todos/{id}', [App\Http\Controllers\Authenticated\StaffApp\StaffTodoController::class, 'destroy']);
+
+        // Store Items & Requests
+        Route::get('/store-items', [App\Http\Controllers\Authenticated\StaffApp\StoreItemController::class, 'assignedItems']);
+        Route::post('/store-items/{id}/return', [App\Http\Controllers\Authenticated\StaffApp\StoreItemController::class, 'returnItem']);
+        Route::get('/store-items/request-options', [App\Http\Controllers\Authenticated\StaffApp\StoreItemController::class, 'getParts']);
+        Route::post('/store-items/request', [App\Http\Controllers\Authenticated\StaffApp\StoreItemController::class, 'submitPartRequest']);
     });
 });

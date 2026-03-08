@@ -52,7 +52,7 @@ class WorkOrderFileController extends Controller
     {
         $validated = $request->validate([
             'file_type_id' => 'required|exists:file_types,id',
-            'file' => 'required|file',
+            'file' => 'required|file|max:20480', // 20MB
             'approval_status' => 'nullable|in:approved,rejected',
         ]);
 

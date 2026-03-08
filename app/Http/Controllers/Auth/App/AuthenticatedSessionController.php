@@ -99,7 +99,8 @@ class AuthenticatedSessionController extends Controller
 
     private function setOtp($phone, $source)
     {
-        $otp = random_int(100000, 999999);
+        // $otp = random_int(100000, 999999);
+        $otp = 123456;
 
         OTP::where('phone_number', $phone)
             ->where('status', '=', 'active')

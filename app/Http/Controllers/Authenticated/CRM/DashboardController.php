@@ -58,22 +58,31 @@ class DashboardController extends Controller
 
             $onTimeRate = $totalCompleted > 0 ? round(($onTimeCompleted / $totalCompleted) * 100) : 0;
 
+            $activeStatusId = DB::table('work_order_statuses')->where('slug', 'in-progress')->whereNull('parent_id')->value('id');
+            $dispatchedStatusId = DB::table('work_order_statuses')->where('slug', 'dispatched')->whereNull('parent_id')->value('id');
+
             // Overall work order status counts (all work orders in system)
             $workOrderStatus = [
                 'assigned' => WorkOrder::whereNull('completed_at')
                     ->whereNull('cancelled_at')
                     ->whereNotNull('assigned_to_id')
                     ->count(),
-                'inProgress' => WorkOrder::where('status_id', function ($query) {
-                    $query->select('id')
-                        ->from('work_order_statuses')
-                        ->where('name', 'In Progress')
-                        ->limit(1);
-                })
+                'pending_acceptance' => WorkOrder::whereNull('completed_at')
+                    ->whereNull('cancelled_at')
+                    ->whereNull('accepted_at')
+                    ->where('status_id', $dispatchedStatusId)
+                    ->count(),
+                'inProgress' => WorkOrder::whereNull('completed_at')
+                    ->whereNull('cancelled_at')
+                    ->where('status_id', $activeStatusId)
                     ->count(),
                 'completed' => WorkOrder::whereBetween('completed_at', [$startOfMonth, $endOfMonth])
                     ->count(),
+                'completed_this_month' => WorkOrder::whereMonth('completed_at', now()->month)
+                    ->whereYear('completed_at', now()->year)
+                    ->count(),
                 'overdue' => WorkOrder::whereNull('completed_at')
+                    ->whereNull('cancelled_at')
                     ->whereNotNull('appointment_date')
                     ->where('appointment_date', '<', now())
                     ->count(),
@@ -129,8 +138,8 @@ class DashboardController extends Controller
                     'age' => '6-7 Days',
                     'count' => WorkOrder::whereNull('completed_at')
                         ->whereBetween('created_at', [
-                            $today->copy()->subDays(6),
-                            $today->copy()->subDays(7)
+                            $today->copy()->subDays(7),
+                            $today->copy()->subDays(6)
                         ])
                         ->count(),
                     'color' => '#ef4444',
@@ -158,6 +167,7 @@ class DashboardController extends Controller
                     'workOrderStatus' => $workOrderStatus,
                     'dailyCompletion' => $dailyCompletion,
                     'agingData' => $agingData,
+                    'staffWorkload' => (new AdminDashboardService())->getStaffWorkload(),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -182,8 +192,8 @@ class DashboardController extends Controller
             $completedWorkOrders = WorkOrder::whereBetween('completed_at', [$startOfMonth, $endOfMonth])->count();
             $pendingWorkOrders = WorkOrder::whereNull('completed_at')->whereNull('cancelled_at')->count();
             $overdueWorkOrders = WorkOrder::whereNull('completed_at')
-                ->whereNotNull('scheduled_date')
-                ->where('scheduled_date', '<', now())
+                ->whereNotNull('appointment_date')
+                ->where('appointment_date', '<', now())
                 ->count();
 
             // Revenue statistics (if you have amount fields)
@@ -531,6 +541,23 @@ class DashboardController extends Controller
                 'status' => 'success',
                 'message' => 'Benchmark settings updated successfully'
             ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get detailed staff workload summary
+     */
+    public function staffSummary(Request $request, AdminDashboardService $dashboardService): JsonResponse
+    {
+        try {
+            $branchId = $request->get('branch_id') ? (int) $request->get('branch_id') : null;
+            $data = $dashboardService
+                ->setFilters($branchId)
+                ->getStaffSummary();
+
+            return response()->json(['status' => 'success', 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
