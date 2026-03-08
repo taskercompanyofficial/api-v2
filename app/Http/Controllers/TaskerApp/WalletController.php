@@ -31,6 +31,7 @@ class WalletController extends Controller
 
     public function recharge(Request $request)
     {
+        return null;
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:1'],
             'method' => ['nullable', 'string', 'max:100'],
@@ -55,6 +56,7 @@ class WalletController extends Controller
 
     public function refund(Request $request)
     {
+        return null;
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:1'],
             'title' => ['nullable', 'string', 'max:150'],
@@ -79,6 +81,7 @@ class WalletController extends Controller
 
     public function debit(Request $request)
     {
+        return null;
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'min:1'],
             'title' => ['required', 'string', 'max:150'],
