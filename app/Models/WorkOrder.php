@@ -79,6 +79,7 @@ class WorkOrder extends Model
         'status_id',
         'sub_status_id',
         'assigned_to_id',
+        'assigned_vendor_id',
         'assigned_at',
         'accepted_at',
         'rejected_at',
@@ -252,6 +253,11 @@ class WorkOrder extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'assigned_to_id');
+    }
+
+    public function assignedVendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'assigned_vendor_id');
     }
 
     public function createdBy(): BelongsTo

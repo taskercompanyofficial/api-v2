@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Authenticated\CRM;
 use App\Http\Controllers\Controller;
 use App\Models\DefaultVendorLedger;
 use App\Models\ParentService;
-use App\Traits\QueryFilterTrait;
+use App\QueryFilterTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;

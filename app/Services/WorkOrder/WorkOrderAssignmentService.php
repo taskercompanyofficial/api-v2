@@ -19,9 +19,9 @@ class WorkOrderAssignmentService
     }
 
     /**
-     * Assign or reassign staff to a work order
+     * Assign or reassign staff or vendor to a work order
      */
-    public function assignStaff(WorkOrder $workOrder, int $staffId, ?string $notes, int $currentUserId): array
+    public function assignStaff(WorkOrder $workOrder, ?int $staffId, ?int $vendorId, ?string $notes, int $currentUserId): array
     {
         // Prevent assignment if completed, cancelled, rejected, or closed
         // if ($workOrder->completed_at || $workOrder->cancelled_at || $workOrder->rejected_at || $workOrder->closed_at) {
@@ -31,13 +31,14 @@ class WorkOrderAssignmentService
             $notes = 'No notes provided';
         }
         $previousAssignedId = $workOrder->assigned_to_id;
+        $previousVendorId = $workOrder->assigned_vendor_id;
 
-        // Check if it's the same staff
-        // if ($previousAssignedId == $staffId) {
-        //     throw new Exception('This work order is already assigned to the selected staff member');
-        // }
+        $assignedStaff = $staffId ? Staff::find($staffId) : null;
+        $assignedVendor = $vendorId ? \App\Models\Vendor::find($vendorId) : null;
 
-        $assignedStaff = Staff::findOrFail($staffId);
+        if (!$assignedStaff && !$assignedVendor) {
+            throw new Exception("Either a Staff or a Vendor must be assigned.");
+        }
 
         // Get the Dispatched - Assigned to Technician status
         $dispatchedStatus = WorkOrderStatus::where('slug', 'dispatched')->first();
@@ -48,6 +49,7 @@ class WorkOrderAssignmentService
         // Prepare update data
         $updateData = [
             'assigned_to_id' => $staffId,
+            'assigned_vendor_id' => $vendorId,
             'assigned_at' => now(),
             'status_id' => $dispatchedStatus?->id,
             'sub_status_id' => $assignedToTechnicianSubStatus?->id,
@@ -56,7 +58,7 @@ class WorkOrderAssignmentService
         ];
 
         // If reassigning (not first assignment), reset all action timestamps
-        if ($previousAssignedId) {
+        if ($previousAssignedId || $previousVendorId) {
             $updateData['accepted_at'] = null;
             $updateData['accepted_by'] = null;
             $updateData['cancelled_at'] = null;
@@ -80,21 +82,38 @@ class WorkOrderAssignmentService
         $workOrder->update($updateData);
 
         $previousStaff = $previousAssignedId ? Staff::find($previousAssignedId) : null;
-        $action = $previousAssignedId ? 'reassigned' : 'assigned';
-        $description = $previousAssignedId
-            ? "Work order reassigned from {$previousStaff->first_name} {$previousStaff->last_name} to {$assignedStaff->first_name} {$assignedStaff->last_name}"
-            : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name}" . ($notes ? " with notes: {$notes}" : 'no');
+        $previousVendorRecord = $previousVendorId ? \App\Models\Vendor::find($previousVendorId) : null;
+
+        $action = ($previousAssignedId || $previousVendorId) ? 'reassigned' : 'assigned';
+
+        $oldValueStr = null;
+        if ($previousStaff)
+            $oldValueStr = "{$previousStaff->first_name} {$previousStaff->last_name} (Staff)";
+        else if ($previousVendorRecord)
+            $oldValueStr = "{$previousVendorRecord->name} (Vendor)";
+
+        $newValueStr = null;
+        if ($assignedStaff)
+            $newValueStr = "{$assignedStaff->first_name} {$assignedStaff->last_name} (Staff)";
+        else if ($assignedVendor)
+            $newValueStr = "{$assignedVendor->name} (Vendor)";
+
+        $description = ($previousAssignedId || $previousVendorId)
+            ? "Work order reassigned from {$oldValueStr} to {$newValueStr}"
+            : "Work order assigned to {$newValueStr}" . ($notes ? " with notes: {$notes}" : ' no');
 
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
             actionType: $action,
             description: $description,
-            fieldName: 'assigned_to_id',
-            oldValue: $previousStaff ? "{$previousStaff->first_name} {$previousStaff->last_name}" : null,
-            newValue: "{$assignedStaff->first_name} {$assignedStaff->last_name}",
+            fieldName: $staffId ? 'assigned_to_id' : 'assigned_vendor_id',
+            oldValue: $oldValueStr,
+            newValue: $newValueStr,
             metadata: [
                 'previous_staff_id' => $previousAssignedId,
                 'new_staff_id' => $staffId,
+                'previous_vendor_id' => $previousVendorId,
+                'new_vendor_id' => $vendorId,
                 'notes' => $notes,
                 'status_changed_to' => $dispatchedStatus?->name,
                 'sub_status_changed_to' => $assignedToTechnicianSubStatus?->name,
@@ -102,20 +121,24 @@ class WorkOrderAssignmentService
         );
 
         // Send Push and WhatsApp notifications
-        $this->sendNotifications($workOrder, $assignedStaff, $notes);
+        if ($assignedStaff) {
+            $this->sendNotifications($workOrder, $assignedStaff, $notes);
+        } else if ($assignedVendor) {
+            $this->sendVendorNotifications($workOrder, $assignedVendor, $notes);
+        }
 
         // Send real-time notification to all staff
-        if ($previousAssignedId) {
+        if ($previousAssignedId && $staffId) {
             $this->notificationService->staffReassigned($workOrder, $previousAssignedId, $staffId, $currentUserId);
-        } else {
+        } else if ($staffId) {
             $this->notificationService->staffAssigned($workOrder, $staffId, $currentUserId);
         }
 
         return [
             'status' => 'success',
-            'message' => $previousAssignedId
-                ? "Work order reassigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully"
-                : "Work order assigned to {$assignedStaff->first_name} {$assignedStaff->last_name} successfully",
+            'message' => ($previousAssignedId || $previousVendorId)
+                ? "Work order reassigned to {$newValueStr} successfully"
+                : "Work order assigned to {$newValueStr} successfully",
         ];
     }
 
@@ -152,11 +175,28 @@ class WorkOrderAssignmentService
                 $notificationService->sendWhatsAppNotification($staff->phone, $message);
             }
         } catch (Exception $e) {
-            // Log::error('Failed to send notifications in AssignmentService', [
-            //     'work_order_id' => $workOrder->id,
-            //     'staff_id' => $staff->id,
-            //     'error' => $e->getMessage(),
-            // ]);
+            // Log::error(...);
+        }
+    }
+
+    private function sendVendorNotifications(WorkOrder $workOrder, \App\Models\Vendor $vendor, string $notes): void
+    {
+        try {
+            $notificationService = new \App\Services\NotificationService();
+            if ($vendor->phone) {
+                $message = $this->formatWorkOrderForWhatsApp($workOrder->fresh([
+                    'customer',
+                    'address',
+                    'brand',
+                    'category',
+                    'service',
+                    'parentService',
+                    'product'
+                ]));
+                $notificationService->sendWhatsAppNotification($vendor->phone, "Hello {$vendor->name},\nYou have a new work order assigned:\n\n" . $message);
+            }
+        } catch (Exception $e) {
+            // Log error
         }
     }
 

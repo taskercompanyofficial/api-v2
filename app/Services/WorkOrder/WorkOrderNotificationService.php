@@ -65,15 +65,20 @@ class WorkOrderNotificationService
     }
 
     /**
-     * Get staff full name
+     * Get actor name (Staff or Vendor)
      */
-    public function getStaffName(?int $staffId): string
+    public function getActorName(?int $id, bool $isVendor = false): string
     {
-        if (!$staffId) {
+        if (!$id) {
             return 'System';
         }
 
-        $staff = Staff::find($staffId);
+        if ($isVendor) {
+            $vendor = \App\Models\Vendor::find($id);
+            return $vendor ? $vendor->name : 'Unknown Vendor';
+        }
+
+        $staff = Staff::find($id);
         return $staff ? "{$staff->first_name} {$staff->last_name}" : 'Unknown';
     }
 
@@ -82,7 +87,7 @@ class WorkOrderNotificationService
      */
     protected function getWorkOrderCode(WorkOrder $workOrder): string
     {
-        return $workOrder->code ?? "WO-{$workOrder->id}";
+        return $workOrder->work_order_number ?? "WO-{$workOrder->id}";
     }
 
     /**
@@ -98,112 +103,112 @@ class WorkOrderNotificationService
     // Work Order Status Notifications
     // ==========================================
 
-    public function workOrderCreated(WorkOrder $workOrder, int $createdBy): void
+    public function workOrderCreated(WorkOrder $workOrder, int $createdBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($createdBy);
+        $actorName = $this->getActorName($createdBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "New Work Order Created",
-            "{$staffName} created work order #{$code}. Click to view.",
+            "{$actorName} created work order #{$code}. Click to view.",
             'work-order',
             $workOrder,
-            $createdBy
+            $isVendor ? null : $createdBy
         );
     }
 
-    public function workOrderUpdated(WorkOrder $workOrder, int $updatedBy): void
+    public function workOrderUpdated(WorkOrder $workOrder, int $updatedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($updatedBy);
+        $actorName = $this->getActorName($updatedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Updated",
-            "{$staffName} updated work order #{$code}. Click to view.",
+            "{$actorName} updated work order #{$code}. Click to view.",
             'work-order',
             $workOrder,
-            $updatedBy
+            $isVendor ? null : $updatedBy
         );
     }
 
-    public function workOrderAccepted(WorkOrder $workOrder, int $acceptedBy): void
+    public function workOrderAccepted(WorkOrder $workOrder, int $acceptedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($acceptedBy);
+        $actorName = $this->getActorName($acceptedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Accepted",
-            "{$staffName} accepted work order #{$code}. Click to view.",
+            "{$actorName} accepted work order #{$code}. Click to view.",
             'work-order',
             $workOrder,
-            $acceptedBy
+            $isVendor ? null : $acceptedBy
         );
     }
 
-    public function workOrderRejected(WorkOrder $workOrder, int $rejectedBy, string $reason): void
+    public function workOrderRejected(WorkOrder $workOrder, int $rejectedBy, string $reason, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($rejectedBy);
+        $actorName = $this->getActorName($rejectedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Rejected",
-            "{$staffName} rejected work order #{$code}: {$reason}. Click to view.",
+            "{$actorName} rejected work order #{$code}: {$reason}. Click to view.",
             'work-order',
             $workOrder,
-            $rejectedBy
+            $isVendor ? null : $rejectedBy
         );
     }
 
-    public function serviceStarted(WorkOrder $workOrder, int $startedBy): void
+    public function serviceStarted(WorkOrder $workOrder, int $startedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($startedBy);
+        $actorName = $this->getActorName($startedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Service Started",
-            "{$staffName} started service for #{$code}. Click to view.",
+            "{$actorName} started service for #{$code}. Click to view.",
             'work-order',
             $workOrder,
-            $startedBy
+            $isVendor ? null : $startedBy
         );
     }
 
-    public function workStarted(WorkOrder $workOrder, int $startedBy): void
+    public function workStarted(WorkOrder $workOrder, int $startedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($startedBy);
+        $actorName = $this->getActorName($startedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Started",
-            "{$staffName} started working on #{$code}. Click to view.",
+            "{$actorName} started working on #{$code}. Click to view.",
             'work-order',
             $workOrder,
-            $startedBy
+            $isVendor ? null : $startedBy
         );
     }
 
-    public function workOrderCompleted(WorkOrder $workOrder, int $completedBy): void
+    public function workOrderCompleted(WorkOrder $workOrder, int $completedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($completedBy);
+        $actorName = $this->getActorName($completedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Completed",
-            "{$staffName} completed work order #{$code}. Pending approval. Click to view.",
+            "{$actorName} completed work order #{$code}. Pending approval. Click to view.",
             'work-order',
             $workOrder,
-            $completedBy
+            $isVendor ? null : $completedBy
         );
     }
 
     public function workOrderApproved(WorkOrder $workOrder, int $approvedBy): void
     {
-        $staffName = $this->getStaffName($approvedBy);
+        $actorName = $this->getActorName($approvedBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Approved",
-            "{$staffName} approved work order #{$code}. Click to view.",
+            "{$actorName} approved work order #{$code}. Click to view.",
             'work-order',
             $workOrder,
             $approvedBy
@@ -212,12 +217,12 @@ class WorkOrderNotificationService
 
     public function workOrderClosed(WorkOrder $workOrder, int $closedBy): void
     {
-        $staffName = $this->getStaffName($closedBy);
+        $actorName = $this->getActorName($closedBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Closed",
-            "{$staffName} closed work order #{$code}. Click to view.",
+            "{$actorName} closed work order #{$code}. Click to view.",
             'work-order',
             $workOrder,
             $closedBy
@@ -226,12 +231,12 @@ class WorkOrderNotificationService
 
     public function workOrderCancelled(WorkOrder $workOrder, int $cancelledBy, string $reason): void
     {
-        $staffName = $this->getStaffName($cancelledBy);
+        $actorName = $this->getActorName($cancelledBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Work Order Cancelled",
-            "{$staffName} cancelled #{$code}: {$reason}. Click to view.",
+            "{$actorName} cancelled #{$code}: {$reason}. Click to view.",
             'work-order',
             $workOrder,
             $cancelledBy
@@ -240,41 +245,41 @@ class WorkOrderNotificationService
 
     public function workOrderSentBackForRework(WorkOrder $workOrder, int $rejectedBy, string $reason): void
     {
-        $staffName = $this->getStaffName($rejectedBy);
+        $actorName = $this->getActorName($rejectedBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         // Notify assigned staff
         $this->notifyAssignedStaff(
             $workOrder,
             "Rework Required",
-            "{$staffName} sent #{$code} back for rework: {$reason}. Click to view.",
+            "{$actorName} sent #{$code} back for rework: {$reason}. Click to view.",
             'work-order'
         );
     }
 
-    public function partInDemand(WorkOrder $workOrder, int $markedBy): void
+    public function partInDemand(WorkOrder $workOrder, int $markedBy, bool $isVendor = false): void
     {
-        $staffName = $this->getStaffName($markedBy);
+        $actorName = $this->getActorName($markedBy, $isVendor);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
             "Part Required",
-            "{$staffName} marked #{$code} as waiting for parts. Click to view.",
+            "{$actorName} marked #{$code} as waiting for parts. Click to view.",
             'part-request',
             $workOrder,
-            $markedBy
+            $isVendor ? null : $markedBy
         );
     }
 
     public function workOrderScheduled(WorkOrder $workOrder, int $scheduledBy, string $scheduledDate): void
     {
-        $staffName = $this->getStaffName($scheduledBy);
+        $actorName = $this->getActorName($scheduledBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAssignedStaff(
             $workOrder,
             "Appointment Scheduled",
-            "{$staffName} scheduled #{$code} for {$scheduledDate}. Click to view.",
+            "{$actorName} scheduled #{$code} for {$scheduledDate}. Click to view.",
             'reminder'
         );
     }
@@ -285,8 +290,8 @@ class WorkOrderNotificationService
 
     public function staffAssigned(WorkOrder $workOrder, int $assignedStaffId, int $assignedBy): void
     {
-        $assignerName = $this->getStaffName($assignedBy);
-        $assigneeName = $this->getStaffName($assignedStaffId);
+        $assignerName = $this->getActorName($assignedBy);
+        $assigneeName = $this->getActorName($assignedStaffId);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
@@ -300,9 +305,9 @@ class WorkOrderNotificationService
 
     public function staffReassigned(WorkOrder $workOrder, int $oldStaffId, int $newStaffId, int $reassignedBy): void
     {
-        $reassignerName = $this->getStaffName($reassignedBy);
-        $oldStaffName = $this->getStaffName($oldStaffId);
-        $newStaffName = $this->getStaffName($newStaffId);
+        $reassignerName = $this->getActorName($reassignedBy);
+        $oldStaffName = $this->getActorName($oldStaffId);
+        $newStaffName = $this->getActorName($newStaffId);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAllStaff(
@@ -320,13 +325,13 @@ class WorkOrderNotificationService
 
     public function fileUploaded(WorkOrder $workOrder, int $uploadedBy, int $fileCount): void
     {
-        $staffName = $this->getStaffName($uploadedBy);
+        $actorName = $this->getActorName($uploadedBy);
         $code = $this->getWorkOrderCode($workOrder);
         $fileText = $fileCount === 1 ? 'file' : 'files';
 
         $this->notifyAllStaff(
             "Files Uploaded",
-            "{$staffName} uploaded {$fileCount} {$fileText} to #{$code}. Click to view.",
+            "{$actorName} uploaded {$fileCount} {$fileText} to #{$code}. Click to view.",
             'document',
             $workOrder,
             $uploadedBy
@@ -339,13 +344,13 @@ class WorkOrderNotificationService
 
     public function feedbackAdded(WorkOrder $workOrder, int $addedBy, int $rating): void
     {
-        $staffName = $this->getStaffName($addedBy);
+        $actorName = $this->getActorName($addedBy);
         $code = $this->getWorkOrderCode($workOrder);
         $stars = str_repeat('⭐', $rating);
 
         $this->notifyAllStaff(
             "Customer Feedback",
-            "{$staffName} added feedback for #{$code} ({$stars}). Click to view.",
+            "{$actorName} added feedback for #{$code} ({$stars}). Click to view.",
             'document',
             $workOrder,
             $addedBy
@@ -358,13 +363,13 @@ class WorkOrderNotificationService
 
     public function reminderSent(WorkOrder $workOrder, int $sentBy, string $remark): void
     {
-        $staffName = $this->getStaffName($sentBy);
+        $actorName = $this->getActorName($sentBy);
         $code = $this->getWorkOrderCode($workOrder);
 
         $this->notifyAssignedStaff(
             $workOrder,
             "Reminder",
-            "{$staffName} sent a reminder for #{$code}: {$remark}. Click to view.",
+            "{$actorName} sent a reminder for #{$code}: {$remark}. Click to view.",
             'reminder'
         );
     }
@@ -375,13 +380,13 @@ class WorkOrderNotificationService
 
     public function workOrderDuplicated(WorkOrder $originalWorkOrder, WorkOrder $newWorkOrder, int $duplicatedBy): void
     {
-        $staffName = $this->getStaffName($duplicatedBy);
+        $actorName = $this->getActorName($duplicatedBy);
         $originalCode = $this->getWorkOrderCode($originalWorkOrder);
         $newCode = $this->getWorkOrderCode($newWorkOrder);
 
         $this->notifyAllStaff(
             "Work Order Duplicated",
-            "{$staffName} duplicated #{$originalCode} as #{$newCode}. Click to view.",
+            "{$actorName} duplicated #{$originalCode} as #{$newCode}. Click to view.",
             'work-order',
             $newWorkOrder,
             $duplicatedBy
@@ -390,13 +395,13 @@ class WorkOrderNotificationService
 
     public function workOrderReopened(WorkOrder $originalWorkOrder, WorkOrder $newWorkOrder, int $reopenedBy): void
     {
-        $staffName = $this->getStaffName($reopenedBy);
+        $actorName = $this->getActorName($reopenedBy);
         $originalCode = $this->getWorkOrderCode($originalWorkOrder);
         $newCode = $this->getWorkOrderCode($newWorkOrder);
 
         $this->notifyAllStaff(
             "Work Order Reopened",
-            "{$staffName} reopened #{$originalCode} as #{$newCode}. Click to view.",
+            "{$actorName} reopened #{$originalCode} as #{$newCode}. Click to view.",
             'work-order',
             $newWorkOrder,
             $reopenedBy
@@ -409,12 +414,12 @@ class WorkOrderNotificationService
 
     public function staffCheckedIn(int $staffId): void
     {
-        $staffName = $this->getStaffName($staffId);
+        $actorName = $this->getActorName($staffId);
         $time = now()->format('h:i A');
 
         $this->notifyAllStaffGeneric(
             "Staff Checked In",
-            "{$staffName} checked in at {$time}.",
+            "{$actorName} checked in at {$time}.",
             'attendance',
             $staffId
         );
@@ -422,13 +427,13 @@ class WorkOrderNotificationService
 
     public function staffCheckedOut(int $staffId, float $workingHours): void
     {
-        $staffName = $this->getStaffName($staffId);
+        $actorName = $this->getActorName($staffId);
         $time = now()->format('h:i A');
         $hours = round($workingHours, 1);
 
         $this->notifyAllStaffGeneric(
             "Staff Checked Out",
-            "{$staffName} checked out at {$time}. Worked {$hours} hours.",
+            "{$actorName} checked out at {$time}. Worked {$hours} hours.",
             'attendance',
             $staffId
         );

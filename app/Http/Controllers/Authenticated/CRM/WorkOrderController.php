@@ -66,6 +66,7 @@ class WorkOrderController extends Controller
             'status:id,name,color',
             'subStatus:id,name,color',
             'assignedTo:id,first_name,last_name',
+            'assignedVendor:id,name,phone',
             'services',
             'branch:id,name',
             'dealer:id,name',
@@ -73,7 +74,6 @@ class WorkOrderController extends Controller
             'city:id,name',
             'createdBy:id,first_name,last_name',
             'updatedBy:id,first_name,last_name',
-
         ]);
         // ss
         if ($request->has('status_id') && $request->status_id) {
@@ -119,7 +119,7 @@ class WorkOrderController extends Controller
 
         // Apply JSON filters from "filters" parameter
         $filtersInput = $request->input('filters');
-        
+
         // Handle simple key-value filters (from dashboard dialogs)
         if (is_array($filtersInput)) {
             // Handle overdue filter
@@ -129,50 +129,50 @@ class WorkOrderController extends Controller
                     ->whereNull('completed_at')
                     ->whereNull('cancelled_at');
             }
-            
+
             // Handle created_today filter
             if (isset($filtersInput['created_today']) && ($filtersInput['created_today'] === '1' || $filtersInput['created_today'] === 1 || $filtersInput['created_today'] === true || $filtersInput['created_today'] === 'true')) {
                 $query->whereDate('created_at', today());
             }
-            
+
             // Handle closed_today filter
             if (isset($filtersInput['closed_today']) && ($filtersInput['closed_today'] === '1' || $filtersInput['closed_today'] === 1 || $filtersInput['closed_today'] === true || $filtersInput['closed_today'] === 'true')) {
                 $query->whereDate('closed_at', today());
             }
-            
+
             // Handle pending filter
             if (isset($filtersInput['pending']) && ($filtersInput['pending'] === '1' || $filtersInput['pending'] === 1 || $filtersInput['pending'] === true || $filtersInput['pending'] === 'true')) {
                 $query->whereNull('completed_at')
                     ->whereNull('cancelled_at');
             }
-            
+
             // Handle branch_id filter
             if (isset($filtersInput['branch_id']) && $filtersInput['branch_id']) {
                 $query->where('branch_id', $filtersInput['branch_id']);
             }
-            
+
             // Handle city filter (by name)
             if (isset($filtersInput['city']) && $filtersInput['city']) {
-                $query->whereHas('city', function($q) use ($filtersInput) {
+                $query->whereHas('city', function ($q) use ($filtersInput) {
                     $q->where('name', $filtersInput['city']);
                 });
             }
-            
+
             // Handle assigned_to_id / staff_id filter
             if (isset($filtersInput['assigned_to_id']) && $filtersInput['assigned_to_id']) {
                 $query->where('assigned_to_id', $filtersInput['assigned_to_id']);
             }
-            
+
             // Handle date_from filter
             if (isset($filtersInput['date_from']) && $filtersInput['date_from']) {
                 $query->whereDate('created_at', '>=', $filtersInput['date_from']);
             }
-            
+
             // Handle date_to filter
             if (isset($filtersInput['date_to']) && $filtersInput['date_to']) {
                 $query->whereDate('created_at', '<=', $filtersInput['date_to']);
             }
-            
+
             // Handle status_id filter
             if (isset($filtersInput['status_id']) && $filtersInput['status_id']) {
                 $statusIds = is_array($filtersInput['status_id'])
@@ -181,7 +181,7 @@ class WorkOrderController extends Controller
                 $query->whereIn('status_id', $statusIds);
             }
         }
-        
+
         // Apply the standard JSON filters for array-of-objects format
         $this->applyJsonFilters($query, $request);
 
@@ -253,6 +253,7 @@ class WorkOrderController extends Controller
             'status',
             'subStatus',
             'assignedTo',
+            'assignedVendor',
             'services.parentService',
             'dealer',
             'dealerBranch',
@@ -309,23 +310,36 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Assign or reassign staff to work order
+     * Assign or reassign staff or vendor to work order
      */
     public function assign(AssignWorkOrderRequest $request, string $work_order): JsonResponse
     {
         try {
             $workOrder = WorkOrder::findOrFail($work_order);
-            $staff = Staff::findOrFail($request->assigned_to_id);
-            if ($staff->status_id !== 1) {
-                return response()->json([
-                    'status' => "error",
-                    'message' => "Staff is not available",
-                ], 422);
+
+            if ($request->assigned_to_id) {
+                $staff = Staff::findOrFail($request->assigned_to_id);
+                if ($staff->status_id !== 1) { // active
+                    return response()->json([
+                        'status' => "error",
+                        'message' => "Staff is not available",
+                    ], 422);
+                }
+            } else if ($request->assigned_vendor_id) {
+                $vendor = \App\Models\Vendor::findOrFail($request->assigned_vendor_id);
+                if ($vendor->status !== 'active') {
+                    return response()->json([
+                        'status' => "error",
+                        'message' => "Vendor is not available",
+                    ], 422);
+                }
             }
+
             $user = $request->user();
             $result = $this->assignmentService->assignStaff(
                 $workOrder,
                 $request->assigned_to_id,
+                $request->assigned_vendor_id,
                 $request->notes,
                 $user->id
             );

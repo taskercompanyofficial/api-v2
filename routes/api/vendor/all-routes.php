@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\Vendor\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\Vendor\OtpController;
+use App\Http\Controllers\Authenticated\Vendor\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'vendor'], function () {
@@ -16,5 +17,26 @@ Route::group(['prefix' => 'vendor'], function () {
     Route::prefix('auth')->group(function () {
         Route::post('/check-credentials', [OtpController::class, 'otp']);
         Route::post('/verify-otp', [OtpController::class, 'verifyotp']);
+    });
+
+    Route::group(['middleware' => 'auth:sanctum'], function () {
+        Route::get('/work-orders/summary', [WorkOrderController::class, 'summary']);
+        Route::get('/work-orders/file-types', [WorkOrderController::class, 'getFileTypes']);
+        Route::get('/work-orders', [WorkOrderController::class, 'index']);
+        Route::get('/work-orders/{id}', [WorkOrderController::class, 'show']);
+        Route::post('/work-orders/{id}/accept', [WorkOrderController::class, 'accept']);
+        Route::post('/work-orders/{id}/reject', [WorkOrderController::class, 'reject']);
+        Route::post('/work-orders/{id}/update-details', [WorkOrderController::class, 'updateDetails']);
+        Route::post('/work-orders/{id}/update-status', [WorkOrderController::class, 'updateStatus']);
+        Route::post('/work-orders/{id}/update-status-by-slug', [WorkOrderController::class, 'updateStatusBySlug']);
+        Route::post('/work-orders/{id}/schedule', [WorkOrderController::class, 'schedule']);
+        Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
+        Route::post('/work-orders/{id}/upload-file', [WorkOrderController::class, 'uploadFile']);
+        Route::delete('/work-orders/{id}/files/{fileId}', [WorkOrderController::class, 'deleteFile']);
+
+        // Lookups
+        Route::get('/work-orders/service-concerns', [WorkOrderController::class, 'getServiceConcerns']);
+        Route::get('/work-orders/service-concerns/{id}/sub-concerns', [WorkOrderController::class, 'getServiceSubConcerns']);
+        Route::get('/work-orders/warranty-types', [WorkOrderController::class, 'getWarrantyTypes']);
     });
 });

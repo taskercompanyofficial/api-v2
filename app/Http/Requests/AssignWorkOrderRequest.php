@@ -22,7 +22,8 @@ class AssignWorkOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'assigned_to_id' => 'required|exists:staff,id',
+            'assigned_to_id' => 'required_without:assigned_vendor_id|nullable|exists:staff,id',
+            'assigned_vendor_id' => 'required_without:assigned_to_id|nullable|exists:vendors,id',
             'notes' => 'nullable|string|max:500',
         ];
     }

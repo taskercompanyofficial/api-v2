@@ -6,7 +6,9 @@ use App\Http\Controllers\Authenticated\CRM\CategoriesController;
 use App\Http\Controllers\Authenticated\CRM\CustomerAddressController;
 use App\Http\Controllers\Authenticated\CRM\MajorClientsController;
 use App\Http\Controllers\Authenticated\CRM\ParentServicesController;
+use App\Http\Controllers\Authenticated\CRM\ServiceConcernController;
 use App\Http\Controllers\Authenticated\CRM\ServicesController;
+use App\Http\Controllers\Authenticated\CRM\ServiceSubConcernController;
 use App\Http\Controllers\TaskerApp\NotificationController;
 use App\Http\Controllers\TaskerApp\CommercialQuoteController;
 use App\Http\Controllers\TaskerApp\WorkOrderController as TaskerWorkOrderController;
@@ -27,12 +29,18 @@ Route::group(['prefix' => 'tasker-app'], function () {
     Route::apiResource('/address', CustomerAddressController::class);
     Route::post('/address/{id}/set-default', [CustomerAddressController::class, 'setDefault']);
     Route::group(['middleware' => ['auth:sanctum']], function () {
-        Route::get('/auth/me', [AuthenticatedSessionController::class,'me']);
-        Route::post('/auth/update', [AuthenticatedSessionController::class,'update']);
-        Route::get('/parent-services', [ParentServicesController::class,'parentServices']);
+        Route::get('/auth/me', [AuthenticatedSessionController::class, 'me']);
+        Route::post('/auth/update', [AuthenticatedSessionController::class, 'update']);
+        Route::get('/parent-services', [ParentServicesController::class, 'parentServices']);
         Route::get('/trending-services', [TaskerWorkOrderController::class, 'trendingParentServices']);
-        Route::get('/parent-services/{slug}', [ParentServicesController::class,'show']);
-        
+        Route::get('/parent-services/{slug}', [ParentServicesController::class, 'show']);
+
+        Route::get('/parent-services-raw', [ParentServicesController::class, 'parentServicesRaw']);
+        Route::get('/service-concerns-raw', [ServiceConcernController::class, 'serviceConcernsRaw']);
+        Route::get('/service-sub-concerns-raw', [ServiceSubConcernController::class, 'serviceSubConcernsRaw']);
+        Route::get('/warranty-types-raw', [\App\Http\Controllers\Authenticated\CRM\WarrantyTypeController::class, 'warrantyTypesRaw']);
+
+
         // Work Order routes (customer)
         Route::prefix('work-orders')->group(function () {
             Route::post('/', [TaskerWorkOrderController::class, 'store']);
@@ -40,7 +48,7 @@ Route::group(['prefix' => 'tasker-app'], function () {
             Route::get('/{workOrderNumber}', [TaskerWorkOrderController::class, 'show']);
             Route::post('/{workOrderNumber}/cancel', [TaskerWorkOrderController::class, 'cancel']);
         });
-        
+
         // Notification routes
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotificationController::class, 'index']);
@@ -70,8 +78,6 @@ Route::group(['prefix' => 'tasker-app'], function () {
             Route::post('/claim/{id}', [GiftsController::class, 'claim']);
             Route::get('/vouchers', [GiftsController::class, 'vouchers']);
         });
-
-        
     });
 
 });

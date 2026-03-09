@@ -19,6 +19,7 @@ use App\Http\Controllers\Authenticated\CRM\OurBranchesController;
 use App\Http\Controllers\Authenticated\CRM\AuthorizedBrandsController;
 use App\Http\Controllers\Authenticated\CRM\MajorClientsController;
 use App\Http\Controllers\Authenticated\CRM\StaffController;
+use App\Http\Controllers\Authenticated\CRM\VendorController;
 use App\Http\Controllers\Authenticated\CRM\StaffContactController;
 use App\Http\Controllers\Authenticated\CRM\StaffEducationController;
 use App\Http\Controllers\Authenticated\CRM\StaffCertificationsController;
@@ -77,6 +78,8 @@ Route::group(['prefix' => 'crm'], function () {
         Route::apiResource('/major-clients', MajorClientsController::class);
         Route::apiResource('/staff', StaffController::class);
         Route::get('/rawData/staff', [StaffController::class, 'staffRaw']);
+        Route::apiResource('/vendors', VendorController::class);
+        Route::get('/rawData/vendors', [VendorController::class, 'vendorsRaw']);
         Route::get('/rawData/store-item-instances', [WorkOrderStoreItemController::class, 'searchAvailable']);
         Route::apiResource('/roles', RoleController::class);
         Route::apiResource('/permissions', PermissionController::class);
