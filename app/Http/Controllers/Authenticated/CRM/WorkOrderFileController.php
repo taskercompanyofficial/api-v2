@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipStream\ZipStream;
-use ZipStream\Option\Archive as ArchiveOptions;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderFileController extends Controller
@@ -296,12 +295,11 @@ class WorkOrderFileController extends Controller
             // Use StreamedResponse and ZipStream for maximum performance
             // This starts the download immediately without building a large file on disk
             return new StreamedResponse(function () use ($files, $archiveName) {
-                $options = new ArchiveOptions();
-                $options->setSendHttpHeaders(true);
-                $options->setFlushOutput(true);
-                $options->setContentType('application/zip');
-
-                $zip = new ZipStream($archiveName, $options);
+                $zip = new ZipStream(
+                    outputName: $archiveName,
+                    contentType: 'application/zip',
+                    sendHttpHeaders: true,
+                );
 
                 $usedFileNames = [];
                 foreach ($files as $file) {
