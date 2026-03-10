@@ -231,10 +231,15 @@ class WorkOrderFileController extends Controller
             // Log for debugging
             Log::info("Downloading file: {$actualFileName} (ID: {$file->id}, MIME: {$mimeType})");
 
+            // Clean any pending output to prevent corruption
+            while (ob_get_level()) ob_end_clean();
+
             return response()->download($filePath, $actualFileName, [
                 'Content-Type' => $mimeType,
                 'Content-Disposition' => 'attachment; filename="' . $actualFileName . '"',
+                'Content-Length' => filesize($filePath),
                 'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'X-Accel-Buffering' => 'no',
             ]);
         } catch (\Exception $err) {
             Log::error("Download error for file ID {$fileId}: " . $err->getMessage());
@@ -374,31 +379,29 @@ class WorkOrderFileController extends Controller
             }
             $totalArchiveSize += 22; // End of Central Directory record
 
-            // For very large archives, Zip64 might be used adding 20+56 bytes, 
-            // but for normal usage this is the exact byte count.
+            // For streaming archives, exact Content-Length is often problematic for browsers if 
+            // the server environment (Gzip/Docker) alters the stream.
+            // We'll let the browser stream it naturally for maximum reliability.
 
-            // Ensure no output has started
-            if (ob_get_level()) ob_end_clean();
+            // Ensure NO output has started and NO buffers are active
+            while (ob_get_level()) ob_end_clean();
 
-            // Set headers manually for maximum speed and progress bar support
+            // Minimal, clean headers for maximum compatibility
             header('Content-Type: application/zip');
             header('Content-Disposition: attachment; filename="' . $archiveName . '"');
-            header('Content-Length: ' . $totalArchiveSize);
             header('Cache-Control: no-cache, no-store, must-revalidate');
             header('Pragma: public');
             header('X-Accel-Buffering: no');
-            header('Connection: close');
 
             $zip = new ZipStream(
                 outputName: $archiveName,
-                sendHttpHeaders: false, // We sent them manually
+                sendHttpHeaders: false, 
                 defaultCompressionMethod: CompressionMethod::STORE,
             );
 
             $usedFileNames = [];
             foreach ($preparedFiles as $p) {
                 $fileName = $p['name'];
-                // Ensure unique filenames within archive
                 if (isset($usedFileNames[$fileName])) {
                     $usedFileNames[$fileName]++;
                     $parts = pathinfo($fileName);
@@ -408,12 +411,9 @@ class WorkOrderFileController extends Controller
                 }
 
                 $zip->addFileFromPath($fileName, $p['path']);
-                // Flush occasionally to keep the connection alive
-                if (function_exists('flush')) flush();
             }
 
-            $zip->finish();
-            exit; // Terminates the request immediately after finishing the ZIP stream
+            return $zip->finish();
 
         } catch (\Exception $err) {
             Log::error("Archive streaming error for work order {$workOrderId}: " . $err->getMessage());
