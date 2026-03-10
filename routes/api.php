@@ -8,6 +8,11 @@ use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Authenticated\CRM\WorkOrderFileController;
+
+// Direct download routes (authenticated via token in controller)
+Route::match(['get', 'post'], 'crm/work-orders/{workOrderId}/files/download-all', [WorkOrderFileController::class, 'downloadAllAsArchive']);
+Route::get('crm/work-orders/{workOrderId}/files/{fileId}/download', [WorkOrderFileController::class, 'download']);
 
 Route::get('/user', function (Request $request) {
     return $request->user();

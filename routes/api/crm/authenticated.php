@@ -259,8 +259,6 @@ Route::group(['prefix' => 'crm'], function () {
         Route::prefix('work-orders/{workOrderId}')->group(function () {
             Route::get('/files', [WorkOrderFileController::class, 'index']);
             Route::post('/files', [WorkOrderFileController::class, 'store']);
-            Route::match(['get', 'post'], '/files/download-all', [WorkOrderFileController::class, 'downloadAllAsArchive']);
-            Route::get('/files/{fileId}/download', [WorkOrderFileController::class, 'download'])->name('crm.work-order-files.download');
             Route::patch('/files/{fileId}', [WorkOrderFileController::class, 'update']);
             Route::delete('/files/{fileId}', [WorkOrderFileController::class, 'destroy']);
             Route::post('/files/{fileId}/approval', [WorkOrderFileController::class, 'updateApproval']);

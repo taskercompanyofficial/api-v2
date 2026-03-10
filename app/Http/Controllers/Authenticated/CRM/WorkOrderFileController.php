@@ -179,13 +179,24 @@ class WorkOrderFileController extends Controller
     public function download(Request $request, $workOrderId, $fileId)
     {
         try {
-            // Support token auth for direct browser/IDM downloads
+            // Manual Sanctum token validation for direct/IDM downloads
             if (!$request->user() && $request->has('token')) {
-                // We'll trust the token if provided, but in a production environment
-                // you'd typically validate it with Sanctum manually here.
+                $tokenString = $request->query('token');
+                if (str_contains($tokenString, '|')) {
+                    $tokenString = explode('|', $tokenString)[1];
+                }
+                
+                $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenString);
+                
+                if ($accessToken && $accessToken->tokenable) {
+                    $request->setUserResolver(fn() => $accessToken->tokenable);
+                }
             }
 
-            $request->headers->set('Authorization', 'Bearer ' . $request->query('token'));
+            // Ensure we are authenticated (either via middleware OR via the manual token above)
+            if (!$request->user()) {
+                return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
+            }
 
             $file = WorkOrderFile::where('work_order_id', $workOrderId)
                 ->where('id', $fileId)
@@ -275,9 +286,23 @@ class WorkOrderFileController extends Controller
      */
     public function downloadAllAsArchive(Request $request, $workOrderId)
     {
-        // Support token in query string for direct browser downloads
-        if ($request->has('token') && !$request->headers->has('Authorization')) {
-            $request->headers->set('Authorization', 'Bearer ' . $request->query('token'));
+        // Support manual Sanctum token validation for direct browser downloads
+        if (!$request->user() && $request->has('token')) {
+            $tokenString = $request->query('token');
+            if (str_contains($tokenString, '|')) {
+                $tokenString = explode('|', $tokenString)[1];
+            }
+            
+            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($tokenString);
+            
+            if ($accessToken && $accessToken->tokenable) {
+                $request->setUserResolver(fn() => $accessToken->tokenable);
+            }
+        }
+
+        // Must be authenticated
+        if (!$request->user()) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
         }
 
         $validated = $request->validate([
