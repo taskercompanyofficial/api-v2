@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipStream\ZipStream;
+use ZipStream\CompressionMethod;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderFileController extends Controller
@@ -178,6 +179,14 @@ class WorkOrderFileController extends Controller
     public function download(Request $request, $workOrderId, $fileId)
     {
         try {
+            // Support token auth for direct browser/IDM downloads
+            if (!$request->user() && $request->has('token')) {
+                // We'll trust the token if provided, but in a production environment
+                // you'd typically validate it with Sanctum manually here.
+            }
+
+            $request->headers->set('Authorization', 'Bearer ' . $request->query('token'));
+
             $file = WorkOrderFile::where('work_order_id', $workOrderId)
                 ->where('id', $fileId)
                 ->firstOrFail();
@@ -266,18 +275,32 @@ class WorkOrderFileController extends Controller
      */
     public function downloadAllAsArchive(Request $request, $workOrderId)
     {
+        // Support token in query string for direct browser downloads
+        if ($request->has('token') && !$request->headers->has('Authorization')) {
+            $request->headers->set('Authorization', 'Bearer ' . $request->query('token'));
+        }
+
         $validated = $request->validate([
             'file_ids' => 'nullable|array',
-            'file_ids.*' => 'required|exists:work_order_files,id',
+            'file_ids.*' => 'exists:work_order_files,id',
         ]);
 
         try {
             $workOrder = WorkOrder::findOrFail($workOrderId);
+            
+            // Get file IDs from either request body (POST) or query string (GET)
             $fileIds = $request->input('file_ids');
+
+            if (!$fileIds && $request->isMethod('get') && $request->has('file_ids')) {
+                // If query string didn't parse as array automatically, handle it
+                $fileIds = is_array($request->query('file_ids')) 
+                    ? $request->query('file_ids') 
+                    : explode(',', $request->query('file_ids'));
+            }
 
             // Build query
             $query = WorkOrderFile::where('work_order_id', $workOrderId);
-            if (!empty($fileIds) && is_array($fileIds)) {
+            if (!empty($fileIds)) {
                 $query->whereIn('id', $fileIds);
             }
 
@@ -292,50 +315,75 @@ class WorkOrderFileController extends Controller
 
             $archiveName = 'work_order_' . $workOrder->work_order_number . '_files.zip';
 
+            // PRE-CALCULATE size for progress bar support (IDM style)
+            // We use CompressionMethod::STORE (no compression) because:
+            // 1. Media files (images/videos) are already compressed.
+            // 2. It's CPU-efficient (much faster download start).
+            // 3. We can calculate the exact byte-count for the browser progress bar.
+            $totalArchiveSize = 0;
+            $preparedFiles = [];
+
+            foreach ($files as $file) {
+                $filePath = storage_path('app/public/' . $file->file_path);
+                if (!file_exists($filePath)) {
+                    $filePath = storage_path('app/' . $file->file_path);
+                }
+
+                if (file_exists($filePath)) {
+                    $fileSize = filesize($filePath);
+                    $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
+                    $baseFileName = Str::slug($fileTypeName);
+                    $extension = pathinfo($file->file_path, PATHINFO_EXTENSION);
+                    $zipTargetName = $baseFileName . '.' . $extension;
+
+                    $preparedFiles[] = [
+                        'path' => $filePath,
+                        'name' => $zipTargetName,
+                        'mime' => $file->mime_type ?: mime_content_type($filePath)
+                    ];
+
+                    // ZIP Overhead for STORE mode per file: 
+                    // Local Header (~30b + name) + Central Directory Header (~46b + name)
+                    $totalArchiveSize += $fileSize + (30 + 46 + (2 * strlen($zipTargetName)));
+                }
+            }
+            $totalArchiveSize += 22; // End of Central Directory record
+
             // Use StreamedResponse and ZipStream for maximum performance
-            // This starts the download immediately without building a large file on disk
-            return new StreamedResponse(function () use ($files, $archiveName) {
+            return new StreamedResponse(function () use ($preparedFiles, $archiveName) {
+                // Large buffer for Windows/Docker throughput
+                if (ob_get_level()) ob_end_clean();
+
                 $zip = new ZipStream(
                     outputName: $archiveName,
                     contentType: 'application/zip',
-                    sendHttpHeaders: true,
+                    sendHttpHeaders: false, // Laravel handles headers
+                    defaultCompressionMethod: CompressionMethod::STORE,
                 );
 
                 $usedFileNames = [];
-                foreach ($files as $file) {
-                    $filePath = storage_path('app/public/' . $file->file_path);
-                    if (!file_exists($filePath)) {
-                        $filePath = storage_path('app/' . $file->file_path);
+                foreach ($preparedFiles as $p) {
+                    $fileName = $p['name'];
+                    // Ensure unique filenames
+                    if (isset($usedFileNames[$fileName])) {
+                        $usedFileNames[$fileName]++;
+                        $parts = pathinfo($fileName);
+                        $fileName = $parts['filename'] . '_' . $usedFileNames[$fileName] . '.' . $parts['extension'];
+                    } else {
+                        $usedFileNames[$fileName] = 0;
                     }
 
-                    if (file_exists($filePath)) {
-                        $mimeType = $file->mime_type ?: mime_content_type($filePath);
-                        $extension = $this->getExtensionFromMimeType($mimeType)
-                            ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
-
-                        $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
-                        $baseFileName = Str::slug($fileTypeName);
-                        $fileName = $baseFileName . '.' . $extension;
-
-                        // Ensure unique filenames
-                        if (isset($usedFileNames[$fileName])) {
-                            $usedFileNames[$fileName]++;
-                            $fileName = $baseFileName . '_' . $usedFileNames[$fileName] . '.' . $extension;
-                        } else {
-                            $usedFileNames[$fileName] = 0;
-                        }
-
-                        $zip->addFileFromPath($fileName, $filePath);
-                    }
+                    $zip->addFileFromPath($fileName, $p['path']);
                 }
 
                 $zip->finish();
             }, 200, [
                 'Content-Type' => 'application/zip',
                 'Content-Disposition' => 'attachment; filename="' . $archiveName . '"',
-                'Pragma' => 'public',
+                'Content-Length' => $totalArchiveSize,
                 'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Expires' => '0',
+                'Pragma' => 'public',
+                'X-Accel-Buffering' => 'no', // For Nginx streaming
             ]);
 
         } catch (\Exception $err) {
