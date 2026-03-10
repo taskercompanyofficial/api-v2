@@ -80,6 +80,7 @@ class WorkOrder extends Model
         'sub_status_id',
         'assigned_to_id',
         'assigned_vendor_id',
+        'vendor_staff_id',
         'assigned_at',
         'accepted_at',
         'rejected_at',
@@ -260,6 +261,11 @@ class WorkOrder extends Model
         return $this->belongsTo(Vendor::class, 'assigned_vendor_id');
     }
 
+    public function vendorStaff(): BelongsTo
+    {
+        return $this->belongsTo(VendorStaff::class, 'vendor_staff_id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'created_by');
@@ -340,8 +346,8 @@ class WorkOrder extends Model
 
     public function calculateTotal(): void
     {
-        $this->total_amount = (float) ($this->services()->sum('final_price') ?? 0);
-        $this->final_amount = (float) ($this->total_amount - ($this->discount ?? 0));
+        $this->total_amount = $this->services()->sum('final_price') ?? 0;
+        $this->final_amount = $this->total_amount - ($this->discount ?? 0);
         $this->save();
     }
 

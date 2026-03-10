@@ -31,8 +31,13 @@ Route::group(['prefix' => 'vendor'], function () {
         Route::post('/work-orders/{id}/update-status-by-slug', [WorkOrderController::class, 'updateStatusBySlug']);
         Route::post('/work-orders/{id}/schedule', [WorkOrderController::class, 'schedule']);
         Route::post('/work-orders/{id}/cancel', [WorkOrderController::class, 'cancel']);
+        Route::post('/work-orders/{id}/assign-staff', [WorkOrderController::class, 'assignStaff']);
         Route::post('/work-orders/{id}/upload-file', [WorkOrderController::class, 'uploadFile']);
         Route::delete('/work-orders/{id}/files/{fileId}', [WorkOrderController::class, 'deleteFile']);
+
+        // Staff Management
+        Route::get('/staff', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'index']);
+        Route::post('/staff', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'store']);
 
         // Lookups
         Route::get('/work-orders/service-concerns', [WorkOrderController::class, 'getServiceConcerns']);

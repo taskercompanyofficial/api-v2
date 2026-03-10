@@ -236,6 +236,7 @@ class WorkOrderController extends Controller
                     'serviceConcern',
                     'serviceSubConcern',
                     'warrantyType',
+                    'vendorStaff',
                 ]),
             ]);
         } catch (Exception $e) {
@@ -693,6 +694,57 @@ class WorkOrderController extends Controller
             $result = $this->statusService->cancelWorkOrder($workOrder, $request->reason, $vendor->id);
 
             return response()->json($result);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Assign staff to work order
+     */
+    public function assignStaff(string $id, Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'vendor_staff_id' => 'required|exists:vendor_staff,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $vendor = $request->user();
+            $workOrder = WorkOrder::where('assigned_vendor_id', $vendor->id)
+                ->findOrFail($id);
+
+            // Verify staff belongs to this vendor and is approved
+            $staff = \App\Models\VendorStaff::where('vendor_id', $vendor->id)
+                ->where('id', $request->vendor_staff_id)
+                ->where('status', 'approved')
+                ->first();
+
+            if (!$staff) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid or unapproved staff member selected.',
+                ], 422);
+            }
+
+            $workOrder->vendor_staff_id = $staff->id;
+            $workOrder->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Work order assigned to {$staff->name} successfully.",
+                'data' => $workOrder->fresh(['vendorStaff']),
+            ]);
         } catch (Exception $e) {
             return response()->json([
                 'status' => 'error',

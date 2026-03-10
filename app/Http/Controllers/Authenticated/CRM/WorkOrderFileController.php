@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use ZipStream\ZipStream;
+use ZipStream\Option\Archive as ArchiveOptions;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderFileController extends Controller
 {
@@ -197,14 +200,17 @@ class WorkOrderFileController extends Controller
             }
 
             // Get actual filename from path (preserves original extension)
-            $actualFileName = basename($file->file_path);
+            $actualFileName = $file->file_name ?: basename($file->file_path);
 
-            // Detect MIME type from actual file if not stored or if stored one seems wrong
-            $detectedMimeType = mime_content_type($filePath);
-            $mimeType = $detectedMimeType ?: ($file->mime_type ?: 'application/octet-stream');
+            // Detect MIME type - prioritize stored MIME type, then detected, then default
+            $mimeType = $file->mime_type;
+            if (!$mimeType && file_exists($filePath)) {
+                $mimeType = mime_content_type($filePath);
+            }
+            $mimeType = $mimeType ?: 'application/octet-stream';
 
             // Log for debugging
-            Log::info("Downloading file: {$actualFileName} (Stored MIME: {$file->mime_type}, Detected MIME: {$detectedMimeType})");
+            Log::info("Downloading file: {$actualFileName} (ID: {$file->id}, MIME: {$mimeType})");
 
             return response()->download($filePath, $actualFileName, [
                 'Content-Type' => $mimeType,
@@ -267,142 +273,78 @@ class WorkOrderFileController extends Controller
         ]);
 
         try {
-            // Remove limits for large file handling
-            set_time_limit(0); // No time limit
-            ini_set('memory_limit', '-1'); // No memory limit
-
             $workOrder = WorkOrder::findOrFail($workOrderId);
-
-            // Get file IDs from request (optional - if not provided, get all files)
             $fileIds = $request->input('file_ids');
 
             // Build query
             $query = WorkOrderFile::where('work_order_id', $workOrderId);
-
-            // If specific file IDs are provided, filter by them
             if (!empty($fileIds) && is_array($fileIds)) {
                 $query->whereIn('id', $fileIds);
             }
 
-            // nothing to download
             $files = $query->with('fileType')->get();
 
             if ($files->isEmpty()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'No files found for this work order',
+                    'message' => 'No files found to download',
                 ], 404);
             }
 
-            // Create temporary directory for archive
-            $tempDir = storage_path('app/temp');
-            if (!file_exists($tempDir)) {
-                mkdir($tempDir, 0755, true);
-            }
+            $archiveName = 'work_order_' . $workOrder->work_order_number . '_files.zip';
 
-            // Archive filenames
-            $archiveName = 'work_order_' . $workOrder->work_order_number . '_files';
-            $tarPath = $tempDir . '/' . $archiveName . '.tar';
-            $gzPath = $tarPath . '.gz';
+            // Use StreamedResponse and ZipStream for maximum performance
+            // This starts the download immediately without building a large file on disk
+            return new StreamedResponse(function () use ($files, $archiveName) {
+                $options = new ArchiveOptions();
+                $options->setSendHttpHeaders(true);
+                $options->setFlushOutput(true);
+                $options->setContentType('application/zip');
 
-            // Remove existing archives if they exist
-            if (file_exists($gzPath)) {
-                unlink($gzPath);
-            }
-            if (file_exists($tarPath)) {
-                unlink($tarPath);
-            }
+                $zip = new ZipStream($archiveName, $options);
 
-            // Create TAR archive
-            $phar = new \PharData($tarPath);
-
-            $addedFiles = 0;
-            $usedFileNames = [];
-            foreach ($files as $file) {
-                // Get the full path to the file
-                $filePath = storage_path('app/public/' . $file->file_path);
-
-                // Fallback: check if it's stored in app/ directly
-                if (!file_exists($filePath)) {
-                    $filePath = storage_path('app/' . $file->file_path);
-                }
-
-                if (file_exists($filePath)) {
-                    // Detect actual MIME type from the file content
-                    $detectedMimeType = mime_content_type($filePath);
-
-                    // Get extension from MIME type (more accurate)
-                    $extension = $this->getExtensionFromMimeType($detectedMimeType)
-                        ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
-
-                    // Use file type name as the filename
-                    $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
-
-                    // Create filename with correct extension
-                    $fileName = $fileTypeName . '.' . $extension;
-
-                    // Ensure unique filenames by appending counter if duplicate
-                    if (in_array($fileName, $usedFileNames)) {
-                        $counter = 1;
-                        do {
-                            $fileName = $fileTypeName . '_' . $counter . '.' . $extension;
-                            $counter++;
-                        } while (in_array($fileName, $usedFileNames));
+                $usedFileNames = [];
+                foreach ($files as $file) {
+                    $filePath = storage_path('app/public/' . $file->file_path);
+                    if (!file_exists($filePath)) {
+                        $filePath = storage_path('app/' . $file->file_path);
                     }
-                    $usedFileNames[] = $fileName;
 
-                    $phar->addFile($filePath, $fileName);
-                    $addedFiles++;
-                } else {
-                    Log::warning("File not found for archive: {$file->file_path} (ID: {$file->id})");
+                    if (file_exists($filePath)) {
+                        $mimeType = $file->mime_type ?: mime_content_type($filePath);
+                        $extension = $this->getExtensionFromMimeType($mimeType)
+                            ?: pathinfo($file->file_path, PATHINFO_EXTENSION);
+
+                        $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
+                        $baseFileName = Str::slug($fileTypeName);
+                        $fileName = $baseFileName . '.' . $extension;
+
+                        // Ensure unique filenames
+                        if (isset($usedFileNames[$fileName])) {
+                            $usedFileNames[$fileName]++;
+                            $fileName = $baseFileName . '_' . $usedFileNames[$fileName] . '.' . $extension;
+                        } else {
+                            $usedFileNames[$fileName] = 0;
+                        }
+
+                        $zip->addFileFromPath($fileName, $filePath);
+                    }
                 }
-            }
 
-            if ($addedFiles === 0) {
-                // Clean up
-                if (file_exists($tarPath)) {
-                    unlink($tarPath);
-                }
+                $zip->finish();
+            }, 200, [
+                'Content-Type' => 'application/zip',
+                'Content-Disposition' => 'attachment; filename="' . $archiveName . '"',
+                'Pragma' => 'public',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Expires' => '0',
+            ]);
 
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'No files could be found on the server',
-                ], 404);
-            }
-
-            // Compress to .tar.gz
-            $phar->compress(\Phar::GZ);
-
-            // Remove the uncompressed .tar file
-            if (file_exists($tarPath)) {
-                unlink($tarPath);
-            }
-
-            // Return the .tar.gz file for download
-            $downloadName = $archiveName . '.tar.gz';
-
-            return response()->download($gzPath, $downloadName, [
-                'Content-Type' => 'application/gzip',
-            ])->deleteFileAfterSend(true);
         } catch (\Exception $err) {
-            Log::error("Archive creation error for work order {$workOrderId}: " . $err->getMessage());
-
-            // Clean up any partial files
-            $tempDir = storage_path('app/temp');
-            $archiveName = 'work_order_' . ($workOrder->work_order_number ?? $workOrderId) . '_files';
-            $tarPath = $tempDir . '/' . $archiveName . '.tar';
-            $gzPath = $tarPath . '.gz';
-
-            if (file_exists($gzPath)) {
-                unlink($gzPath);
-            }
-            if (file_exists($tarPath)) {
-                unlink($tarPath);
-            }
-
+            Log::error("Archive streaming error for work order {$workOrderId}: " . $err->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred while creating the archive: ' . $err->getMessage(),
+                'message' => 'An error occurred while preparing the download.',
             ], 500);
         }
     }
