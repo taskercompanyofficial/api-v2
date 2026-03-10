@@ -341,10 +341,6 @@ class WorkOrderFileController extends Controller
             $archiveName = 'work_order_' . $workOrder->work_order_number . '_files.zip';
 
             // PRE-CALCULATE size for progress bar support (IDM style)
-            // We use CompressionMethod::STORE (no compression) because:
-            // 1. Media files (images/videos) are already compressed.
-            // 2. It's CPU-efficient (much faster download start).
-            // 3. We can calculate the exact byte-count for the browser progress bar.
             $totalArchiveSize = 0;
             $preparedFiles = [];
 
@@ -357,59 +353,67 @@ class WorkOrderFileController extends Controller
                 if (file_exists($filePath)) {
                     $fileSize = filesize($filePath);
                     $fileTypeName = $file->fileType?->name ?? $file->file_type ?? 'file';
+                    
+                    // Sanitize filename
                     $baseFileName = Str::slug($fileTypeName);
-                    $extension = pathinfo($file->file_path, PATHINFO_EXTENSION);
+                    $extension = strtolower(pathinfo($file->file_path, PATHINFO_EXTENSION));
                     $zipTargetName = $baseFileName . '.' . $extension;
 
                     $preparedFiles[] = [
                         'path' => $filePath,
                         'name' => $zipTargetName,
-                        'mime' => $file->mime_type ?: mime_content_type($filePath)
+                        'size' => $fileSize
                     ];
 
-                    // ZIP Overhead for STORE mode per file: 
-                    // Local Header (~30b + name) + Central Directory Header (~46b + name)
-                    $totalArchiveSize += $fileSize + (30 + 46 + (2 * strlen($zipTargetName)));
+                    // ZIP Overhead for STORE mode with Data Descriptor is exactly:
+                    // Local Header: 30 bytes + nameLen
+                    // Data Descriptor: 16 bytes (ZipStream uses this by default for streaming)
+                    // Central Directory Header: 46 bytes + nameLen
+                    $totalArchiveSize += $fileSize + (30 + 16 + 46 + (2 * strlen($zipTargetName)));
                 }
             }
             $totalArchiveSize += 22; // End of Central Directory record
 
-            // Use StreamedResponse and ZipStream for maximum performance
-            return new StreamedResponse(function () use ($preparedFiles, $archiveName) {
-                // Large buffer for Windows/Docker throughput
-                if (ob_get_level()) ob_end_clean();
+            // For very large archives, Zip64 might be used adding 20+56 bytes, 
+            // but for normal usage this is the exact byte count.
 
-                $zip = new ZipStream(
-                    outputName: $archiveName,
-                    contentType: 'application/zip',
-                    sendHttpHeaders: false, // Laravel handles headers
-                    defaultCompressionMethod: CompressionMethod::STORE,
-                );
+            // Ensure no output has started
+            if (ob_get_level()) ob_end_clean();
 
-                $usedFileNames = [];
-                foreach ($preparedFiles as $p) {
-                    $fileName = $p['name'];
-                    // Ensure unique filenames
-                    if (isset($usedFileNames[$fileName])) {
-                        $usedFileNames[$fileName]++;
-                        $parts = pathinfo($fileName);
-                        $fileName = $parts['filename'] . '_' . $usedFileNames[$fileName] . '.' . $parts['extension'];
-                    } else {
-                        $usedFileNames[$fileName] = 0;
-                    }
+            // Set headers manually for maximum speed and progress bar support
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $archiveName . '"');
+            header('Content-Length: ' . $totalArchiveSize);
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: public');
+            header('X-Accel-Buffering: no');
+            header('Connection: close');
 
-                    $zip->addFileFromPath($fileName, $p['path']);
+            $zip = new ZipStream(
+                outputName: $archiveName,
+                sendHttpHeaders: false, // We sent them manually
+                defaultCompressionMethod: CompressionMethod::STORE,
+            );
+
+            $usedFileNames = [];
+            foreach ($preparedFiles as $p) {
+                $fileName = $p['name'];
+                // Ensure unique filenames within archive
+                if (isset($usedFileNames[$fileName])) {
+                    $usedFileNames[$fileName]++;
+                    $parts = pathinfo($fileName);
+                    $fileName = $parts['filename'] . '_' . $usedFileNames[$fileName] . '.' . ($parts['extension'] ?? 'file');
+                } else {
+                    $usedFileNames[$fileName] = 0;
                 }
 
-                $zip->finish();
-            }, 200, [
-                'Content-Type' => 'application/zip',
-                'Content-Disposition' => 'attachment; filename="' . $archiveName . '"',
-                'Content-Length' => $totalArchiveSize,
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Pragma' => 'public',
-                'X-Accel-Buffering' => 'no', // For Nginx streaming
-            ]);
+                $zip->addFileFromPath($fileName, $p['path']);
+                // Flush occasionally to keep the connection alive
+                if (function_exists('flush')) flush();
+            }
+
+            $zip->finish();
+            exit; // Terminates the request immediately after finishing the ZIP stream
 
         } catch (\Exception $err) {
             Log::error("Archive streaming error for work order {$workOrderId}: " . $err->getMessage());
