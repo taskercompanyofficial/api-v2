@@ -33,6 +33,27 @@ class WorkOrderController extends Controller
     }
 
     /**
+     * Resolve the vendor ID from the authenticated user.
+     * Works for both Vendor and VendorStaff users.
+     */
+    protected function resolveVendorId(Request $request): int
+    {
+        $user = $request->user();
+        if ($user instanceof \App\Models\VendorStaff) {
+            return $user->vendor_id;
+        }
+        return $user->id;
+    }
+
+    /**
+     * Check if the authenticated user is a VendorStaff
+     */
+    protected function isStaffUser(Request $request): bool
+    {
+        return $request->user() instanceof \App\Models\VendorStaff;
+    }
+
+    /**
      * Get all file types
      */
     public function getFileTypes(): JsonResponse
@@ -60,9 +81,9 @@ class WorkOrderController extends Controller
     public function summary(Request $request): JsonResponse
     {
         try {
-            $vendor = $request->user();
+            $vendorId = $this->resolveVendorId($request);
 
-            $baseQuery = WorkOrder::where('assigned_vendor_id', $vendor->id);
+            $baseQuery = WorkOrder::where('assigned_vendor_id', $vendorId);
 
             // Total Work Orders
             $total = (clone $baseQuery)->count();
@@ -132,7 +153,7 @@ class WorkOrderController extends Controller
                 'brand:id,name',
                 'serviceConcern:id,name',
                 'serviceSubConcern:id,name',
-            ])->where('assigned_vendor_id', $vendor->id);
+            ])->where('assigned_vendor_id', $this->resolveVendorId($request));
 
             // Search by work order number or customer phone
             if ($request->has('search') && !empty($request->search)) {
@@ -174,6 +195,19 @@ class WorkOrderController extends Controller
 
             $workOrders = $query->orderBy('created_at', 'desc')->get();
 
+            if ($this->isStaffUser($request)) {
+                $workOrders->each(function (\App\Models\WorkOrder $order) {
+                    $order->makeHidden([
+                        'total_amount',
+                        'discount',
+                        'final_amount',
+                        'payment_status',
+                        'charges',
+                        'attachments'
+                    ]);
+                });
+            }
+
             return response()->json([
                 'status' => 'success',
                 'data' => $workOrders,
@@ -206,38 +240,56 @@ class WorkOrderController extends Controller
                 'brand',
                 'branch',
                 'assignedVendor',
-                'files' => function ($query) use ($vendor) {
-                    $query->where('uploaded_by_id', $vendor->id);
+                'files' => function ($query) use ($request) {
+                    $user = $request->user();
+                    // Resolve the ID used for filtering uploaded files. 
+                    // If it's a vendor, we use their ID. If it's staff, we use their ID? 
+                    // Actually, files are often filtered by vendor_id or uploaded_by_id. 
+                    // Assuming uploaded_by_id is what's used here.
+                    $query->where('uploaded_by_id', $user->id);
                 },
                 'files.fileType',
                 'serviceConcern',
                 'serviceSubConcern',
-            ])->where('assigned_vendor_id', $vendor->id)
+            ])->where('assigned_vendor_id', $this->resolveVendorId($request))
                 ->findOrFail($id);
+
+            $data = $workOrder->fresh([
+                'customer',
+                'address',
+                'status',
+                'subStatus',
+                'category',
+                'service',
+                'parentService.requiredFileTypes.fileType',
+                'product',
+                'brand',
+                'branch',
+                'assignedVendor',
+                'files' => function ($query) use ($request) {
+                    $query->where('uploaded_by_id', $request->user()->id);
+                },
+                'files.fileType',
+                'serviceConcern',
+                'serviceSubConcern',
+                'warrantyType',
+                'vendorStaff',
+            ]);
+
+            if ($this->isStaffUser($request)) {
+                $data->makeHidden([
+                    'total_amount',
+                    'discount',
+                    'final_amount',
+                    'payment_status',
+                    'charges',
+                    'attachments'
+                ]);
+            }
 
             return response()->json([
                 'status' => 'success',
-                'data' => $workOrder->fresh([
-                    'customer',
-                    'address',
-                    'status',
-                    'subStatus',
-                    'category',
-                    'service',
-                    'parentService.requiredFileTypes.fileType',
-                    'product',
-                    'brand',
-                    'branch',
-                    'assignedVendor',
-                    'files' => function ($query) use ($vendor) {
-                        $query->where('uploaded_by_id', $vendor->id);
-                    },
-                    'files.fileType',
-                    'serviceConcern',
-                    'serviceSubConcern',
-                    'warrantyType',
-                    'vendorStaff',
-                ]),
+                'data' => $data,
             ]);
         } catch (Exception $e) {
             return response()->json([

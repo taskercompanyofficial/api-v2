@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\Vendor\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\Vendor\OtpController;
+use App\Http\Controllers\Auth\VendorStaff\AuthController as VendorStaffAuthController;
 use App\Http\Controllers\Authenticated\Vendor\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,5 +44,21 @@ Route::group(['prefix' => 'vendor'], function () {
         Route::get('/work-orders/service-concerns', [WorkOrderController::class, 'getServiceConcerns']);
         Route::get('/work-orders/service-concerns/{id}/sub-concerns', [WorkOrderController::class, 'getServiceSubConcerns']);
         Route::get('/work-orders/warranty-types', [WorkOrderController::class, 'getWarrantyTypes']);
+    });
+});
+
+// Vendor Staff Auth Routes (separate guard)
+Route::group(['prefix' => 'vendor-staff'], function () {
+    Route::post('/login', [VendorStaffAuthController::class, 'login']);
+
+    Route::group(['middleware' => 'auth:sanctum'], function () {
+        Route::get('/me', [VendorStaffAuthController::class, 'me']);
+        Route::post('/sign-out', [VendorStaffAuthController::class, 'signOut']);
+        Route::post('/change-password', [VendorStaffAuthController::class, 'changePassword']);
+
+        // Staff can view assigned work orders (read-only)
+        Route::get('/work-orders', [WorkOrderController::class, 'index']);
+        Route::get('/work-orders/{id}', [WorkOrderController::class, 'show']);
+        Route::get('/work-orders/summary', [WorkOrderController::class, 'summary']);
     });
 });

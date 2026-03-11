@@ -106,9 +106,11 @@ class AuthenticatedSessionController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+        $userData = $user->toArray();
+        $userData['user_type'] = 'vendor';
         return response()->json([
             'status' => 'success',
-            'user' => $user,
+            'user' => $userData,
         ]);
     }
 

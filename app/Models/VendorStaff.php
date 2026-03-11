@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-class VendorStaff extends Model
+class VendorStaff extends Authenticatable
 {
-    use HasFactory, SoftDeletes;
+    use HasApiTokens, Notifiable, HasFactory, SoftDeletes;
 
     protected $table = 'vendor_staff';
 
@@ -16,10 +18,16 @@ class VendorStaff extends Model
         'vendor_id',
         'name',
         'phone',
+        'email',
+        'password',
         'cnic',
         'cnic_front_image',
         'cnic_back_image',
         'status',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 
     public function vendor()

@@ -13,6 +13,14 @@ class StaffController extends Controller
     public function index(Request $request)
     {
         $vendor = $request->user();
+        
+        if (!$vendor instanceof \App\Models\Vendor) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. Only vendors can access staff records.',
+            ], 403);
+        }
+
         $staff = VendorStaff::where('vendor_id', $vendor->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -26,6 +34,13 @@ class StaffController extends Controller
     public function store(Request $request)
     {
         $vendor = $request->user();
+
+        if (!$vendor instanceof \App\Models\Vendor) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized. Only vendors can add staff members.',
+            ], 403);
+        }
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -49,6 +64,10 @@ class StaffController extends Controller
             $staff->phone = $request->phone;
             $staff->status = 'pending';
 
+            // Auto-generate password: last 6 digits of phone
+            $rawPassword = substr(preg_replace('/\D/', '', $request->phone), -6);
+            $staff->password = \Illuminate\Support\Facades\Hash::make($rawPassword);
+
             if ($request->hasFile('cnic_front')) {
                 $file = $request->file('cnic_front');
                 $filename = 'cnic_front_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
@@ -65,8 +84,9 @@ class StaffController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Staff member added successfully and is pending approval.',
+                'message' => 'Staff member added successfully. Default password: ' . $rawPassword,
                 'data' => $staff,
+                'default_password' => $rawPassword,
             ]);
         } catch (\Exception $e) {
             return response()->json([
