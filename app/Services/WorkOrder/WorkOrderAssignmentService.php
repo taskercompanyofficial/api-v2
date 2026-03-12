@@ -40,6 +40,13 @@ class WorkOrderAssignmentService
             throw new Exception("Either a Staff or a Vendor must be assigned.");
         }
 
+        // Logic to clear old assignment when switching
+        if ($staffId) {
+            $vendorId = null; // Clear vendor if staff is selected
+        } else if ($vendorId) {
+            $staffId = null; // Clear staff if vendor is selected
+        }
+
         // Get the Dispatched - Assigned to Technician status
         $dispatchedStatus = WorkOrderStatus::where('slug', 'dispatched')->first();
         $assignedToTechnicianSubStatus = WorkOrderStatus::where('slug', 'assigned-to-technician')
@@ -50,10 +57,10 @@ class WorkOrderAssignmentService
         $updateData = [
             'assigned_to_id' => $staffId,
             'assigned_vendor_id' => $vendorId,
+            'vendor_staff_id' => null, // Reset vendor staff whenever internal assignment happens
             'assigned_at' => now(),
             'status_id' => $dispatchedStatus?->id,
             'sub_status_id' => $assignedToTechnicianSubStatus?->id,
-            // 'notes' => $notes,
             'updated_by' => $currentUserId,
         ];
 

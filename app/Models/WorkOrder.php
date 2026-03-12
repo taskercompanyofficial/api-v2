@@ -181,6 +181,21 @@ class WorkOrder extends Model
                     $workOrder->status_id = $subStatus->parent_id;
                 }
             }
+
+            // Logic to clear old assignment when switching
+            if ($workOrder->isDirty('assigned_to_id') && $workOrder->assigned_to_id) {
+                $workOrder->assigned_vendor_id = null;
+                $workOrder->vendor_staff_id = null;
+            } elseif ($workOrder->isDirty('assigned_vendor_id') && $workOrder->assigned_vendor_id) {
+                $workOrder->assigned_to_id = null;
+            }
+
+            // Validate Serial Uniqueness for specific conditions
+            try {
+                $workOrder->validateSerialUniqueness();
+            } catch (\Exception $e) {
+                throw new \InvalidArgumentException($e->getMessage());
+            }
         });
     }
 
@@ -413,5 +428,45 @@ class WorkOrder extends Model
             'changed_by_id' => $cancelledBy->id,
             'changed_at' => now(),
         ]);
+    }
+
+    /**
+     * Validate cross-uniqueness of serial numbers for specific services and warranties
+     */
+    public function validateSerialUniqueness(): void
+    {
+        $parentServiceIds = [3, 51, 29, 24, 8];
+        $warrantyTypeIds = [1, 7];
+
+        $isRelevant = in_array((int)$this->parent_service_id, $parentServiceIds) && 
+                      in_array((int)$this->warranty_type_id, $warrantyTypeIds);
+
+        if (!$isRelevant) {
+            return;
+        }
+
+        if (!empty($this->indoor_serial_number)) {
+            $exists = self::where('id', '!=', $this->id)
+                ->where(function ($q) {
+                    $q->where('indoor_serial_number', $this->indoor_serial_number)
+                      ->orWhere('outdoor_serial_number', $this->indoor_serial_number);
+                })
+                ->exists();
+            if ($exists) {
+                throw new \Exception("The indoor serial number '{$this->indoor_serial_number}' is already used in another record.");
+            }
+        }
+
+        if (!empty($this->outdoor_serial_number)) {
+            $exists = self::where('id', '!=', $this->id)
+                ->where(function ($q) {
+                    $q->where('indoor_serial_number', $this->outdoor_serial_number)
+                      ->orWhere('outdoor_serial_number', $this->outdoor_serial_number);
+                })
+                ->exists();
+            if ($exists) {
+                throw new \Exception("The outdoor serial number '{$this->outdoor_serial_number}' is already used in another record.");
+            }
+        }
     }
 }

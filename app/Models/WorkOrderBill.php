@@ -23,6 +23,8 @@ class WorkOrderBill extends Model
         'payable_amount',
         'paid_amount',
         'balance_due',
+        'total_expense',
+        'total_profit',
         'status',
         'created_by',
         'updated_by',
@@ -40,6 +42,8 @@ class WorkOrderBill extends Model
         'payable_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'balance_due' => 'decimal:2',
+        'total_expense' => 'decimal:2',
+        'total_profit' => 'decimal:2',
     ];
 
     // Relationships
@@ -50,12 +54,12 @@ class WorkOrderBill extends Model
 
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(\App\Models\Staff::class, 'created_by');
     }
 
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(\App\Models\Staff::class, 'updated_by');
     }
 
     // Boot method to auto-fill audit fields
@@ -84,5 +88,26 @@ class WorkOrderBill extends Model
         $date = now()->format('dmy');
         $count = self::whereDate('created_at', today())->count() + 1;
         return "{$prefix}-{$workOrderNumber}-{$date}-{$count}";
+    }
+
+    /**
+     * Calculate totals based on breakdown data
+     */
+    public function calculateTotals(): void
+    {
+        $data = $this->data;
+        if (!$data || !isset($data['items']) || !is_array($data['items'])) {
+            return;
+        }
+
+        $totalExpense = 0;
+        foreach ($data['items'] as $item) {
+            $quantity = (float)($item['quantity'] ?? 1);
+            $expense = (float)($item['expense'] ?? 0);
+            $totalExpense += ($expense * $quantity);
+        }
+
+        $this->total_expense = $totalExpense;
+        $this->total_profit = $this->payable_amount - $totalExpense;
     }
 }

@@ -124,6 +124,8 @@ class WorkOrderBillController extends Controller
             'payable_amount' => 'required|numeric|min:0',
             'paid_amount' => 'nullable|numeric|min:0',
             'balance_due' => 'nullable|numeric',
+            'total_expense' => 'nullable|numeric|min:0',
+            'total_profit' => 'nullable|numeric',
             'status' => 'nullable|in:draft,sent,paid,overdue,cancelled',
         ]);
 
@@ -150,8 +152,16 @@ class WorkOrderBillController extends Controller
             'payable_amount' => $request->payable_amount ?? 0,
             'paid_amount' => $request->paid_amount ?? 0,
             'balance_due' => $request->balance_due ?? $request->payable_amount,
+            'total_expense' => $request->total_expense ?? 0,
+            'total_profit' => $request->total_profit ?? (($request->payable_amount ?? 0) - ($request->total_expense ?? 0)),
             'status' => $request->status ?? 'draft',
         ]);
+
+        // Auto-calculate totals if breakdown is provided and explicit totals were not or for safer approach
+        if (isset($request->data['items'])) {
+            $bill->calculateTotals();
+            $bill->save();
+        }
 
         return response()->json([
             'status' => 201,
@@ -200,6 +210,8 @@ class WorkOrderBillController extends Controller
             'payable_amount' => 'sometimes|numeric|min:0',
             'paid_amount' => 'nullable|numeric|min:0',
             'balance_due' => 'nullable|numeric',
+            'total_expense' => 'nullable|numeric|min:0',
+            'total_profit' => 'nullable|numeric',
             'status' => 'nullable|in:draft,sent,paid,overdue,cancelled',
         ]);
 
@@ -226,8 +238,15 @@ class WorkOrderBillController extends Controller
             'payable_amount',
             'paid_amount',
             'balance_due',
+            'total_expense',
+            'total_profit',
             'status',
         ]));
+
+        if (isset($request->data['items']) || $request->has('payable_amount')) {
+            $bill->calculateTotals();
+            $bill->save();
+        }
 
         return response()->json([
             'status' => 200,
