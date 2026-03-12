@@ -17,10 +17,12 @@ class VendorStaff extends Authenticatable
     protected $fillable = [
         'vendor_id',
         'name',
+        'image',
         'phone',
         'email',
         'password',
         'cnic',
+        'experience',
         'cnic_front_image',
         'cnic_back_image',
         'status',

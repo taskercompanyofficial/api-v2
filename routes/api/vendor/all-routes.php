@@ -39,6 +39,16 @@ Route::group(['prefix' => 'vendor'], function () {
         // Staff Management
         Route::get('/staff', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'index']);
         Route::post('/staff', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'store']);
+        Route::get('/staff/{id}', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'show']);
+        Route::put('/staff/{id}', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'update']);
+        Route::delete('/staff/{id}', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'destroy']);
+        Route::post('/staff/{id}/toggle-status', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'toggleStatus']);
+        Route::get('/staff/{id}/work-orders', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'staffWorkOrders']);
+        Route::post('/staff/{id}/reset-password', [\App\Http\Controllers\Authenticated\Vendor\StaffController::class, 'resetPassword']);
+
+        // Earnings & Rates
+        Route::get('/earnings', [\App\Http\Controllers\Authenticated\Vendor\EarningsController::class, 'index']);
+        Route::get('/rates', [\App\Http\Controllers\Authenticated\Vendor\VendorRateController::class, 'index']);
 
         // Lookups
         Route::get('/work-orders/service-concerns', [WorkOrderController::class, 'getServiceConcerns']);

@@ -42,10 +42,10 @@ class OtpController extends Controller
                     'message' => 'Invalid credentials',
                 ], 401);
             }
-            if ($vendor->status !== 'active') {
+            if ($vendor->status === 'inactive') {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Account is not active',
+                    'message' => 'Account is inactive/suspended.',
                 ], 403);
             }
         } else {
@@ -92,18 +92,45 @@ class OtpController extends Controller
         $isNew = false;
 
         if (! $vendor) {
-            // Registration path requires name and password
-            if (!isset($validated['name']) || !isset($validated['password'])) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Name and password are required for registration',
-                ], 422);
-            }
+            // Registration path requires these fields
+            $validatedRegistration = $request->validate([
+                'name' => 'required|string|max:255',
+                'password' => 'required|string|min:8',
+                'cnic' => 'nullable|string|max:20',
+                'dob' => 'nullable|date',
+                'experience' => 'nullable|string|max:255',
+                'handled_categories' => 'nullable|array',
+                'profile_image_file' => 'nullable|image|max:2048',
+                'cnic_front_file' => 'nullable|image|max:2048',
+                'cnic_back_file' => 'nullable|image|max:2048',
+            ]);
+
+            // Handle File Storage (Helper isn't in this class so we do it manually or add it)
+            $storeFile = function($file, $folder, $prefix) {
+                if (!$file) return null;
+                $fileName = $prefix . '_' . \Illuminate\Support\Str::random(10) . '.' . $file->getClientOriginalExtension();
+                return $file->storeAs($folder, $fileName, 'public');
+            };
+
+            $profileImagePath = $request->hasFile('profile_image_file')
+                ? $storeFile($request->file('profile_image_file'), 'vendors/profiles', 'profile')
+                : null;
+            $cnicFrontPath = $storeFile($request->file('cnic_front_file'), 'vendors/documents', 'cnic_f');
+            $cnicBackPath = $storeFile($request->file('cnic_back_file'), 'vendors/documents', 'cnic_b');
+
             $vendor = Vendor::create([
-                'name' => $validated['name'],
+                'name' => $validatedRegistration['name'],
                 'phone' => $phone,
-                'password' => Hash::make($validated['password']),
-                'status' => 'active',
+                'password' => Hash::make($validatedRegistration['password']),
+                'status' => 'pending', 
+                'cnic' => $validatedRegistration['cnic'] ?? null,
+                'dob' => $validatedRegistration['dob'] ?? null,
+                'experience' => $validatedRegistration['experience'] ?? null,
+                'handled_categories' => $validatedRegistration['handled_categories'] ?? null,
+                'profile_image' => $profileImagePath,
+                'cnic_front_image' => $cnicFrontPath,
+                'cnic_back_image' => $cnicBackPath,
+                'joining_date' => now(),
             ]);
             $isNew = true;
             $this->sendWelcomeMessage($phone, $vendor->name, true);

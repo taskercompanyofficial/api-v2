@@ -39,6 +39,14 @@ class Vendor extends Authenticatable
         'notes',
         'role_id',
         'status',
+        'experience',
+        'handled_categories',
+    ];
+
+    protected $casts = [
+        'handled_categories' => 'array',
+        'dob' => 'date',
+        'joining_date' => 'date',
     ];
 
     protected $hidden = [

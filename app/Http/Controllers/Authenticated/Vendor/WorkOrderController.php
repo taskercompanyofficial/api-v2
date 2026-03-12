@@ -153,6 +153,7 @@ class WorkOrderController extends Controller
                 'brand:id,name',
                 'serviceConcern:id,name',
                 'serviceSubConcern:id,name',
+                'vendorStaff:id,name,phone',
             ])->where('assigned_vendor_id', $this->resolveVendorId($request));
 
             // Search by work order number or customer phone

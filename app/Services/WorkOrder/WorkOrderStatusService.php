@@ -11,10 +11,12 @@ use Illuminate\Support\Facades\Log;
 class WorkOrderStatusService
 {
     protected WorkOrderNotificationService $notificationService;
+    protected \App\Services\Vendor\VendorLedgerService $ledgerService;
 
-    public function __construct(WorkOrderNotificationService $notificationService)
+    public function __construct(WorkOrderNotificationService $notificationService, \App\Services\Vendor\VendorLedgerService $ledgerService)
     {
         $this->notificationService = $notificationService;
+        $this->ledgerService = $ledgerService;
     }
 
     /**
@@ -246,6 +248,9 @@ class WorkOrderStatusService
         $workOrder->updated_by = $userId;
         $workOrder->save();
 
+        // Process Ledger
+        $this->ledgerService->processWorkOrder($workOrder);
+
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
             actionType: 'completed',
@@ -367,6 +372,9 @@ class WorkOrderStatusService
         $workOrder->completed_by = $userId;
         $workOrder->updated_by = $userId;
         $workOrder->save();
+
+        // Process Ledger
+        $this->ledgerService->processWorkOrder($workOrder);
 
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
