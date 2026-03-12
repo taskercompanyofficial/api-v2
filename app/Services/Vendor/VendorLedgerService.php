@@ -8,6 +8,7 @@ use App\Models\DefaultVendorLedger;
 use App\Models\VendorSpecificRate;
 use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class VendorLedgerService
 {
@@ -23,6 +24,16 @@ class VendorLedgerService
         DB::transaction(function () use ($workOrder) {
             $vendorId = $workOrder->assigned_vendor_id;
             if (!$vendorId) return;
+
+            // Prevent double processing for the same work order
+            $exists = VendorLedger::where('work_order_id', $workOrder->id)
+                ->whereIn('category', ['installation_fee', 'profit_share'])
+                ->exists();
+            
+            if ($exists) {
+                Log::info("Work Order #{$workOrder->id} already processed for ledger. Skipping.");
+                return;
+            }
 
             // Fetch current balance
             $lastEntry = VendorLedger::where('vendor_id', $vendorId)
@@ -51,7 +62,17 @@ class VendorLedgerService
             ->get()
             ->keyBy('parent_service_id');
 
-        foreach ($workOrder->services as $woService) {
+        $woServices = $workOrder->services;
+
+        // Fallback: If no explicit services are added, use the parent_service_id from the work order itself
+        if ($woServices->isEmpty() && $workOrder->parent_service_id) {
+            $woServices = collect([(object)[
+                'parent_service_id' => $workOrder->parent_service_id,
+                'service_name' => $workOrder->parentService->name ?? 'Installation Service'
+            ]]);
+        }
+
+        foreach ($woServices as $woService) {
             $rate = 0;
             $specific = $specificRates->get($woService->parent_service_id);
             $default = $defaultRates->get($woService->parent_service_id);

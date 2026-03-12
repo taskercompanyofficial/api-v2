@@ -85,6 +85,10 @@ class WorkOrderController extends Controller
 
             $baseQuery = WorkOrder::where('assigned_vendor_id', $vendorId);
 
+            if ($this->isStaffUser($request)) {
+                $baseQuery->where('vendor_staff_id', $request->user()->id);
+            }
+
             // Total Work Orders
             $total = (clone $baseQuery)->count();
 
@@ -155,6 +159,10 @@ class WorkOrderController extends Controller
                 'serviceSubConcern:id,name',
                 'vendorStaff:id,name,phone',
             ])->where('assigned_vendor_id', $this->resolveVendorId($request));
+
+            if ($this->isStaffUser($request)) {
+                $query->where('vendor_staff_id', $request->user()->id);
+            }
 
             // Search by work order number or customer phone
             if ($request->has('search') && !empty($request->search)) {
@@ -229,7 +237,7 @@ class WorkOrderController extends Controller
         try {
             $vendor = $request->user();
 
-            $workOrder = WorkOrder::with([
+            $workOrderQuery = WorkOrder::with([
                 'customer',
                 'address',
                 'status',
@@ -252,8 +260,13 @@ class WorkOrderController extends Controller
                 'files.fileType',
                 'serviceConcern',
                 'serviceSubConcern',
-            ])->where('assigned_vendor_id', $this->resolveVendorId($request))
-                ->findOrFail($id);
+            ])->where('assigned_vendor_id', $this->resolveVendorId($request));
+
+            if ($this->isStaffUser($request)) {
+                $workOrderQuery->where('vendor_staff_id', $request->user()->id);
+            }
+
+            $workOrder = $workOrderQuery->findOrFail($id);
 
             $data = $workOrder->fresh([
                 'customer',

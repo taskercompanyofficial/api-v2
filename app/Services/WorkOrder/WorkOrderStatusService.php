@@ -605,6 +605,9 @@ class WorkOrderStatusService
         $workOrder->updated_by = $userId;
         $workOrder->save();
 
+        // Process Ledger (if not already processed)
+        $this->ledgerService->processWorkOrder($workOrder);
+
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
             actionType: 'feedback_pending',
@@ -699,6 +702,9 @@ class WorkOrderStatusService
         $workOrder->is_locked = true;
         $workOrder->updated_by = $userId;
         $workOrder->save();
+
+        // Process Ledger (if not already processed)
+        $this->ledgerService->processWorkOrder($workOrder);
 
         WorkOrderHistory::log(
             workOrderId: $workOrder->id,
